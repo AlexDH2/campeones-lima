@@ -25,7 +25,9 @@ import {
   Users, 
   FileSpreadsheet, 
   Lock, 
-  LogOut 
+  LogOut,
+  Mail,
+  CheckCircle2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from './supabase';
@@ -42,11 +44,19 @@ const procesarArchivoImagen = (file) => {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
         let width = img.width;
         let height = img.height;
-        if (width > MAX_WIDTH) {
-          height *= MAX_WIDTH / width;
-          width = MAX_WIDTH;
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
         }
         canvas.width = width;
         canvas.height = height;
@@ -72,33 +82,57 @@ const procesarArchivoCV = (file) => {
 
 export default function AdminDashboard() {
   // ==========================================
-  // SEGURIDAD: LOGIN CON CONTRASEÑA
+  // AUTENTICACIÓN REAL CON SUPABASE AUTH
   // ==========================================
-  const [autenticado, setAutenticado] = useState(() => {
-    return sessionStorage.getItem('ccl_admin_auth') === 'true';
-  });
+  const [usuario, setUsuario] = useState(null);
+  const [cargandoSesion, setCargandoSesion] = useState(true);
+  const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
-  const [errorPassword, setErrorPassword] = useState(false);
+  const [errorLogin, setErrorLogin] = useState('');
+  const [iniciandoSesion, setIniciandoSesion] = useState(false);
 
-  // Contraseña por defecto (puedes cambiarla aquí)
-  const ADMIN_PASSWORD = "campeones2026";
+  useEffect(() => {
+    // 1. Obtener la sesión activa de Supabase
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUsuario(session?.user ?? null);
+      setCargandoSesion(false);
+    });
 
-  const handleLogin = (e) => {
+    // 2. Escuchar cambios de sesión (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUsuario(session?.user ?? null);
+      setCargandoSesion(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (passwordInput === ADMIN_PASSWORD) {
-      sessionStorage.setItem('ccl_admin_auth', 'true');
-      setAutenticado(true);
-      setErrorPassword(false);
+    setErrorLogin('');
+    setIniciandoSesion(true);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: emailInput,
+      password: passwordInput,
+    });
+
+    if (error) {
+      setErrorLogin("Correo o contraseña incorrectos. Verifica tus credenciales.");
     } else {
-      setErrorPassword(true);
+      setUsuario(data.user);
     }
+    setIniciandoSesion(false);
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('ccl_admin_auth');
-    setAutenticado(false);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUsuario(null);
   };
 
+  // ==========================================
+  // ESTADOS DEL PANEL
+  // ==========================================
   const [seccionActiva, setSeccionActiva] = useState('prospectos');
   const [cargando, setCargando] = useState(false);
   const [subiendoImagenes, setSubiendoImagenes] = useState(false);
@@ -133,17 +167,17 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (autenticado) {
+    if (usuario) {
       cargarDatos();
     }
-  }, [autenticado]);
+  }, [usuario]);
 
   // ==========================================
-  // EXPORTAR ALUMNOS DE CLASE DE PRUEBA A EXCEL
+  // PROSPECTOS & EXPORTAR EXCEL
   // ==========================================
   const handleExportarExcel = () => {
     if (prospectos.length === 0) {
-      alert("No hay alumnos registrados para exportar.");
+      alert("No hay registros para exportar.");
       return;
     }
 
@@ -151,7 +185,7 @@ export default function AdminDashboard() {
       "N°": idx + 1,
       "Fecha Registro": new Date(p.created_at).toLocaleDateString('es-PE'),
       "Alumno": p.nombre_alumno,
-      "Edad": p.edad || "-",
+      "Edad": p.edad ? `${p.edad} años` : "-",
       "Disciplina": p.disciplina,
       "Sede Preferida": p.sede,
       "Teléfono WhatsApp": p.telefono_apoderado,
@@ -163,7 +197,6 @@ export default function AdminDashboard() {
     const libro = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(libro, hoja, "Clases de Prueba");
 
-    // Descarga automática con fecha actual
     const fechaHoy = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(libro, `Campeones_Lima_Clases_Prueba_${fechaHoy}.xlsx`);
   };
@@ -174,14 +207,14 @@ export default function AdminDashboard() {
   };
 
   const handleEliminarProspecto = async (id) => {
-    if (confirm("¿Eliminar este registro de alumno?")) {
+    if (confirm("¿Eliminar este alumno de la lista?")) {
       await supabase.from('prospectos').delete().eq('id', id);
       setProspectos(prospectos.filter(p => p.id !== id));
     }
   };
 
   // ==========================================
-  // EVENTOS (CON FIBA, SEDES Y FOTOS)
+  // EVENTOS (CON FIBA, NIVEL, SEDES Y FOTOS)
   // ==========================================
   const [eventoEnEdicion, setEventoEnEdicion] = useState(null);
   const [mostrarManualNuevo, setMostrarManualNuevo] = useState(false);
@@ -208,14 +241,10 @@ export default function AdminDashboard() {
     const catLimpia = categoriaManualTexto.trim();
     if (esEdicion) {
       const actuales = eventoEnEdicion.categorias || [];
-      if (!actuales.includes(catLimpia)) {
-        setEventoEnEdicion(prev => ({ ...prev, categorias: [...actuales, catLimpia] }));
-      }
+      if (!actuales.includes(catLimpia)) setEventoEnEdicion(prev => ({ ...prev, categorias: [...actuales, catLimpia] }));
     } else {
       const actuales = nuevoEvento.categorias || [];
-      if (!actuales.includes(catLimpia)) {
-        setNuevoEvento(prev => ({ ...prev, categorias: [...actuales, catLimpia] }));
-      }
+      if (!actuales.includes(catLimpia)) setNuevoEvento(prev => ({ ...prev, categorias: [...actuales, catLimpia] }));
     }
     setCategoriaManualTexto('');
   };
@@ -223,13 +252,9 @@ export default function AdminDashboard() {
   const handleSeleccionarSedeEnEvento = (nombreSede, esEdicion = false) => {
     const sedeEncontrada = sedes.find(s => s.nombre === nombreSede);
     if (sedeEncontrada) {
-      const datosSede = {
-        sede: sedeEncontrada.nombre,
-        ubicacion: sedeEncontrada.direccion || '',
-        maps: sedeEncontrada.maps || ''
-      };
-      if (esEdicion) setEventoEnEdicion(prev => ({ ...prev, ...datosSede }));
-      else setNuevoEvento(prev => ({ ...prev, ...datosSede }));
+      const datos = { sede: sedeEncontrada.nombre, ubicacion: sedeEncontrada.direccion || '', maps: sedeEncontrada.maps || '' };
+      if (esEdicion) setEventoEnEdicion(prev => ({ ...prev, ...datos }));
+      else setNuevoEvento(prev => ({ ...prev, ...datos }));
     } else {
       if (esEdicion) setEventoEnEdicion(prev => ({ ...prev, sede: nombreSede }));
       else setNuevoEvento(prev => ({ ...prev, sede: nombreSede }));
@@ -241,24 +266,11 @@ export default function AdminDashboard() {
     if (files.length === 0) return;
     setSubiendoImagenes(true);
     try {
-      const imagenesProcesadas = await Promise.all(files.map(file => procesarArchivoImagen(file)));
-      if (esEdicion) {
-        setEventoEnEdicion(prev => ({ ...prev, imagenes: [...(prev.imagenes || []), ...imagenesProcesadas] }));
-      } else {
-        setNuevoEvento(prev => ({ ...prev, imagenes: [...prev.imagenes, ...imagenesProcesadas] }));
-      }
-    } catch (err) {
-      console.error(err);
+      const fotos = await Promise.all(files.map(file => procesarArchivoImagen(file)));
+      if (esEdicion) setEventoEnEdicion(prev => ({ ...prev, imagenes: [...(prev.imagenes || []), ...fotos] }));
+      else setNuevoEvento(prev => ({ ...prev, imagenes: [...prev.imagenes, ...fotos] }));
     } finally {
       setSubiendoImagenes(false);
-    }
-  };
-
-  const quitarImagen = (index, esEdicion = false) => {
-    if (esEdicion) {
-      setEventoEnEdicion(prev => ({ ...prev, imagenes: prev.imagenes.filter((_, i) => i !== index) }));
-    } else {
-      setNuevoEvento(prev => ({ ...prev, imagenes: prev.imagenes.filter((_, i) => i !== index) }));
     }
   };
 
@@ -303,9 +315,7 @@ export default function AdminDashboard() {
   const handleGuardarEdicionEvento = async (e) => {
     e.preventDefault();
     const fechaFinal = eventoEnEdicion.fechaRaw ? formatearFecha(eventoEnEdicion.fechaRaw) : eventoEnEdicion.fecha;
-    const horaFinal = (eventoEnEdicion.horaInicio && eventoEnEdicion.horaFin) 
-      ? `${eventoEnEdicion.horaInicio} - ${eventoEnEdicion.horaFin}` 
-      : eventoEnEdicion.hora;
+    const horaFinal = (eventoEnEdicion.horaInicio && eventoEnEdicion.horaFin) ? `${eventoEnEdicion.horaInicio} - ${eventoEnEdicion.horaFin}` : eventoEnEdicion.hora;
 
     const { error } = await supabase.from('eventos').update({
       titulo: eventoEnEdicion.titulo,
@@ -516,9 +526,17 @@ export default function AdminDashboard() {
   };
 
   // ========================================================
-  // PANTALLA DE ACCESO / LOGIN (SI NO ESTÁ AUTENTICADO)
+  // PANTALLA DE LOGIN CON SUPABASE AUTH
   // ========================================================
-  if (!autenticado) {
+  if (cargandoSesion) {
+    return (
+      <div className="min-h-screen bg-[#040812] flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-teal-400 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!usuario) {
     return (
       <div className="min-h-screen bg-[#040812] flex items-center justify-center p-4 font-sans selection:bg-teal-400 selection:text-slate-950">
         <div className="bg-[#081322] border border-teal-900/50 rounded-3xl p-8 sm:p-10 max-w-md w-full shadow-2xl relative overflow-hidden">
@@ -528,30 +546,49 @@ export default function AdminDashboard() {
             <div className="w-14 h-14 bg-[#0d1f36] border border-teal-500/30 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
               <Lock className="w-7 h-7 text-teal-400" />
             </div>
-            <h1 className="text-2xl font-black text-white">Panel Administrador</h1>
-            <p className="text-xs text-slate-400 mt-1">Ingresa tu clave de acceso autorizada.</p>
+            <h1 className="text-2xl font-black text-white">Acceso Administrador</h1>
+            <p className="text-xs text-slate-400 mt-1">Inicia sesión con tu cuenta oficial de Supabase.</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-teal-400" /> Correo Electrónico
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="ejemplo@gmail.com"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                className="w-full bg-[#060d19] border border-slate-800 focus:border-teal-400 text-xs text-white rounded-xl px-4 py-3 focus:outline-none transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-amber-400" /> Contraseña
+              </label>
               <input
                 type="password"
                 required
-                placeholder="Contraseña de Administrador..."
+                placeholder="••••••••"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                className="w-full bg-[#060d19] border border-slate-800 focus:border-teal-400 text-sm text-white rounded-xl px-4 py-3 focus:outline-none transition-colors text-center font-mono tracking-widest"
+                className="w-full bg-[#060d19] border border-slate-800 focus:border-teal-400 text-xs text-white rounded-xl px-4 py-3 focus:outline-none transition-colors font-mono"
               />
-              {errorPassword && (
-                <p className="text-xs text-red-400 mt-2 text-center font-bold">Contraseña incorrecta. Inténtalo de nuevo.</p>
-              )}
             </div>
+
+            {errorLogin && (
+              <p className="text-xs text-red-400 text-center font-semibold pt-1">{errorLogin}</p>
+            )}
 
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-teal-400 to-cyan-400 hover:from-teal-300 hover:to-cyan-300 text-slate-950 font-black py-3.5 rounded-xl text-xs shadow-lg shadow-teal-500/20 transition-all cursor-pointer"
+              disabled={iniciandoSesion}
+              className="w-full bg-gradient-to-r from-teal-400 to-cyan-400 hover:from-teal-300 hover:to-cyan-300 text-slate-950 font-black py-3.5 rounded-xl text-xs shadow-lg shadow-teal-500/20 transition-all cursor-pointer flex items-center justify-center gap-2"
             >
-              Iniciar Sesión
+              {iniciandoSesion ? <Loader2 className="w-4 h-4 animate-spin" /> : "Iniciar Sesión en Supabase"}
             </button>
           </form>
 
@@ -574,7 +611,7 @@ export default function AdminDashboard() {
       {/* SIDEBAR */}
       <aside className="w-full md:w-64 bg-[#060d19] border-r border-teal-950/60 p-6 flex flex-col justify-between shrink-0">
         <div>
-          <div className="flex items-center gap-3 mb-8">
+          <div className="flex items-center gap-3 mb-6">
             <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
             <div>
               <p className="font-black text-white text-base">ADMIN PANEL</p>
@@ -582,10 +619,16 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* Usuario activo de Supabase */}
+          <div className="bg-[#081322] border border-teal-950 p-2.5 rounded-xl mb-6 text-[11px]">
+            <p className="text-slate-500 font-bold text-[9px] uppercase">Conectado como:</p>
+            <p className="text-teal-300 font-semibold truncate">{usuario.email}</p>
+          </div>
+
           <nav className="space-y-1.5 text-xs font-bold">
             <button
               onClick={() => setSeccionActiva('prospectos')}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-left ${
+              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-left cursor-pointer ${
                 seccionActiva === 'prospectos' ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -594,7 +637,7 @@ export default function AdminDashboard() {
 
             <button
               onClick={() => setSeccionActiva('eventos')}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-left ${
+              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-left cursor-pointer ${
                 seccionActiva === 'eventos' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -603,7 +646,7 @@ export default function AdminDashboard() {
 
             <button
               onClick={() => setSeccionActiva('sedes')}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-left ${
+              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-left cursor-pointer ${
                 seccionActiva === 'sedes' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -612,7 +655,7 @@ export default function AdminDashboard() {
 
             <button
               onClick={() => setSeccionActiva('postulantes')}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-left ${
+              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-left cursor-pointer ${
                 seccionActiva === 'postulantes' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -621,7 +664,7 @@ export default function AdminDashboard() {
 
             <button
               onClick={() => setSeccionActiva('tienda')}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-left ${
+              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all text-left cursor-pointer ${
                 seccionActiva === 'tienda' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -636,9 +679,9 @@ export default function AdminDashboard() {
           </Link>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 text-red-400 hover:text-red-300 font-bold cursor-pointer"
+            className="flex items-center gap-2 text-red-400 hover:text-red-300 font-bold cursor-pointer w-full text-left"
           >
-            <LogOut className="w-4 h-4" /> Cerrar Sesión Admin
+            <LogOut className="w-4 h-4" /> Cerrar Sesión Supabase
           </button>
         </div>
       </aside>
@@ -652,16 +695,15 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 📋 SECCIÓN 1: PROSPECTOS DE CLASES DE PRUEBA + BOTÓN DESCARGAR EXCEL */}
+        {/* 📋 SECCIÓN 1: PROSPECTOS DE CLASES DE PRUEBA + EXPORTAR EXCEL */}
         {seccionActiva === 'prospectos' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-black text-white">Alumnos de Clase de Prueba</h1>
-                <p className="text-xs text-slate-400 mt-1">Registros recibidos desde el formulario de la página principal.</p>
+                <p className="text-xs text-slate-400 mt-1">Registros guardados en Supabase desde el formulario de la web.</p>
               </div>
 
-              {/* BOTÓN DESCARGAR EXCEL / ACTUALIZAR */}
               <button
                 onClick={handleExportarExcel}
                 className="inline-flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-400 hover:from-green-400 hover:to-emerald-300 text-slate-950 font-black px-5 py-3 rounded-xl text-xs shadow-lg shadow-green-500/20 transition-all cursor-pointer transform active:scale-95"
@@ -726,7 +768,7 @@ export default function AdminDashboard() {
                             </a>
                             <button
                               onClick={() => handleEliminarProspecto(p.id)}
-                              className="p-1.5 text-slate-500 hover:text-red-400"
+                              className="p-1.5 text-slate-500 hover:text-red-400 cursor-pointer"
                               title="Eliminar"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -742,7 +784,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 2. SECCIÓN EVENTOS */}
+        {/* 2. SECCIÓN EVENTOS CON FIBA, NIVEL, SEDES Y FOTOS */}
         {seccionActiva === 'eventos' && (
           <div className="space-y-8">
             <div className="flex justify-between items-center pb-6 border-b border-slate-800">
@@ -792,6 +834,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Sede autocompletada */}
               <div className="border-t border-slate-800/80 pt-4 space-y-3">
                 <div className="grid sm:grid-cols-3 gap-3">
                   <div>
@@ -816,7 +859,7 @@ export default function AdminDashboard() {
               <div className="border-t border-slate-800/80 pt-4">
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Categorías Oficiales FIBA:</label>
-                  <button type="button" onClick={() => setMostrarManualNuevo(!mostrarManualNuevo)} className="text-[11px] text-teal-400 font-bold underline">
+                  <button type="button" onClick={() => setMostrarManualNuevo(!mostrarManualNuevo)} className="text-[11px] text-teal-400 font-bold underline cursor-pointer">
                     {mostrarManualNuevo ? "Cerrar ingreso manual" : "➕ Ingreso manual"}
                   </button>
                 </div>
@@ -824,7 +867,7 @@ export default function AdminDashboard() {
                   {CATEGORIAS_FIBA.map((cat, idx) => {
                     const activa = nuevoEvento.categorias.includes(cat);
                     return (
-                      <button type="button" key={idx} onClick={() => handleToggleCategoriaFIBA(cat, false)} className={`text-xs font-bold px-3 py-1.5 rounded-xl border ${activa ? 'bg-teal-400 text-slate-950 border-teal-300' : 'bg-[#060d19] text-slate-400 border-slate-800'}`}>
+                      <button type="button" key={idx} onClick={() => handleToggleCategoriaFIBA(cat, false)} className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${activa ? 'bg-teal-400 text-slate-950 border-teal-300' : 'bg-[#060d19] text-slate-400 border-slate-800'}`}>
                         {activa ? "✓ " : ""}{cat}
                       </button>
                     );
@@ -841,7 +884,7 @@ export default function AdminDashboard() {
               {/* Subir Flyer */}
               <div className="border-t border-slate-800/80 pt-4">
                 <label className="block text-[11px] font-bold text-cyan-300 mb-2">Subir Flyer del Torneo (Desde tu PC)</label>
-                <input type="file" multiple accept="image/*" onChange={(e) => handleImagenesDesdePC(e, false)} className="text-xs text-slate-400" />
+                <input type="file" multiple accept="image/*" onChange={(e) => handleImagenesDesdePC(e, false)} className="text-xs text-slate-400 cursor-pointer" />
                 {nuevoEvento.imagenes.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {nuevoEvento.imagenes.map((img, idx) => (
@@ -854,28 +897,26 @@ export default function AdminDashboard() {
                 )}
               </div>
 
-              <button type="submit" disabled={subiendoImagenes} className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-6 py-3 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20">
+              <button type="submit" disabled={subiendoImagenes} className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-6 py-3 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer">
                 <Plus className="w-4 h-4" /> Guardar y Publicar Evento
               </button>
             </form>
 
             {/* Lista Eventos */}
             <div className="space-y-4">
+              <h2 className="text-base font-bold text-white">Eventos Publicados ({eventos.length})</h2>
               <div className="grid gap-4">
                 {eventos.map(ev => (
                   <div key={ev.id} className={`p-5 rounded-2xl border flex justify-between items-center gap-4 ${ev.visible ? 'bg-[#081322] border-slate-800' : 'bg-slate-950 opacity-60'}`}>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/20">{ev.estado}</span>
-                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-amber-400/10 text-amber-300 border border-amber-400/30">Nivel: {ev.nivel || 'Formativo'}</span>
-                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/20">{ev.estado}</span>
                       <h3 className="text-base font-bold text-white mt-1">{ev.titulo}</h3>
                       <p className="text-xs text-slate-400">📅 {ev.fecha} — 📍 {ev.sede}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => handleToggleVisibilidadEvento(ev)} className="p-2 rounded-lg bg-slate-800 text-slate-300">{ev.visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
-                      <button onClick={() => setEventoEnEdicion({...ev, fechaRaw: '', horaInicio: '09:00', horaFin: '18:00', imagenes: ev.imagenes || [], categorias: ev.categorias || []})} className="p-2 rounded-lg bg-[#0d1f36] text-teal-300"><Edit3 className="w-4 h-4" /></button>
-                      <button onClick={() => handleEliminarEvento(ev.id)} className="p-2 text-slate-400 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => handleToggleVisibilidadEvento(ev)} className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white cursor-pointer">{ev.visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+                      <button onClick={() => setEventoEnEdicion({...ev, fechaRaw: '', horaInicio: '09:00', horaFin: '18:00', imagenes: ev.imagenes || [], categorias: ev.categorias || []})} className="p-2 rounded-lg bg-[#0d1f36] text-teal-300 hover:bg-teal-500 hover:text-slate-950 cursor-pointer"><Edit3 className="w-4 h-4" /></button>
+                      <button onClick={() => handleEliminarEvento(ev.id)} className="p-2 text-slate-400 hover:text-red-400 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
                 ))}
@@ -884,30 +925,31 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 3. SECCIÓN SEDES */}
+        {/* 3. SECCIÓN SEDES CON FOTOS DESDE PC */}
         {seccionActiva === 'sedes' && (
           <div className="space-y-8">
             <div className="flex justify-between items-center pb-6 border-b border-slate-800">
-              <h1 className="text-2xl font-black text-white">Sedes, Fotos y Horarios</h1>
+              <h1 className="text-2xl font-black text-white">Sedes y Fotos de Canchas (Supabase)</h1>
               <Link to="/sedes?from=admin" className="bg-teal-400 text-slate-950 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5">
                 <Eye className="w-4 h-4" /> Ver en Vivo
               </Link>
             </div>
 
-            <form onSubmit={handleCrearSede} className="bg-[#081322] p-6 rounded-3xl border border-teal-900/40 space-y-4">
-              <p className="text-xs font-bold text-teal-300 uppercase">+ Registrar Sede con Fotos</p>
+            <form onSubmit={handleCrearSede} className="bg-[#081322] p-6 rounded-3xl border border-teal-900/40 space-y-3">
+              <p className="text-xs font-bold text-teal-300 uppercase">+ Registrar Nueva Sede con Fotos</p>
               <div className="grid sm:grid-cols-2 gap-3">
-                <input type="text" required placeholder="Nombre..." value={nuevaSede.nombre} onChange={e => setNuevaSede({...nuevaSede, nombre: e.target.value})} className="bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2" />
+                <input type="text" required placeholder="Nombre de la sede..." value={nuevaSede.nombre} onChange={e => setNuevaSede({...nuevaSede, nombre: e.target.value})} className="bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2" />
                 <input type="text" required placeholder="Distrito..." value={nuevaSede.distrito} onChange={e => setNuevaSede({...nuevaSede, distrito: e.target.value})} className="bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2" />
               </div>
-              <input type="text" placeholder="Dirección..." value={nuevaSede.direccion} onChange={e => setNuevaSede({...nuevaSede, direccion: e.target.value})} className="w-full bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2" />
+              <input type="text" placeholder="Dirección completa..." value={nuevaSede.direccion} onChange={e => setNuevaSede({...nuevaSede, direccion: e.target.value})} className="w-full bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2" />
+              <input type="url" placeholder="Enlace Google Maps..." value={nuevaSede.maps} onChange={e => setNuevaSede({...nuevaSede, maps: e.target.value})} className="w-full bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2" />
               
               <div>
-                <label className="block text-[11px] font-bold text-teal-300 mb-1">Subir Fotos de la Sede</label>
-                <input type="file" multiple accept="image/*" onChange={(e) => handleImagenesSedeDesdePC(e, null)} className="text-xs text-slate-400" />
+                <label className="block text-[11px] font-bold text-teal-300 mb-1">Fotos de la Cancha / Coliseo (Desde tu PC):</label>
+                <input type="file" multiple accept="image/*" onChange={(e) => handleImagenesSedeDesdePC(e, null)} className="text-xs text-slate-400 cursor-pointer" />
               </div>
 
-              <button type="submit" className="bg-teal-400 text-slate-950 font-black px-6 py-2.5 rounded-xl text-xs">Guardar Sede</button>
+              <button type="submit" className="bg-teal-400 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs cursor-pointer">Guardar Sede</button>
             </form>
 
             <div className="grid lg:grid-cols-2 gap-6">
@@ -919,13 +961,12 @@ export default function AdminDashboard() {
                       <h3 className="text-lg font-bold text-white mt-1">{sede.nombre}</h3>
                       <p className="text-xs text-slate-400">{sede.direccion}</p>
                     </div>
-                    <button onClick={() => handleEliminarSede(sede.id)} className="text-slate-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => handleEliminarSede(sede.id)} className="text-slate-500 hover:text-red-400 p-1 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                   </div>
                   
-                  {/* Agregar disciplina y horarios */}
                   <div className="flex gap-2">
                     <input type="text" placeholder="Nuevo deporte..." value={sedeSeleccionadaId === sede.id ? nuevaDisciplina : ''} onFocus={() => setSedeSeleccionadaId(sede.id)} onChange={e => { setSedeSeleccionadaId(sede.id); setNuevaDisciplina(e.target.value); }} className="bg-[#060d19] text-xs p-1.5 rounded-lg flex-1 text-white" />
-                    <button onClick={() => handleAgregarDisciplina(sede)} className="bg-slate-800 text-teal-300 text-xs font-bold px-3 py-1.5 rounded-lg">+ Deporte</button>
+                    <button onClick={() => handleAgregarDisciplina(sede)} className="bg-slate-800 text-teal-300 text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer">+ Deporte</button>
                   </div>
                 </div>
               ))}
@@ -933,7 +974,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 4. SECCIÓN POSTULANTES */}
+        {/* 4. SECCIÓN POSTULANTES CON CV */}
         {seccionActiva === 'postulantes' && (
           <div className="space-y-8">
             <h1 className="text-2xl font-black text-white">Postulaciones y CVs</h1>
@@ -943,21 +984,57 @@ export default function AdminDashboard() {
                 <input type="text" required placeholder="Nombre..." value={nuevoPostulante.nombre} onChange={e => setNuevoPostulante({...nuevoPostulante, nombre: e.target.value})} className="bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2 sm:col-span-2" />
                 <input type="tel" required placeholder="Teléfono..." value={nuevoPostulante.telefono} onChange={e => setNuevoPostulante({...nuevoPostulante, telefono: e.target.value})} className="bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2" />
               </div>
-              <input type="file" accept=".pdf,image/*" onChange={handleSubirCVDesdePC} className="text-xs text-slate-400" />
-              <button type="submit" className="bg-teal-400 text-slate-950 font-black px-6 py-2 rounded-xl text-xs">Guardar Candidato</button>
+              <div className="grid sm:grid-cols-3 gap-3">
+                <input type="email" placeholder="Email..." value={nuevoPostulante.email} onChange={e => setNuevoPostulante({...nuevoPostulante, email: e.target.value})} className="bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2" />
+                <select value={nuevoPostulante.puesto} onChange={e => setNuevoPostulante({...nuevoPostulante, puesto: e.target.value})} className="bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2">
+                  <option value="Entrenador(a) de Básquetbol">Entrenador Básquet</option>
+                  <option value="Entrenador(a) de Voleibol">Entrenador Vóley</option>
+                  <option value="Profesor(a) de Fútbol">Profesor Fútbol</option>
+                </select>
+                <input type="file" accept=".pdf,image/*" onChange={handleSubirCVDesdePC} className="text-xs text-slate-400 cursor-pointer" />
+              </div>
+              <button type="submit" className="bg-teal-400 text-slate-950 font-black px-6 py-2 rounded-xl text-xs cursor-pointer">Guardar Candidato</button>
             </form>
+
+            <div className="bg-[#081322] rounded-3xl border border-slate-800 overflow-hidden shadow-xl">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="bg-[#0a182b] text-[11px] uppercase font-bold text-teal-400 border-b border-slate-800">
+                  <tr><th className="p-4">Postulante</th><th className="p-4">Puesto</th><th className="p-4">CV</th><th className="p-4">Estado</th><th className="p-4 text-right">Contacto</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {postulaciones.map(pos => (
+                    <tr key={pos.id}>
+                      <td className="p-4 font-bold text-white">{pos.nombre}</td>
+                      <td className="p-4">{pos.puesto}</td>
+                      <td className="p-4">{pos.cv_url ? <a href={pos.cv_url} target="_blank" rel="noreferrer" download className="text-teal-300 font-bold underline">Descargar CV</a> : "Sin archivo"}</td>
+                      <td className="p-4">
+                        <select value={pos.estado} onChange={e => handleCambiarEstadoPostulante(pos.id, e.target.value)} className="bg-[#060d19] border border-slate-800 rounded px-2 py-1 text-white">
+                          <option value="Pendiente">Pendiente</option><option value="Entrevistado">Entrevistado</option><option value="Aprobado">Aprobado</option>
+                        </select>
+                      </td>
+                      <td className="p-4 text-right">
+                        <a href={`https://wa.me/51${pos.telefono}`} target="_blank" rel="noreferrer" className="text-teal-400 p-1"><MessageCircle className="w-4 h-4 inline" /></a>
+                        <button onClick={() => handleEliminarPostulante(pos.id)} className="text-slate-500 hover:text-red-400 p-1 ml-2 cursor-pointer"><Trash2 className="w-4 h-4 inline" /></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {/* 5. SECCIÓN TIENDA */}
         {seccionActiva === 'tienda' && (
           <div className="space-y-8">
-            <h1 className="text-2xl font-black text-white">Tienda</h1>
+            <h1 className="text-2xl font-black text-white">Tienda y Productos</h1>
             <form onSubmit={handleCrearProducto} className="bg-[#081322] p-6 rounded-3xl border border-teal-900/40 space-y-3">
-              <input type="text" required placeholder="Producto..." value={nuevoProducto.nombre} onChange={e => setNuevoProducto({...nuevoProducto, nombre: e.target.value})} className="bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2" />
-              <input type="number" step="0.5" required placeholder="Precio S/...." value={nuevoProducto.precio} onChange={e => setNuevoProducto({...nuevoProducto, precio: e.target.value})} className="bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2" />
-              <input type="file" multiple accept="image/*" onChange={handleImagenesProductoDesdePC} className="text-xs text-slate-400" />
-              <button type="submit" className="bg-cyan-400 text-slate-950 font-black px-5 py-2 rounded-xl text-xs">Guardar en Tienda</button>
+              <div className="grid sm:grid-cols-3 gap-3">
+                <input type="text" required placeholder="Producto..." value={nuevoProducto.nombre} onChange={e => setNuevoProducto({...nuevoProducto, nombre: e.target.value})} className="bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2 sm:col-span-2" />
+                <input type="number" step="0.5" required placeholder="Precio..." value={nuevoProducto.precio} onChange={e => setNuevoProducto({...nuevoProducto, precio: e.target.value})} className="bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2" />
+              </div>
+              <input type="file" multiple accept="image/*" onChange={handleImagenesProductoDesdePC} className="text-xs text-slate-400 cursor-pointer" />
+              <button type="submit" className="bg-cyan-400 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs cursor-pointer">Guardar en Tienda</button>
             </form>
           </div>
         )}
