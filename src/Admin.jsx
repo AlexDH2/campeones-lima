@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { 
   Trophy, 
   ShoppingBag, 
@@ -24,14 +23,12 @@ import {
   Award, 
   Users, 
   FileSpreadsheet, 
-  Lock, 
-  LogOut,
-  Mail,
-  Shield,
-  Crown,
-  UserCheck,
-  UserX,
-  UserPlus
+  LogOut, 
+  Shield, 
+  Crown, 
+  UserCheck, 
+  UserX, 
+  UserPlus 
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { createClient } from '@supabase/supabase-js';
@@ -80,115 +77,12 @@ const procesarArchivoCV = (file) => {
 };
 
 export default function AdminDashboard() {
-  // ==========================================
-  // AUTENTICACIÓN Y ROLES (REY / MINISTRO)
-  // ==========================================
   const [usuario, setUsuario] = useState(null);
-  const [rolUsuario, setRolUsuario] = useState('ministro'); // 'rey' o 'ministro'
+  const [rolUsuario, setRolUsuario] = useState('ministro');
   const [nombreAdmin, setNombreAdmin] = useState('');
   const [cargandoSesion, setCargandoSesion] = useState(true);
-  const [emailInput, setEmailInput] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
-  const [errorLogin, setErrorLogin] = useState('');
-  const [iniciandoSesion, setIniciandoSesion] = useState(false);
 
-  // Verificar rol en tabla admin_usuarios
-  const verificarRolAdmin = async (userEmail) => {
-    try {
-      const emailLimpio = userEmail.toLowerCase().trim();
-      const { data } = await supabase
-        .from('admin_usuarios')
-        .select('*')
-        .eq('email', emailLimpio)
-        .single();
-
-      if (data) {
-        if (data.estado === 'inactivo') {
-          await supabase.auth.signOut();
-          setUsuario(null);
-          setErrorLogin("Esta cuenta de administrador ha sido desactivada por el Administrador Principal.");
-          return null;
-        }
-        setRolUsuario(data.rol || 'ministro');
-        setNombreAdmin(data.nombre || data.email);
-
-        // Actualizar último ingreso
-        await supabase
-          .from('admin_usuarios')
-          .update({ ultimo_ingreso: new Date().toISOString() })
-          .eq('id', data.id);
-
-        return data;
-      } else if (emailLimpio === 'diosalexanderjesus@gmail.com') {
-        // Asegurar al Rey por defecto
-        setRolUsuario('rey');
-        setNombreAdmin('Alexander Dios (Rey)');
-        return { rol: 'rey' };
-      } else {
-        await supabase.auth.signOut();
-        setUsuario(null);
-        setErrorLogin("No tienes permisos de Administrador.");
-        return null;
-      }
-    } catch {
-      return null;
-    }
-  };
-
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const adminValido = await verificarRolAdmin(session.user.email);
-        if (adminValido) setUsuario(session.user);
-      }
-      setCargandoSesion(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        const adminValido = await verificarRolAdmin(session.user.email);
-        if (adminValido) setUsuario(session.user);
-      } else {
-        setUsuario(null);
-      }
-      setCargandoSesion(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setErrorLogin('');
-    setIniciandoSesion(true);
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: emailInput.trim(),
-      password: passwordInput,
-    });
-
-    if (error) {
-      setErrorLogin("Correo o contraseña incorrectos.");
-      setIniciandoSesion(false);
-      return;
-    }
-
-    const adminValido = await verificarRolAdmin(data.user.email);
-    if (adminValido) {
-      setUsuario(data.user);
-    }
-    setIniciandoSesion(false);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUsuario(null);
-    setRolUsuario('ministro');
-  };
-
-  // ==========================================
-  // ESTADOS GENERALES DEL PANEL
-  // ==========================================
+  // Estados de datos
   const [seccionActiva, setSeccionActiva] = useState('prospectos');
   const [cargando, setCargando] = useState(false);
   const [subiendoImagenes, setSubiendoImagenes] = useState(false);
@@ -199,6 +93,52 @@ export default function AdminDashboard() {
   const [postulaciones, setPostulaciones] = useState([]);
   const [prospectos, setProspectos] = useState([]);
   const [administradores, setAdministradores] = useState([]);
+
+  // PROTECCIÓN DE ACCESO: Si no hay sesión iniciada, expulsar a /login
+  useEffect(() => {
+    async function validarAcceso() {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        window.location.href = '/login';
+        return;
+      }
+
+      const emailLimpio = session.user.email.toLowerCase().trim();
+      const { data: adminData } = await supabase
+        .from('admin_usuarios')
+        .select('*')
+        .eq('email', emailLimpio)
+        .single();
+
+      if (adminData) {
+        if (adminData.estado === 'inactivo') {
+          await supabase.auth.signOut();
+          window.location.href = '/login';
+          return;
+        }
+        setRolUsuario(adminData.rol || 'ministro');
+        setNombreAdmin(adminData.nombre || adminData.email);
+      } else if (emailLimpio === 'diosalexanderjesus@gmail.com') {
+        setRolUsuario('rey');
+        setNombreAdmin('Alexander Dios (Rey)');
+      } else {
+        await supabase.auth.signOut();
+        window.location.href = '/login';
+        return;
+      }
+
+      setUsuario(session.user);
+      setCargandoSesion(false);
+    }
+
+    validarAcceso();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  };
 
   const cargarDatos = async () => {
     setCargando(true);
@@ -219,7 +159,7 @@ export default function AdminDashboard() {
       if (resProsp.data) setProspectos(resProsp.data);
       if (resAdmins.data) setAdministradores(resAdmins.data);
     } catch (err) {
-      console.error("Error al cargar datos:", err);
+      console.error(err);
     } finally {
       setCargando(false);
     }
@@ -234,12 +174,7 @@ export default function AdminDashboard() {
   // ==========================================
   // GESTIÓN DE MINISTROS (EXCLUSIVO REY)
   // ==========================================
-  const [nuevoMinistro, setNuevoMinistro] = useState({
-    nombre: '',
-    email: '',
-    password: '',
-    rol: 'ministro'
-  });
+  const [nuevoMinistro, setNuevoMinistro] = useState({ nombre: '', email: '', password: '', rol: 'ministro' });
   const [creandoMinistro, setCreandoMinistro] = useState(false);
   const [mensajeMinistro, setMensajeMinistro] = useState('');
 
@@ -250,7 +185,6 @@ export default function AdminDashboard() {
     setMensajeMinistro('');
 
     try {
-      // Cliente auxiliar para registrar al usuario en Supabase Auth sin cerrar la sesión del Rey
       const clienteAuxiliar = createClient(
         import.meta.env.VITE_SUPABASE_URL,
         import.meta.env.VITE_SUPABASE_ANON_KEY,
@@ -259,15 +193,13 @@ export default function AdminDashboard() {
 
       const emailLimpio = nuevoMinistro.email.trim().toLowerCase();
 
-      // 1. Crear en Supabase Auth
-      const { data: authData, error: authError } = await clienteAuxiliar.auth.signUp({
+      const { error: authError } = await clienteAuxiliar.auth.signUp({
         email: emailLimpio,
         password: nuevoMinistro.password
       });
 
       if (authError) throw authError;
 
-      // 2. Registrar en la tabla public.admin_usuarios
       const { data: adminData, error: adminError } = await supabase
         .from('admin_usuarios')
         .insert([{
@@ -287,7 +219,6 @@ export default function AdminDashboard() {
         setNuevoMinistro({ nombre: '', email: '', password: '', rol: 'ministro' });
       }
     } catch (err) {
-      console.error(err);
       setMensajeMinistro(`Error: ${err.message || 'No se pudo crear el usuario.'}`);
     } finally {
       setCreandoMinistro(false);
@@ -307,7 +238,7 @@ export default function AdminDashboard() {
 
   const handleEliminarAdmin = async (admin) => {
     if (admin.rol === 'rey' || admin.email === 'diosalexanderjesus@gmail.com') {
-      alert("No se puede eliminar la cuenta del Administrador Principal (Rey).");
+      alert("No se puede eliminar la cuenta del Administrador Principal.");
       return;
     }
 
@@ -670,9 +601,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // ========================================================
-  // PANTALLA DE LOGIN CON SUPABASE AUTH
-  // ========================================================
   if (cargandoSesion) {
     return (
       <div className="min-h-screen bg-[#040812] flex items-center justify-center">
@@ -681,75 +609,6 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!usuario) {
-    return (
-      <div className="min-h-screen bg-[#040812] flex items-center justify-center p-4 font-sans selection:bg-teal-400 selection:text-slate-950">
-        <div className="bg-[#081322] border border-teal-900/50 rounded-3xl p-8 sm:p-10 max-w-md w-full shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full blur-2xl pointer-events-none" />
-
-          <div className="text-center mb-8">
-            <div className="w-14 h-14 bg-[#0d1f36] border border-teal-500/30 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
-              <Lock className="w-7 h-7 text-teal-400" />
-            </div>
-            <h1 className="text-2xl font-black text-white">Acceso Administrador</h1>
-            <p className="text-xs text-slate-400 mt-1">Ingresa con tu correo autorizado de Administrador.</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-teal-400" /> Correo Electrónico
-              </label>
-              <input
-                type="email"
-                required
-                placeholder="ejemplo@gmail.com"
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-                className="w-full bg-[#060d19] border border-slate-800 focus:border-teal-400 text-xs text-white rounded-xl px-4 py-3 focus:outline-none transition-colors"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-amber-400" /> Contraseña
-              </label>
-              <input
-                type="password"
-                required
-                placeholder="••••••••"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                className="w-full bg-[#060d19] border border-slate-800 focus:border-teal-400 text-xs text-white rounded-xl px-4 py-3 focus:outline-none transition-colors font-mono"
-              />
-            </div>
-
-            {errorLogin && (
-              <p className="text-xs text-red-400 text-center font-semibold pt-1">{errorLogin}</p>
-            )}
-
-            <button
-              type="submit"
-              disabled={iniciandoSesion}
-              className="w-full bg-gradient-to-r from-teal-400 to-cyan-400 hover:from-teal-300 hover:to-cyan-300 text-slate-950 font-black py-3.5 rounded-xl text-xs shadow-lg shadow-teal-500/20 transition-all cursor-pointer flex items-center justify-center gap-2"
-            >
-              {iniciandoSesion ? <Loader2 className="w-4 h-4 animate-spin" /> : "Iniciar Sesión"}
-            </button>
-          </form>
-
-          <div className="text-center mt-6 pt-4 border-t border-slate-800">
-            <Link to="/" className="text-xs text-slate-500 hover:text-teal-300 font-semibold">
-              ← Volver a la Web Pública
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ========================================================
-  // PANEL ADMINISTRADOR PRINCIPAL
-  // ========================================================
   const esRey = rolUsuario === 'rey' || usuario?.email?.toLowerCase() === 'diosalexanderjesus@gmail.com';
 
   return (
@@ -766,21 +625,17 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Tarjeta de identificación del Rol */}
           <div className={`p-3 rounded-2xl mb-6 border text-xs ${
-            esRey 
-              ? 'bg-amber-400/10 border-amber-400/30 text-amber-300' 
-              : 'bg-teal-500/10 border-teal-500/30 text-teal-300'
+            esRey ? 'bg-amber-400/10 border-amber-400/30 text-amber-300' : 'bg-teal-500/10 border-teal-500/30 text-teal-300'
           }`}>
             <div className="flex items-center gap-1.5 font-black text-[11px] uppercase tracking-wide">
               {esRey ? <Crown className="w-4 h-4 text-amber-400" /> : <Shield className="w-4 h-4 text-teal-400" />}
               <span>{esRey ? "Admin Principal (Rey)" : "Administrador (Ministro)"}</span>
             </div>
-            <p className="text-slate-300 text-[11px] mt-1 font-semibold truncate">{nombreAdmin || usuario.email}</p>
+            <p className="text-slate-300 text-[11px] mt-1 font-semibold truncate">{nombreAdmin || usuario?.email}</p>
           </div>
 
           <nav className="space-y-1.5 text-xs font-bold">
-            {/* PESTAÑA EXCLUSIVA PARA EL REY */}
             {esRey && (
               <button
                 onClick={() => setSeccionActiva('administradores')}
@@ -840,9 +695,9 @@ export default function AdminDashboard() {
         </div>
 
         <div className="pt-6 border-t border-slate-800 mt-6 space-y-3 text-xs">
-          <Link to="/" className="flex items-center gap-2 text-teal-400 hover:text-teal-300 font-bold">
+          <a href="/" className="flex items-center gap-2 text-teal-400 hover:text-teal-300 font-bold">
             <Eye className="w-4 h-4" /> Ver Web Pública
-          </Link>
+          </a>
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 text-red-400 hover:text-red-300 font-bold cursor-pointer w-full text-left"
@@ -861,17 +716,16 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 👑 SECCIÓN EXCLUSIVA DEL REY: GESTIÓN DE MINISTROS (ADMINISTRADORES) */}
+        {/* 👑 SECCIÓN: ADMINISTRADORES (REY) */}
         {seccionActiva === 'administradores' && esRey && (
           <div className="space-y-8">
             <div className="pb-6 border-b border-slate-800">
               <h1 className="text-2xl sm:text-3xl font-black text-white flex items-center gap-2">
                 <Crown className="w-7 h-7 text-amber-400" /> Control de Administradores (Ministros)
               </h1>
-              <p className="text-xs text-slate-400 mt-1">Crea nuevos usuarios administradores para tu equipo y supervisa cuándo ingresaron por última vez.</p>
+              <p className="text-xs text-slate-400 mt-1">Crea nuevos usuarios administradores para tu equipo y supervisa su actividad.</p>
             </div>
 
-            {/* FORMULARIO CREAR MINISTRO */}
             <form onSubmit={handleCrearMinistro} className="bg-[#081322] p-6 sm:p-8 rounded-3xl border border-amber-400/30 space-y-4 shadow-xl">
               <p className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
                 <UserPlus className="w-4 h-4" /> Registrar Nuevo Administrador (Ministro)
@@ -886,41 +740,32 @@ export default function AdminDashboard() {
               )}
 
               <div className="grid sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">Nombre Completo</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej. Prof. Marco Soto..."
-                    value={nuevoMinistro.nombre}
-                    onChange={e => setNuevoMinistro({...nuevoMinistro, nombre: e.target.value})}
-                    className="w-full bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-400"
-                  />
-                </div>
+                <input
+                  type="text"
+                  required
+                  placeholder="Nombre Completo..."
+                  value={nuevoMinistro.nombre}
+                  onChange={e => setNuevoMinistro({...nuevoMinistro, nombre: e.target.value})}
+                  className="w-full bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-400"
+                />
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">Correo Electrónico</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="marcosoto@gmail.com"
-                    value={nuevoMinistro.email}
-                    onChange={e => setNuevoMinistro({...nuevoMinistro, email: e.target.value})}
-                    className="w-full bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-400"
-                  />
-                </div>
+                <input
+                  type="email"
+                  required
+                  placeholder="correo@gmail.com"
+                  value={nuevoMinistro.email}
+                  onChange={e => setNuevoMinistro({...nuevoMinistro, email: e.target.value})}
+                  className="w-full bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-400"
+                />
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">Contraseña de Acceso</label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="Mínimo 6 caracteres..."
-                    value={nuevoMinistro.password}
-                    onChange={e => setNuevoMinistro({...nuevoMinistro, password: e.target.value})}
-                    className="w-full bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-400 font-mono"
-                  />
-                </div>
+                <input
+                  type="password"
+                  required
+                  placeholder="Contraseña inicial..."
+                  value={nuevoMinistro.password}
+                  onChange={e => setNuevoMinistro({...nuevoMinistro, password: e.target.value})}
+                  className="w-full bg-[#060d19] border border-slate-800 text-xs text-white rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-400 font-mono"
+                />
               </div>
 
               <button
@@ -933,7 +778,6 @@ export default function AdminDashboard() {
               </button>
             </form>
 
-            {/* TABLA DE ADMINISTRADORES REGISTRADOS */}
             <div className="bg-[#081322] rounded-3xl border border-slate-800 overflow-hidden shadow-xl">
               <table className="w-full text-left text-xs text-slate-300">
                 <thead className="bg-[#0a182b] text-[11px] uppercase font-bold text-amber-400 border-b border-slate-800">
@@ -956,17 +800,13 @@ export default function AdminDashboard() {
                       <td className="p-4 text-slate-300 font-mono">{admin.email}</td>
                       <td className="p-4">
                         <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase border ${
-                          admin.rol === 'rey'
-                            ? 'bg-amber-400/20 text-amber-300 border-amber-400/40'
-                            : 'bg-teal-500/20 text-teal-300 border-teal-500/40'
+                          admin.rol === 'rey' ? 'bg-amber-400/20 text-amber-300 border-amber-400/40' : 'bg-teal-500/20 text-teal-300 border-teal-500/40'
                         }`}>
                           {admin.rol === 'rey' ? '👑 Rey' : '🛡️ Ministro'}
                         </span>
                       </td>
                       <td className="p-4 text-slate-400">
-                        {admin.ultimo_ingreso 
-                          ? new Date(admin.ultimo_ingreso).toLocaleString('es-PE') 
-                          : 'Aún no ha ingresado'}
+                        {admin.ultimo_ingreso ? new Date(admin.ultimo_ingreso).toLocaleString('es-PE') : 'Aún no ha ingresado'}
                       </td>
                       <td className="p-4">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
@@ -981,18 +821,16 @@ export default function AdminDashboard() {
                             <button
                               onClick={() => handleToggleEstadoAdmin(admin)}
                               className={`p-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${
-                                admin.estado === 'activo' 
-                                  ? 'text-amber-400 hover:bg-amber-400/10' 
-                                  : 'text-green-400 hover:bg-green-400/10'
+                                admin.estado === 'activo' ? 'text-amber-400 hover:bg-amber-400/10' : 'text-green-400 hover:bg-green-400/10'
                               }`}
-                              title={admin.estado === 'activo' ? 'Desactivar temporalmente' : 'Activar'}
+                              title={admin.estado === 'activo' ? 'Desactivar' : 'Activar'}
                             >
                               {admin.estado === 'activo' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                             </button>
                             <button
                               onClick={() => handleEliminarAdmin(admin)}
                               className="p-1.5 text-slate-500 hover:text-red-400 cursor-pointer"
-                              title="Eliminar administrador"
+                              title="Eliminar"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1009,7 +847,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 📋 SECCIÓN 2: ALUMNOS DE CLASE DE PRUEBA + EXPORTAR EXCEL */}
+        {/* 📋 SECCIÓN: PROSPECTOS DE CLASE DE PRUEBA */}
         {seccionActiva === 'prospectos' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
@@ -1044,7 +882,7 @@ export default function AdminDashboard() {
                   {prospectos.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="p-8 text-center text-slate-500">
-                        Aún no hay alumnos registrados en clases de prueba. En cuanto completen el formulario en la web, aparecerán aquí.
+                        Aún no hay alumnos registrados en clases de prueba.
                       </td>
                     </tr>
                   ) : (
@@ -1076,7 +914,7 @@ export default function AdminDashboard() {
                               target="_blank"
                               rel="noreferrer"
                               className="p-1.5 text-teal-400 hover:text-teal-300 bg-[#0d1f36] rounded-lg"
-                              title="Escribir por WhatsApp"
+                              title="WhatsApp"
                             >
                               <MessageCircle className="w-4 h-4" />
                             </a>
@@ -1098,14 +936,14 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 3. SECCIÓN EVENTOS CON FIBA, NIVEL, SEDES Y FOTOS */}
+        {/* 🏆 SECCIÓN: EVENTOS Y TORNEOS FIBA */}
         {seccionActiva === 'eventos' && (
           <div className="space-y-8">
             <div className="flex justify-between items-center pb-6 border-b border-slate-800">
               <h1 className="text-2xl sm:text-3xl font-black text-white">Eventos y Torneos (FIBA)</h1>
-              <Link to="/eventos?from=admin" className="bg-amber-400 text-slate-950 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5">
+              <a href="/eventos?from=admin" className="bg-amber-400 text-slate-950 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5">
                 <Eye className="w-4 h-4" /> Ver en Vivo
-              </Link>
+              </a>
             </div>
 
             <form onSubmit={handleCrearEvento} className="bg-[#081322] p-6 sm:p-8 rounded-3xl border border-teal-900/40 space-y-5">
@@ -1168,7 +1006,6 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Categorías FIBA */}
               <div className="border-t border-slate-800/80 pt-4">
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Categorías Oficiales FIBA:</label>
@@ -1194,7 +1031,6 @@ export default function AdminDashboard() {
                 )}
               </div>
 
-              {/* Subir Flyer */}
               <div className="border-t border-slate-800/80 pt-4">
                 <label className="block text-[11px] font-bold text-cyan-300 mb-2">Subir Flyer del Torneo (Desde tu PC)</label>
                 <input type="file" multiple accept="image/*" onChange={(e) => handleImagenesDesdePC(e, false)} className="text-xs text-slate-400 cursor-pointer" />
@@ -1215,7 +1051,6 @@ export default function AdminDashboard() {
               </button>
             </form>
 
-            {/* Lista Eventos */}
             <div className="space-y-4">
               <h2 className="text-base font-bold text-white">Eventos Publicados ({eventos.length})</h2>
               <div className="grid gap-4">
@@ -1241,14 +1076,14 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 4. SECCIÓN SEDES CON FOTOS DESDE PC */}
+        {/* 📍 SECCIÓN: SEDES Y FOTOS */}
         {seccionActiva === 'sedes' && (
           <div className="space-y-8">
             <div className="flex justify-between items-center pb-6 border-b border-slate-800">
-              <h1 className="text-2xl font-black text-white">Sedes y Fotos de Canchas (Supabase)</h1>
-              <Link to="/sedes?from=admin" className="bg-teal-400 text-slate-950 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5">
+              <h1 className="text-2xl sm:text-3xl font-black text-white">Sedes y Fotos de Canchas</h1>
+              <a href="/sedes?from=admin" className="bg-teal-400 text-slate-950 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5">
                 <Eye className="w-4 h-4" /> Ver en Vivo
-              </Link>
+              </a>
             </div>
 
             <form onSubmit={handleCrearSede} className="bg-[#081322] p-6 rounded-3xl border border-teal-900/40 space-y-3">
@@ -1290,7 +1125,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 5. SECCIÓN POSTULANTES CON CV */}
+        {/* 💼 SECCIÓN: POSTULANTES */}
         {seccionActiva === 'postulantes' && (
           <div className="space-y-8">
             <h1 className="text-2xl font-black text-white">Postulaciones y CVs</h1>
@@ -1340,7 +1175,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 6. SECCIÓN TIENDA */}
+        {/* 🛍️ SECCIÓN: TIENDA */}
         {seccionActiva === 'tienda' && (
           <div className="space-y-8">
             <h1 className="text-2xl font-black text-white">Tienda y Productos</h1>
