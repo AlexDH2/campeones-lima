@@ -12,6 +12,8 @@ import {
   Loader2, 
   Ticket, 
   Zap, 
+  Play, 
+  ExternalLink, 
   RotateCcw, 
   X, 
   AlertTriangle 
@@ -32,6 +34,49 @@ import { precioValido, mostrarPrecio, promocionVigente, estaSuspendida } from '.
 import { ThemeProvider, useTheme } from './ThemeContext';
 import { supabase } from './supabase';
 
+function obtenerIdYouTube(url) {
+  if (!url || typeof url !== 'string') return '';
+  if (url.includes('shorts/')) {
+    const segmento = url.split('shorts/').pop().split('?').shift();
+    return segmento ? segmento.substring(0, 11) : '';
+  }
+  if (url.includes('watch?v=')) {
+    const segmento = url.split('watch?v=').pop().split('&').shift();
+    return segmento ? segmento.substring(0, 11) : '';
+  }
+  if (url.includes('youtu.be/')) {
+    const segmento = url.split('youtu.be/').pop().split('?').shift();
+    return segmento ? segmento.substring(0, 11) : '';
+  }
+  if (url.includes('embed/')) {
+    const segmento = url.split('embed/').pop().split('?').shift();
+    return segmento ? segmento.substring(0, 11) : '';
+  }
+  return '';
+}
+
+function obtenerEmbedVideo(url) {
+  if (!url || typeof url !== 'string') return null;
+
+  const idYt = obtenerIdYouTube(url);
+  if (idYt && idYt.length === 11) {
+    return {
+      tipo: 'youtube',
+      id: idYt,
+      embedUrl: `https://www.youtube.com/embed/${idYt}?autoplay=1&mute=1&loop=1&playlist=${idYt}&playsinline=1&rel=0&modestbranding=1&enablejsapi=1`
+    };
+  }
+
+  if (url.match(/\.(mp4|webm|mov)(\?.*)?$/i)) {
+    return {
+      tipo: 'video_directo',
+      embedUrl: url
+    };
+  }
+
+  return null;
+}
+
 function PaginaInicio() {
   const { esOscuro = true } = useTheme();
   const WHATSAPP_PHONE = "51963896985";
@@ -44,6 +89,7 @@ function PaginaInicio() {
   const [fotoActivaIdx, setFotoActivaIdx] = useState(0);
   const [sedes, setSedes] = useState([]);
   const [disciplinas, setDisciplinas] = useState([]);
+  const [videosAdmin, setVideosAdmin] = useState([]);
   const [preciosClaseModelo, setPreciosClaseModelo] = useState({});
   const [categoriasEdades, setCategoriasEdades] = useState([]);
 
@@ -72,6 +118,11 @@ function PaginaInicio() {
             'disciplinas_inicio',
             'disciplinas',
             'redes_sociales',
+            'inicio_videos',
+            'videos_testimonios',
+            'videos_inicio',
+            'videos_shorts',
+            'videos',
             'precios_clase_modelo',
             'categorias_edades',
             'promociones_vigentes'
@@ -119,6 +170,18 @@ function PaginaInicio() {
 
           if (discGuardadas && Array.isArray(discGuardadas) && discGuardadas.length > 0) {
             setDisciplinas(discGuardadas);
+          }
+
+          const videosGuardados = configMap.inicio_videos || 
+                                  configMap.videos_testimonios || 
+                                  configMap.videos_inicio || 
+                                  configMap.videos_shorts || 
+                                  configMap.videos;
+
+          if (videosGuardados) {
+            if (Array.isArray(videosGuardados)) setVideosAdmin(videosGuardados);
+            else if (typeof videosGuardados === 'string') setVideosAdmin([{ id: 1, enlace: videosGuardados, url: videosGuardados, titulo: 'Video Oficial' }]);
+            else if (typeof videosGuardados === 'object') setVideosAdmin([videosGuardados]);
           }
 
           if (configMap.precios_clase_modelo && typeof configMap.precios_clase_modelo === 'object') {
@@ -478,6 +541,98 @@ function PaginaInicio() {
                       <ArrowRight className="w-4 h-4 shrink-0" />
                     </Link>
                   </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* VIDEOS Y SHORT OFICIALES */}
+      {videosAdmin.length > 0 && (
+        <section className="py-16 sm:py-24 max-w-6xl mx-auto px-4 sm:px-6 space-y-10 relative z-10 border-t border-slate-800/80">
+          <div className="text-center max-w-2xl mx-auto space-y-2">
+            <span className="text-xs font-black uppercase tracking-widest text-[#F7B52C] bg-[#F7B52C]/10 px-3.5 py-1 rounded-full border border-[#F7B52C]/30">
+              🔥 VIDEOS EN CANCHA · CAMPEONES LIMA
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black uppercase tracking-tight text-white italic">
+              NUESTRAS JUGADAS EN VIDEO
+            </h2>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-6">
+            {videosAdmin.map((video, idx) => {
+              const urlReal = typeof video === 'string' ? video : (video.enlace || video.url || video.link || "");
+              const embedInfo = obtenerEmbedVideo(urlReal);
+              const tituloReal = (typeof video === 'object' && (video.titulo || video.title)) || "Video Oficial";
+              const redReal = (typeof video === 'object' && video.red) || "Video";
+              const usuarioReal = (typeof video === 'object' && video.usuario) || "@campeoneslima_";
+
+              return (
+                <div 
+                  key={idx} 
+                  className="w-full max-w-[320px] aspect-[9/16] rounded-3xl overflow-hidden border-2 border-slate-800 bg-[#071527] shadow-2xl relative flex flex-col justify-between group"
+                >
+                  {embedInfo ? (
+                    embedInfo.tipo === 'youtube' ? (
+                      <div className="relative w-full h-full bg-black">
+                        <iframe
+                          src={embedInfo.embedUrl}
+                          title={tituloReal}
+                          className="w-full h-full border-0 rounded-3xl"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      </div>
+                    ) : (
+                      <div className="relative w-full h-full bg-black">
+                        <video
+                          src={embedInfo.embedUrl}
+                          autoPlay
+                          muted
+                          loop
+                          playsInline
+                          controls
+                          className="w-full h-full object-cover rounded-3xl"
+                        />
+                      </div>
+                    )
+                  ) : (
+                    <div className="p-6 flex flex-col justify-between h-full text-center bg-gradient-to-b from-[#0A233D] via-[#071527] to-[#040914] relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-[#00B4A7]/10 rounded-full blur-2xl pointer-events-none" />
+                      
+                      <div className="flex justify-between items-center z-10">
+                        <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-[#00B4A7] text-slate-950 font-bold">
+                          {redReal}
+                        </span>
+                        <span className="text-[10px] font-mono text-[#F7B52C] font-bold">{usuarioReal}</span>
+                      </div>
+
+                      <div className="space-y-4 my-auto z-10">
+                        <a
+                          href={urlReal}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-[#F7B52C] to-[#e6a524] text-slate-950 flex items-center justify-center shadow-xl shadow-[#F7B52C]/20 group-hover:scale-110 transition-transform cursor-pointer"
+                        >
+                          <Play className="w-8 h-8 fill-current ml-1" />
+                        </a>
+                        <h3 className="text-base font-black text-white leading-snug px-2">
+                          {tituloReal}
+                        </h3>
+                      </div>
+
+                      <a
+                        href={urlReal}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full py-3 rounded-xl bg-[#F7B52C] hover:bg-[#ffc247] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all z-10 cursor-pointer active:scale-95"
+                      >
+                        <span>Ver en {redReal}</span>
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </div>
+                  )}
                 </div>
               );
             })}
