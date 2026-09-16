@@ -406,7 +406,7 @@ function PaginaInicio() {
           </h1>
 
           <p className="text-xs sm:text-base lg:text-lg text-slate-100 max-w-2xl mx-auto font-bold leading-relaxed drop-shadow-[0_2px_15px_rgba(0,0,0,0.9)] px-2">
-            Academia deportiva oficial de <strong className="text-[#F7B52C]">básquetbol</strong> y <strong className="text-[#00B4A7]">voleibol</strong> en coliseos techados. Desarrollo físico, disciplina técnica y valores desde los 6 años.
+            Club <strong className="text-[#F7B52C]">deportivo</strong> y <strong className="text-[#00B4A7]">cultural</strong> donde vives tu pasión y desarrollas tu talento.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-2">
