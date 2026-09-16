@@ -1,484 +1,738 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { 
-  Trophy, 
-  MapPin, 
-  Clock, 
-  CheckCircle2, 
-  MessageCircle, 
-  ChevronDown, 
-  ChevronUp, 
-  Activity, 
   ShieldCheck, 
-  Target, 
-  Flame, 
-  Award, 
-  ExternalLink, 
-  Phone, 
+  MapPin, 
   Sparkles, 
-  Calendar,
-  ShoppingBag,
-  Briefcase
+  ArrowRight, 
+  Users, 
+  Award, 
+  MessageCircle, 
+  Check, 
+  Loader2, 
+  Ticket, 
+  Zap, 
+  RotateCcw, 
+  X, 
+  AlertTriangle 
 } from 'lucide-react';
+
+import Navbar from './Navbar';
+import Footer from './Footer';
+import Sedes from './Sedes';
+import SedeDetalle from './SedeDetalle';
 import Nosotros from './Nosotros';
-import SedesPage from './Sedes';
-import EventosPage from './Eventos';
-import TiendaPage from './Tienda';
+import Tienda from './Tienda';
 import TrabajaConNosotros from './TrabajaConNosotros';
-import AdminDashboard from './Admin';
+import Eventos from './Eventos';
+const Admin = lazy(() => import('./Admin'));
+import Terminos from './Terminos';
+import NoEncontrado from './NoEncontrado';
+import { precioValido, mostrarPrecio, promocionVigente, estaSuspendida } from './domain';
+import { ThemeProvider, useTheme } from './ThemeContext';
+import { supabase } from './supabase';
 
-function ScrollToTop() {
-  const { pathname } = useLocation();
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
-  return null;
-}
-
-function Inicio() {
+function PaginaInicio() {
+  const { esOscuro = true } = useTheme();
   const WHATSAPP_PHONE = "51963896985";
-  const [openFaq, setOpenFaq] = useState(null);
 
-  const [formData, setFormData] = useState({
-    nombre: '',
-    edad: '',
-    disciplina: 'Básquetbol',
-    sede: 'Mirones / Complejo Tito Drago',
-    telefono: ''
-  });
+  const [cargandoDatos, setCargandoDatos] = useState(true);
+  const [errorConsulta, setErrorConsulta] = useState('');
+  const [errorFormulario, setErrorFormulario] = useState('');
+  const [heroFotos, setHeroFotos] = useState([]);
+  const [bannerPosiciones, setBannerPosiciones] = useState({});
+  const [fotoActivaIdx, setFotoActivaIdx] = useState(0);
+  const [sedes, setSedes] = useState([]);
+  const [disciplinas, setDisciplinas] = useState([]);
+  const [preciosClaseModelo, setPreciosClaseModelo] = useState({});
+  const [categoriasEdades, setCategoriasEdades] = useState([]);
 
-  const toggleFaq = (index) => {
-    setOpenFaq(openFaq === index ? null : index);
-  };
+  const [promocionActiva, setPromocionActiva] = useState(null);
+  const [mostrarModalFlyer, setMostrarModalFlyer] = useState(false);
 
-  // Busca la función handleFormSubmit en src/App.jsx y cámbiala por esta:
-  const handleFormSubmit = async (e) => {
+  const [formNombre, setFormNombre] = useState('');
+  const [formTelefono, setFormTelefono] = useState('');
+  const [formSede, setFormSede] = useState('');
+  const [formDeporte, setFormDeporte] = useState('Básquetbol');
+  const [formEdad, setFormEdad] = useState('');
+  const [enviandoForm, setEnviandoForm] = useState(false);
+  const [formEnviadoExito, setFormEnviadoExito] = useState(false);
+
+  useEffect(() => {
+    async function cargarDatosReales() {
+      try {
+        const [resConfig, resSedes] = await Promise.all([
+          supabase.from('configuracion_web').select('clave, valor').in('clave', [
+            'banner_hero_inicio',
+            'banner_sedes',
+            'banner_inicio',
+            'banner_posiciones',
+            'inicio_disciplinas',
+            'tarjetas_disciplina',
+            'disciplinas_inicio',
+            'disciplinas',
+            'redes_sociales',
+            'precios_clase_modelo',
+            'categorias_edades',
+            'promociones_vigentes'
+          ]).throwOnError(),
+          supabase.from('sedes').select('*').order('created_at', { ascending: true }).throwOnError()
+        ]);
+
+        if (resSedes.data && resSedes.data.length > 0) {
+          setSedes(resSedes.data);
+          setFormSede(resSedes.data[0].nombre);
+        }
+
+        if (resConfig.data) {
+          const configMap = {};
+          resConfig.data.forEach(item => { configMap[item.clave] = item.valor; });
+
+          let bannerGuardado = null;
+          if (configMap.banner_hero_inicio !== undefined) {
+            bannerGuardado = configMap.banner_hero_inicio;
+          } else if (configMap.banner_sedes !== undefined) {
+            bannerGuardado = configMap.banner_sedes;
+          } else if (configMap.banner_inicio !== undefined) {
+            bannerGuardado = configMap.banner_inicio;
+          }
+
+          if (Array.isArray(bannerGuardado) && bannerGuardado.length > 0) {
+            setHeroFotos(bannerGuardado);
+          } else if (resSedes.data && resSedes.data.length > 0) {
+            const todasLasCanchas = [];
+            resSedes.data.forEach(s => {
+              const fotos = Array.isArray(s.imagenes) && s.imagenes.length > 0 ? s.imagenes : [s.foto_principal].filter(Boolean);
+              fotos.forEach(f => todasLasCanchas.push(f));
+            });
+            if (todasLasCanchas.length > 0) {
+              setHeroFotos(todasLasCanchas);
+            }
+          }
+
+          if (configMap.banner_posiciones) setBannerPosiciones(configMap.banner_posiciones);
+
+          const discGuardadas = configMap.inicio_disciplinas || 
+                                configMap.tarjetas_disciplina || 
+                                configMap.disciplinas_inicio || 
+                                configMap.disciplinas;
+
+          if (discGuardadas && Array.isArray(discGuardadas) && discGuardadas.length > 0) {
+            setDisciplinas(discGuardadas);
+          }
+
+          if (configMap.precios_clase_modelo && typeof configMap.precios_clase_modelo === 'object') {
+            setPreciosClaseModelo(configMap.precios_clase_modelo);
+          }
+
+          if (configMap.categorias_edades && Array.isArray(configMap.categorias_edades)) {
+            setCategoriasEdades(configMap.categorias_edades);
+            if (configMap.categorias_edades[0]?.nombre) setFormEdad(configMap.categorias_edades[0].nombre);
+          }
+
+          const promosGuardadas = configMap.promociones_vigentes;
+          if (Array.isArray(promosGuardadas) && promosGuardadas.length > 0) {
+            const activa = promosGuardadas.find(p => promocionVigente(p));
+            if (activa) setPromocionActiva(activa);
+          }
+        }
+      } catch (err) {
+        console.error("Error al cargar datos:", err);
+        setErrorConsulta("No pudimos cargar las sedes y tarifas. Recarga la página para intentar nuevamente.");
+      } finally {
+        setCargandoDatos(false);
+      }
+    }
+    cargarDatosReales();
+  }, []);
+
+  useEffect(() => {
+    if (heroFotos.length <= 1) return;
+    const timer = setInterval(() => {
+      setFotoActivaIdx(prev => (prev + 1) % heroFotos.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [heroFotos.length]);
+
+  const sedeSeleccionada = sedes.find(s => s.nombre === formSede);
+  const sedeSuspendida = estaSuspendida(sedeSeleccionada);
+  const precioClaseSede = precioValido(preciosClaseModelo[formSede]);
+  const tarifaClase = precioClaseSede === null ? 'Por consultar' : precioClaseSede === 0 ? 'Gratis' : mostrarPrecio(precioClaseSede);
+  const esClaseGratis = precioClaseSede === 0;
+
+  const mensajeWsPase = `¡Hola Campeones Lima! Deseo coordinar mi *Clase Modelo* desde la web oficial:%0A%0A` +
+    `👤 *Alumno:* ${encodeURIComponent(formNombre)}%0A` +
+    `🏆 *Deporte:* ${encodeURIComponent(formDeporte)}%0A` +
+    `📍 *Sede:* ${encodeURIComponent(formSede)}%0A` +
+    `🎂 *Categoría:* ${encodeURIComponent(formEdad)}%0A` +
+    `💰 *Tarifa:* ${tarifaClase}%0A` +
+    `📱 *WhatsApp:* ${encodeURIComponent(formTelefono)}%0A%0A` +
+    `¿Cuáles son las fechas disponibles?`;
+
+  const handleEnviarPaseCancha = async (e) => {
     e.preventDefault();
-    
-    try {
-      // 1. Guardar prospecto en Supabase para el Excel del Admin
-      await supabase.from('prospectos').insert([{
-        nombre_alumno: formData.nombre,
-        edad: parseInt(formData.edad) || null,
-        disciplina: formData.disciplina,
-        sede: formData.sede,
-        telefono_apoderado: formData.telefono,
-        estado: 'Pendiente'
-      }]);
-    } catch (error) {
-      console.error("Error al registrar prospecto:", error);
-    }
+    if (!formNombre.trim() || !formTelefono.trim()) return alert("Ingresa tu nombre y WhatsApp.");
 
-    // 2. Redirigir a WhatsApp con el mensaje listo
-    const mensaje = `¡Hola Campeones Lima! Vengo desde la web. Quisiera coordinar mi clase de prueba:%0A%0A` +
-      `👤 *Alumno:* ${encodeURIComponent(formData.nombre)}%0A` +
-      `🎂 *Edad:* ${formData.edad} años%0A` +
-      `🏀 *Deporte:* ${encodeURIComponent(formData.disciplina)}%0A` +
-      `📍 *Sede:* ${encodeURIComponent(formData.sede)}%0A` +
-      `📱 *Teléfono:* ${formData.telefono}`;
-    
-    window.open(`https://wa.me/${WHATSAPP_PHONE}?text=${mensaje}`, '_blank');
+    if (cargandoDatos || errorConsulta || sedeSuspendida) return;
+    if (!/^\+?[0-9 ()-]{9,20}$/.test(formTelefono.trim())) return setErrorFormulario('Ingresa un teléfono válido.');
+    if (formNombre.trim().length < 2) return setErrorFormulario('Ingresa tu nombre completo.');
+    setEnviandoForm(true);
+    setErrorFormulario('');
+    try {
+      const { error } = await supabase.from('prospectos').insert([{
+        nombre_alumno: formNombre.trim(),
+        telefono_apoderado: formTelefono.trim(),
+        sede: formSede || 'Por Coordinar',
+        disciplina: formDeporte,
+        edad: formEdad || '',
+        estado: 'Pendiente',
+        notas: 'Clase Modelo: ' + tarifaClase,
+      }]);
+      if (error) throw error;
+      setFormEnviadoExito(true);
+    } catch (error) {
+      console.error(error);
+      setErrorFormulario('No pudimos registrar tu solicitud. Tus datos siguen aquí; vuelve a intentarlo.');
+    } finally { 
+      setEnviandoForm(false); 
+    }
   };
 
-  const sedes = [
-    {
-      nombre: "Sede Mirones / Complejo Tito Drago",
-      distrito: "Cercado de Lima",
-      direccion: "Av. Colonial / Mirones",
-      disciplinas: ["Básquet", "Vóley", "Fútbol"],
-      horarios: "Lun, Mié y Vie: 4:00 PM - 8:00 PM | Sáb: 8:00 AM - 1:00 PM",
-      maps: "https://maps.google.com/?q=Complejo+Deportivo+Tito+Drago+Mirones"
-    },
-    {
-      nombre: "Sede Liceo Naval",
-      distrito: "San Miguel / Callao",
-      direccion: "Av. Venezuela cdra 34",
-      disciplinas: ["Básquet", "Vóley"],
-      horarios: "Mar y Jue: 4:30 PM - 7:30 PM | Sáb: 9:00 AM - 12:00 PM",
-      maps: "https://maps.google.com/?q=Liceo+Naval+Contralmirante+Montero"
-    },
-    {
-      nombre: "Sede I.E. Libertador",
-      distrito: "Pueblo Libre / Breña",
-      direccion: "Av. Brasil",
-      disciplinas: ["Vóley", "Fútbol Menores"],
-      horarios: "Mar, Jue y Sáb: 3:30 PM - 7:00 PM",
-      maps: "https://maps.google.com/?q=Lima+Peru"
-    }
-  ];
-
-  const faqs = [
-    {
-      q: "¿Se requiere experiencia previa para ingresar a la academia?",
-      a: "No. Contamos con grupos formativos desde nivel iniciación hasta selecciones competitivas para torneos oficiales."
-    },
-    {
-      q: "¿A partir de qué edad pueden inscribirse?",
-      a: "Recibimos alumnos desde los 5 años en categorías Kids, formativos para jóvenes de 12 a 17 años y grupos especiales para adultos."
-    },
-    {
-      q: "¿Cómo solicito mi primera clase de prueba?",
-      a: "Completa el formulario en esta página o haz clic en el botón de WhatsApp para coordinar el día y horario de tu evaluación sin costo."
-    },
-    {
-      q: "¿Dónde puedo adquirir el uniforme oficial?",
-      a: "Puedes solicitarlo directamente en nuestra Tienda Web o a través de los profesores encargados en tu sede de entrenamiento."
-    }
-  ];
+  const handleOtraReserva = () => {
+    setFormNombre('');
+    setFormTelefono('');
+    setFormEnviadoExito(false);
+  };
 
   return (
-    <div className="min-h-screen bg-[#060d19] text-slate-100 font-sans selection:bg-teal-400 selection:text-slate-950">
+    <div className={`min-h-screen font-sans transition-colors duration-300 relative overflow-hidden ${
+      esOscuro ? 'bg-[#040914] text-slate-100' : 'bg-slate-50 text-slate-900'
+    }`}>
       
-      {/* NAVBAR */}
-      <nav className="fixed top-0 left-0 w-full z-50 bg-[#060d19]/90 backdrop-blur-md border-b border-teal-950/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <img 
-              src="/logo.png" 
-              alt="Campeones Lima Logo" 
-              className="w-11 h-11 object-contain drop-shadow-[0_0_10px_rgba(20,184,166,0.3)]"
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            />
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xl font-black tracking-tight text-white">
-                  CAMPEONES <span className="text-amber-400">LIMA</span>
-                </span>
-                <span className="text-[10px] bg-teal-500/20 text-teal-300 font-bold px-1.5 py-0.5 rounded border border-teal-500/30">
-                  2015
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-1.5 bg-gradient-to-r from-red-600 via-white to-red-600 rounded-sm" />
-                <p className="text-[10px] tracking-widest text-slate-400 uppercase font-semibold">Club & Academia Deportiva</p>
-              </div>
-            </div>
-          </Link>
+      {promocionActiva && (
+        <div className="relative z-40 mt-20 bg-gradient-to-r from-[#F7B52C] via-[#ffc247] to-[#00B4A7] text-slate-950 px-4 py-2.5 text-center shadow-lg flex items-center justify-center gap-2 flex-wrap text-xs font-black">
+          <span className="flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-slate-950" />
+            <strong className="uppercase">¡Promo Temporal!</strong> {promocionActiva.titulo}
+            {promocionActiva.valor_beneficio && (
+              <span className="bg-slate-950 text-[#F7B52C] px-2.5 py-0.5 rounded-full text-[10px] ml-1 font-mono">
+                {promocionActiva.valor_beneficio}
+              </span>
+            )}
+          </span>
 
-          {/* Menú de Enlaces Completo */}
-          <div className="hidden lg:flex items-center gap-6 text-sm font-medium text-slate-300">
-            <Link to="/nosotros" className="hover:text-teal-400 transition-colors font-semibold">Nosotros</Link>
-            <Link to="/sedes" className="hover:text-teal-400 transition-colors font-semibold">Sedes</Link>
-            <Link to="/eventos" className="hover:text-teal-400 transition-colors font-semibold">Eventos</Link>
-            <Link to="/tienda" className="hover:text-teal-400 transition-colors font-semibold">Tienda</Link>
-            <Link to="/trabaja" className="hover:text-teal-400 transition-colors font-semibold">Trabaja con Nosotros</Link>
-          </div>
-
-          <a 
-            href="#inscripcion" 
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-400 to-cyan-400 hover:from-teal-300 hover:to-cyan-300 text-slate-950 font-extrabold px-5 py-2.5 rounded-xl text-sm shadow-md shadow-teal-500/20 transition-all transform active:scale-95"
+          <button
+            type="button"
+            onClick={() => setMostrarModalFlyer(true)}
+            className="bg-slate-950 hover:bg-slate-900 text-white px-3.5 py-1 rounded-full text-[11px] font-bold uppercase transition-transform active:scale-95 cursor-pointer ml-1 sm:ml-3 flex items-center gap-1 shadow"
           >
-            Clase de Prueba
-          </a>
+            <span>{promocionActiva.flyer_url ? 'Ver Flyer & Promo' : 'Ver Detalles'}</span>
+            <ArrowRight className="w-3 h-3 text-[#F7B52C]" />
+          </button>
         </div>
-      </nav>
+      )}
 
-      {/* HERO SECTION */}
-      <section className="relative pt-32 pb-20 md:pt-44 md:pb-28 overflow-hidden">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-teal-500/10 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute top-1/3 left-1/3 w-[300px] h-[200px] bg-amber-400/10 rounded-full blur-[100px] pointer-events-none" />
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#0a1526] border border-teal-500/30 text-teal-300 text-xs font-semibold mb-8 shadow-inner">
-            <Sparkles className="w-4 h-4 text-amber-400" /> Formando Campeones desde el 2015 en Lima
-          </div>
+      <Navbar />
+      {errorConsulta && <p role="alert" className="mt-24 p-4 bg-red-950 text-red-200">{errorConsulta}</p>}
 
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-white max-w-4xl mx-auto leading-[1.1]">
-            Forjamos Atletas con Pasión, <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-teal-300 via-cyan-400 to-amber-300 bg-clip-text text-transparent">
-              Desarrollamos Campeones
-            </span>
-          </h1>
-
-          <p className="mt-6 text-base sm:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed">
-            Academia formativa y de alto rendimiento en <strong className="text-teal-300">Básquetbol</strong>, <strong className="text-teal-300">Voleibol</strong> y <strong className="text-teal-300">Fútbol</strong> para niños, jóvenes y adultos.
-          </p>
-
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <a 
-              href={`https://wa.me/${WHATSAPP_PHONE}?text=Hola%20Campeones%20Lima,%20deseo%20inscribirme%20y%20conocer%20las%20vacantes`}
-              target="_blank"
-              rel="noreferrer"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-gradient-to-r from-teal-400 to-cyan-400 hover:from-teal-300 hover:to-cyan-300 text-slate-950 font-black px-7 py-4 rounded-2xl shadow-xl shadow-teal-500/25 hover:shadow-teal-500/40 transition-all text-base transform active:scale-95"
+      {mostrarModalFlyer && promocionActiva && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
+          <div className="relative max-w-lg w-full bg-[#071527] border-2 border-[#F7B52C] rounded-3xl overflow-hidden shadow-2xl p-5 sm:p-6 text-center space-y-4 max-h-[92vh] overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => setMostrarModalFlyer(false)}
+              className="absolute top-4 right-4 bg-slate-900/90 hover:bg-red-600 text-white rounded-full p-2 text-xs font-bold transition-colors cursor-pointer z-20 shadow-md"
             >
-              <MessageCircle className="w-5 h-5 fill-slate-950" />
-              Inscribirme por WhatsApp
-            </a>
-            <Link 
-              to="/sedes" 
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#0c1a2f] hover:bg-[#11233f] text-slate-200 font-bold px-7 py-4 rounded-2xl border border-teal-900/60 hover:border-teal-500/40 transition-all text-base"
-            >
-              <MapPin className="w-4 h-4 text-amber-400" />
-              Sedes y Horarios
-            </Link>
-            <Link 
-              to="/tienda" 
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#0c1a2f] hover:bg-[#11233f] text-teal-300 font-bold px-7 py-4 rounded-2xl border border-teal-500/30 hover:border-teal-400 transition-all text-base"
-            >
-              <ShoppingBag className="w-4 h-4 text-teal-400" />
-              Tienda Oficial
-            </Link>
-          </div>
+              <X className="w-4 h-4" />
+            </button>
 
-          <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto border-t border-slate-800/80 pt-10 text-slate-400 text-sm">
-            <div className="bg-[#081322]/60 p-4 rounded-xl border border-slate-800">
-              <span className="text-2xl font-black text-amber-400 block">+11 Años</span>
-              <span>De Trayectoria</span>
-            </div>
-            <div className="bg-[#081322]/60 p-4 rounded-xl border border-slate-800">
-              <span className="text-2xl font-black text-teal-300 block">+500</span>
-              <span>Alumnos Activos</span>
-            </div>
-            <div className="bg-[#081322]/60 p-4 rounded-xl border border-slate-800">
-              <span className="text-2xl font-black text-cyan-400 block">3</span>
-              <span>Disciplinas Oficiales</span>
-            </div>
-            <div className="bg-[#081322]/60 p-4 rounded-xl border border-slate-800">
-              <span className="text-2xl font-black text-white block">100%</span>
-              <span>Formación en Valores</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* METODOLOGÍA */}
-      <section id="metodologia" className="py-20 bg-[#040812] border-y border-teal-950/40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-teal-400 mb-2">Pilares de Formación</h2>
-            <p className="text-3xl sm:text-4xl font-black text-white">Nuestra Metodología</p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-[#081322] p-6 rounded-2xl border border-teal-950">
-              <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center mb-4 border border-teal-500/20">
-                <Target className="w-5 h-5" />
-              </div>
-              <h3 className="text-sm font-bold text-white mb-2">Técnica Correcta</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">Fundamentos sólidos para aprender con seguridad, precisión y eficacia.</p>
-            </div>
-
-            <div className="bg-[#081322] p-6 rounded-2xl border border-teal-950">
-              <div className="w-10 h-10 rounded-xl bg-amber-400/10 text-amber-400 flex items-center justify-center mb-4 border border-amber-400/20">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <h3 className="text-sm font-bold text-white mb-2">Valores y Disciplina</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">Respeto, compañerismo y mentalidad ganadora para la vida.</p>
-            </div>
-
-            <div className="bg-[#081322] p-6 rounded-2xl border border-teal-950">
-              <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center mb-4 border border-teal-500/20">
-                <Activity className="w-5 h-5" />
-              </div>
-              <h3 className="text-sm font-bold text-white mb-2">Preparación Física</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">Resistencia, velocidad y coordinación motriz adaptada a cada categoría.</p>
-            </div>
-
-            <div className="bg-[#081322] p-6 rounded-2xl border border-teal-950">
-              <div className="w-10 h-10 rounded-xl bg-amber-400/10 text-amber-400 flex items-center justify-center mb-4 border border-amber-400/20">
-                <Award className="w-5 h-5" />
-              </div>
-              <h3 className="text-sm font-bold text-white mb-2">Ligas y Torneos</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">Competencia sana para medir el avance constante del alumno.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FORMULARIO */}
-      <section id="inscripcion" className="py-20">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-gradient-to-b from-[#0a182c] to-[#060d19] border border-teal-900/40 rounded-3xl p-8 sm:p-12 shadow-2xl relative overflow-hidden">
-            <div className="absolute -top-12 -right-12 w-48 h-48 bg-teal-500/15 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="text-center mb-8">
-              <span className="text-xs font-extrabold uppercase text-amber-400 tracking-wider">¡Vacantes Limitadas!</span>
-              <h2 className="text-2xl sm:text-3xl font-black text-white mt-1">Solicita tu Clase de Prueba</h2>
-              <p className="text-xs text-slate-400 mt-2">Completa los datos y te responderemos por WhatsApp para coordinar tu horario.</p>
-            </div>
-
-            <form onSubmit={handleFormSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Nombre del alumno</label>
-                <input 
-                  type="text"
-                  required
-                  placeholder="Ej. Mateo Dioses"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({...formData, nombre: e.target.value})}
-                  className="w-full bg-[#060d19] border border-slate-800 focus:border-teal-400 rounded-xl px-4 py-3 text-sm text-white focus:outline-none transition-colors"
+            {promocionActiva.flyer_url ? (
+              <div className="rounded-2xl overflow-hidden max-h-[55vh] bg-black shadow-inner flex items-center justify-center">
+                <img 
+                  src={promocionActiva.flyer_url} 
+                  alt={promocionActiva.titulo} 
+                  className="w-full h-full object-contain max-h-[55vh]"
                 />
               </div>
+            ) : (
+              <div className="p-8 bg-[#040914] rounded-2xl border border-slate-800 space-y-2">
+                <Sparkles className="w-12 h-12 text-[#F7B52C] mx-auto" />
+                <h3 className="text-xl font-black text-white">{promocionActiva.titulo}</h3>
+                <p className="text-xs text-slate-300">{promocionActiva.descripcion}</p>
+                <span className="inline-block font-mono font-black text-lg text-[#00B4A7] bg-[#00B4A7]/10 px-4 py-1.5 rounded-xl mt-2">
+                  {promocionActiva.valor_beneficio}
+                </span>
+              </div>
+            )}
 
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Edad del alumno</label>
-                  <input 
-                    type="number"
-                    required
-                    placeholder="Ej. 12"
-                    min="4"
-                    max="60"
-                    value={formData.edad}
-                    onChange={(e) => setFormData({...formData, edad: e.target.value})}
-                    className="w-full bg-[#060d19] border border-slate-800 focus:border-teal-400 rounded-xl px-4 py-3 text-sm text-white focus:outline-none transition-colors"
-                  />
+            <div className="space-y-1.5 text-center">
+              <h3 className="text-lg font-black text-white">{promocionActiva.titulo}</h3>
+              {promocionActiva.descripcion && (
+                <p className="text-xs text-slate-300 px-2 leading-relaxed">{promocionActiva.descripcion}</p>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
+              <a
+                href={`https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(
+                  `¡Hola Campeones Lima! Deseo reclamar la promoción: *${promocionActiva.titulo}* (${promocionActiva.valor_beneficio}). ¿Me brindan más información?`
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full sm:w-auto px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 shadow-lg"
+              >
+                <MessageCircle className="w-4 h-4 fill-slate-950" />
+                <span>Reclamar por WhatsApp</span>
+              </a>
+
+              <a
+                href="#ticket-cancha"
+                onClick={() => setMostrarModalFlyer(false)}
+                className="w-full sm:w-auto px-6 py-3 bg-[#F7B52C] hover:bg-[#e6a524] text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 shadow-lg"
+              >
+                <Ticket className="w-4 h-4 text-slate-950" />
+                <span>Reservar Pase Cancha</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CABECERA HERO */}
+      <header className="relative min-h-[92vh] lg:min-h-[96vh] flex items-center justify-center text-center px-4 sm:px-6 pt-28 sm:pt-36 pb-20 overflow-hidden z-10">
+        {heroFotos.length > 0 && (
+          <div className="absolute inset-0 z-0 overflow-hidden">
+            {heroFotos.map((fotoItem, idx) => {
+              const fotoUrl = typeof fotoItem === 'string' 
+                ? fotoItem 
+                : (fotoItem?.url || fotoItem?.imagen || fotoItem?.foto || fotoItem?.src || "");
+
+              if (!fotoUrl) return null;
+
+              const pos = bannerPosiciones[idx];
+              const posX = typeof pos === 'object' && pos !== null ? (pos.x || 50) : 50;
+              const posY = typeof pos === 'object' && pos !== null ? (pos.y || 50) : (Number(pos) || 50);
+
+              return (
+                <div
+                  key={idx}
+                  className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                    idx === fotoActivaIdx ? 'opacity-70 sm:opacity-75 scale-105' : 'opacity-0 scale-100'
+                  }`}
+                  style={{
+                    backgroundImage: `url("${fotoUrl}")`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: `${posX}% ${posY}%`,
+                    transitionProperty: 'opacity, transform',
+                    transitionDuration: '1400ms'
+                  }}
+                />
+              );
+            })}
+            <div className="absolute inset-0 bg-gradient-to-b from-[#040914]/65 via-[#040914]/60 to-[#040914]" />
+          </div>
+        )}
+
+        <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8 relative z-10 w-full">
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black uppercase tracking-tighter leading-tight sm:leading-none text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.95)]">
+            FORMAMOS <br />
+            <span className="italic bg-gradient-to-r from-[#00B4A7] via-[#38bdf8] to-[#F7B52C] bg-clip-text text-transparent filter drop-shadow-[0_2px_15px_rgba(0,180,167,0.4)]">
+              LÍDERES EN LA CANCHA
+            </span> <br className="hidden sm:inline" />
+            PARA TRIUNFAR EN LA VIDA
+          </h1>
+
+          <p className="text-xs sm:text-base lg:text-lg text-slate-100 max-w-2xl mx-auto font-bold leading-relaxed drop-shadow-[0_2px_15px_rgba(0,0,0,0.9)] px-2">
+            Academia deportiva oficial de <strong className="text-[#F7B52C]">básquetbol</strong> y <strong className="text-[#00B4A7]">voleibol</strong> en coliseos techados. Desarrollo físico, disciplina técnica y valores desde los 6 años.
+          </p>
+
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-2">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#071527]/90 border border-slate-700 text-[11px] font-bold text-white backdrop-blur-md shadow-lg">
+              <ShieldCheck className="w-4 h-4 text-[#00B4A7]" /> Coliseos 100% Techados
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#071527]/90 border border-slate-700 text-[11px] font-bold text-white backdrop-blur-md shadow-lg">
+              <Award className="w-4 h-4 text-[#F7B52C]" /> Entrenadores Certificados
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#071527]/90 border border-slate-700 text-[11px] font-bold text-white backdrop-blur-md shadow-lg">
+              <Users className="w-4 h-4 text-cyan-400" /> Formación por Edades
+            </span>
+          </div>
+
+          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-lg mx-auto w-full px-2">
+            <a
+              href="#ticket-cancha"
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-[#F7B52C] to-[#e6a524] hover:from-[#ffc247] hover:to-[#F7B52C] text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center text-center gap-2 shadow-2xl shadow-[#F7B52C]/30 transition-all transform active:scale-98 cursor-pointer"
+            >
+              <Ticket className="w-4 h-4 text-slate-950 shrink-0" />
+              <span className="text-center leading-tight">Reclama tu clase de prueba</span>
+            </a>
+
+            <Link
+              to="/sedes"
+              className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-[#071527]/95 hover:bg-slate-800 border border-slate-600 text-white font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center text-center gap-2 transition-colors cursor-pointer shadow-xl backdrop-blur-md"
+            >
+              <MapPin className="w-4 h-4 text-[#00B4A7]" />
+              <span className="text-center leading-tight">Conocer Nuestras 6 Sedes</span>
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* MARCADOR LED */}
+      <section className="border-y border-slate-800/80 bg-[#071527]/80 py-6 relative z-10 backdrop-blur-md shadow-2xl">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+            <div className="p-4 rounded-2xl bg-[#040914]/80 border border-slate-800 shadow-md">
+              <p className="text-3xl sm:text-4xl font-black text-[#F7B52C] font-mono tracking-tight">+11 Años</p>
+              <p className="text-[11px] sm:text-xs text-slate-300 font-black uppercase tracking-wider mt-1">De Experiencia Oficial</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-[#040914]/80 border border-slate-800 shadow-md">
+              <p className="text-3xl sm:text-4xl font-black text-[#00B4A7] font-mono tracking-tight">+4,000</p>
+              <p className="text-[11px] sm:text-xs text-slate-300 font-black uppercase tracking-wider mt-1">Atletas Formados</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-[#040914]/80 border border-slate-800 shadow-md">
+              <p className="text-3xl sm:text-4xl font-black text-cyan-400 font-mono tracking-tight">+6,766</p>
+              <p className="text-[11px] sm:text-xs text-slate-300 font-black uppercase tracking-wider mt-1">Comunidad en Redes</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-[#040914]/80 border border-slate-800 shadow-md">
+              <p className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight">6 Sedes</p>
+              <p className="text-[11px] sm:text-xs text-slate-300 font-black uppercase tracking-wider mt-1">Coliseos Techados</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* DISCIPLINAS */}
+      {disciplinas.length > 0 && (
+        <section className="py-16 sm:py-24 max-w-6xl mx-auto px-4 sm:px-6 space-y-12 relative z-10">
+          <div className="text-center max-w-2xl mx-auto space-y-2">
+            <span className="text-xs font-black uppercase tracking-widest text-[#00B4A7] bg-[#00B4A7]/10 px-3 py-1 rounded-full border border-[#00B4A7]/30">
+              Disciplinas Formativas
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black uppercase tracking-tight text-white italic">
+              Nuestras Disciplinas Oficiales
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8 items-stretch">
+            {disciplinas.map((disc, idx) => {
+              const tituloReal = disc.nombre || disc.titulo || `Disciplina ${idx + 1}`;
+              const descReal = disc.descripcion || "";
+              const fotoReal = disc.foto || disc.imagen || "";
+              const posY = Number(disc.posicionY ?? 50);
+              const posX = Number(disc.posicionX ?? 50);
+              const esVoley = tituloReal.toLowerCase().includes('voley');
+
+              return (
+                <div 
+                  key={idx} 
+                  className={`rounded-3xl bg-[#071527] border-2 ${
+                    esVoley ? 'border-[#00B4A7]/40 hover:border-[#00B4A7]' : 'border-[#F7B52C]/40 hover:border-[#F7B52C]'
+                  } overflow-hidden shadow-2xl transition-all duration-300 flex flex-col justify-between group hover:-translate-y-1`}
+                >
+                  <div>
+                    <div className="relative aspect-[16/10] overflow-hidden bg-slate-950">
+                      {fotoReal ? (
+                        <img 
+                          src={fotoReal} 
+                          alt={tituloReal} 
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                          style={{ objectPosition: `${posX}% ${posY}%` }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs text-slate-500 font-bold">
+                          Foto en preparación
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#071527] via-transparent to-black/40" />
+                      
+                      <span className={`absolute top-4 left-4 ${
+                        esVoley ? 'bg-[#00B4A7]' : 'bg-[#F7B52C]'
+                      } text-slate-950 font-black text-xs px-3.5 py-1 rounded-full shadow-lg uppercase`}>
+                        {esVoley ? "🏐" : "🏀"} {tituloReal}
+                      </span>
+                    </div>
+
+                    <div className="p-6 sm:p-8 space-y-3">
+                      <h3 className="text-2xl sm:text-3xl font-black text-white uppercase italic tracking-tight">
+                        {tituloReal}
+                      </h3>
+                      {descReal && (
+                        <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                          {descReal}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-6 sm:p-8 pt-0">
+                    <Link 
+                      to="/sedes" 
+                      className={`w-full py-4 px-4 rounded-2xl ${
+                        esVoley ? 'bg-[#00B4A7] hover:bg-[#00c9ba]' : 'bg-[#F7B52C] hover:bg-[#e6a524]'
+                      } text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center text-center gap-2 shadow-lg transition-all`}
+                    >
+                      <span className="text-center leading-tight">
+                        Ver Sedes y Horarios · {tituloReal}
+                      </span>
+                      <ArrowRight className="w-4 h-4 shrink-0" />
+                    </Link>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Disciplina</label>
-                  <select 
-                    value={formData.disciplina}
-                    onChange={(e) => setFormData({...formData, disciplina: e.target.value})}
-                    className="w-full bg-[#060d19] border border-slate-800 focus:border-teal-400 rounded-xl px-4 py-3 text-sm text-white focus:outline-none transition-colors"
-                  >
-                    <option value="Básquetbol">Básquetbol</option>
-                    <option value="Voleibol">Voleibol</option>
-                    <option value="Fútbol">Fútbol Menores</option>
-                    <option value="Adultos Master">Adultos / Master</option>
-                  </select>
-                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* TICKET VIP */}
+      <section id="ticket-cancha" className="py-16 sm:py-24 max-w-4xl mx-auto px-4 sm:px-6 relative z-10">
+        <div className="rounded-3xl bg-[#071527] border-2 border-[#F7B52C]/60 shadow-2xl p-6 sm:p-10 relative overflow-hidden space-y-6">
+          <div className="border-b-2 border-dashed border-slate-800 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#F7B52C]/15 border border-[#F7B52C]/40 text-[10px] font-black text-[#F7B52C] uppercase tracking-wider mb-1.5">
+                <Ticket className="w-3.5 h-3.5" /> Pase Oficial de Cancha
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white italic">
+                Reserva tu Clase Modelo {`· ${tarifaClase}`}
+              </h2>
+            </div>
+
+            <span className={`text-[10px] sm:text-xs font-mono font-black px-3.5 py-1.5 rounded-xl border self-start sm:self-auto ${
+              esClaseGratis 
+                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' 
+                : 'bg-[#F7B52C]/15 text-[#F7B52C] border-[#F7B52C]/40'
+            }`}>
+              VALOR: {tarifaClase}
+            </span>
+          </div>
+
+          {formEnviadoExito ? (
+            <div className="p-6 bg-[#040914] rounded-2xl border border-emerald-500/50 text-center space-y-4 animate-in fade-in">
+              <div className="w-14 h-14 mx-auto rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                <Check className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-xl font-black text-white">¡Solicitud recibida!</h3>
+                <p className="text-xs text-slate-300 max-w-md mx-auto">
+                  Coordinaremos el horario para <strong>{formNombre}</strong> en <strong>{formSede}</strong> ({tarifaClase}).
+                </p>
               </div>
 
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                <a
+                  href={`https://wa.me/${WHATSAPP_PHONE}?text=${mensajeWsPase}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full sm:w-auto inline-flex items-center justify-center text-center gap-2 px-8 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all cursor-pointer"
+                >
+                  <MessageCircle className="w-4 h-4 fill-slate-950 shrink-0" />
+                  <span className="text-center">Confirmar Horario por WhatsApp</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={handleOtraReserva}
+                  className="w-full sm:w-auto inline-flex items-center justify-center text-center gap-2 px-6 py-3.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl border border-slate-700 transition-all cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-center">Hacer otra reserva</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleEnviarPaseCancha} className="space-y-4 text-xs">
+              {errorFormulario && <p role="alert" className="text-red-300">{errorFormulario}</p>}
+              {cargandoDatos && <p role="status">Cargando tarifas…</p>}
+              {sedeSuspendida && <p role="alert" className="text-amber-300 font-bold">⚠️ Las clases de esta sede están suspendidas temporalmente. Selecciona otra sede.</p>}
+              
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Sede Preferida</label>
-                  <select 
-                    value={formData.sede}
-                    onChange={(e) => setFormData({...formData, sede: e.target.value})}
-                    className="w-full bg-[#060d19] border border-slate-800 focus:border-teal-400 rounded-xl px-4 py-3 text-sm text-white focus:outline-none transition-colors"
-                  >
-                    <option value="Mirones / Complejo Tito Drago">Sede Mirones (Tito Drago)</option>
-                    <option value="Liceo Naval / San Miguel">Sede Liceo Naval</option>
-                    <option value="I.E. Libertador / Pueblo Libre">Sede I.E. Libertador</option>
-                  </select>
+                  <label className="block text-slate-300 font-bold mb-1">Nombre del Alumno / Apoderado *:</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Mateo Gómez (o papá de Mateo)"
+                    value={formNombre}
+                    onChange={e => setFormNombre(e.target.value)}
+                    className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 rounded-xl text-white font-bold focus:outline-none"
+                  />
                 </div>
+
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">WhatsApp de Contacto</label>
-                  <input 
+                  <label className="block text-slate-300 font-bold mb-1">Número de WhatsApp *:</label>
+                  <input
                     type="tel"
                     required
                     placeholder="Ej. 987654321"
-                    value={formData.telefono}
-                    onChange={(e) => setFormData({...formData, telefono: e.target.value})}
-                    className="w-full bg-[#060d19] border border-slate-800 focus:border-teal-400 rounded-xl px-4 py-3 text-sm text-white focus:outline-none transition-colors"
+                    value={formTelefono}
+                    onChange={e => setFormTelefono(e.target.value)}
+                    className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 rounded-xl text-white font-mono font-bold focus:outline-none"
                   />
                 </div>
               </div>
 
-              <button 
-                type="submit"
-                className="w-full mt-6 bg-gradient-to-r from-teal-400 to-cyan-400 hover:from-teal-300 hover:to-cyan-300 text-slate-950 font-black py-4 rounded-xl shadow-lg shadow-teal-500/25 transition-all flex items-center justify-center gap-2 transform active:scale-98"
-              >
-                <MessageCircle className="w-5 h-5 fill-slate-950" />
-                Enviar Solicitud a WhatsApp
-              </button>
-            </form>
-          </div>
-        </div>
-      </section>
+              <div className="grid sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Deporte de Interés:</label>
+                  <select
+                    value={formDeporte}
+                    onChange={e => setFormDeporte(e.target.value)}
+                    className="w-full bg-[#040914] border border-slate-800 p-3 rounded-xl text-white font-bold cursor-pointer"
+                  >
+                    <option value="Básquetbol">🏀 Básquetbol</option>
+                    <option value="Voleibol">🏐 Voleibol</option>
+                  </select>
+                </div>
 
-      {/* FAQ */}
-      <section id="faq" className="py-20 bg-[#040812] border-t border-teal-950/40">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-teal-400 mb-2">Preguntas</h2>
-            <p className="text-3xl font-black text-white">Preguntas Frecuentes</p>
-          </div>
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Sede:</label>
+                  <select
+                    value={formSede}
+                    onChange={e => setFormSede(e.target.value)}
+                    className="w-full bg-[#040914] border border-slate-800 p-3 rounded-xl text-white font-bold cursor-pointer text-xs"
+                  >
+                    {sedes.map(s => {
+                      const p = precioValido(preciosClaseModelo[s.nombre]);
+                      const estaSusp = estaSuspendida(s);
+                      return (
+                        <option key={s.id} value={s.nombre} disabled={estaSusp}>
+                          {s.nombre} ({p === 0 ? 'Gratis' : mostrarPrecio(p)}) {estaSusp ? ' - [SUSPENDIDA]' : ''}
+                        </option>
+                      );
+                    })}
+                    <option value="Por Coordinar">Quiero que me recomienden sede</option>
+                  </select>
+                </div>
 
-          <div className="space-y-3">
-            {faqs.map((faq, index) => (
-              <div 
-                key={index}
-                className="bg-[#081322] border border-teal-950 rounded-2xl overflow-hidden"
-              >
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Categoría / Edad:</label>
+                  <select
+                    value={formEdad}
+                    onChange={e => setFormEdad(e.target.value)}
+                    className="w-full bg-[#040914] border border-slate-800 p-3 rounded-xl text-white font-bold cursor-pointer"
+                  >
+                    {categoriasEdades.map(c => (
+                      <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-3">
                 <button
-                  onClick={() => toggleFaq(index)}
-                  className="w-full text-left px-6 py-4 flex items-center justify-between font-bold text-sm text-white hover:text-teal-400 transition-colors"
+                  type="submit"
+                  disabled={enviandoForm || cargandoDatos || Boolean(errorConsulta) || sedeSuspendida}
+                  className="w-full py-4 px-4 bg-gradient-to-r from-[#F7B52C] to-[#e6a524] hover:from-[#ffc247] hover:to-[#F7B52C] text-slate-950 font-black uppercase tracking-wider text-xs sm:text-sm rounded-xl flex items-center justify-center text-center gap-2 shadow-xl shadow-[#F7B52C]/20 transition-all cursor-pointer transform active:scale-98 disabled:opacity-50"
                 >
-                  <span>{faq.q}</span>
-                  {openFaq === index ? (
-                    <ChevronUp className="w-5 h-5 text-teal-400 shrink-0" />
+                  {enviandoForm ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
-                    <ChevronDown className="w-5 h-5 text-slate-500 shrink-0" />
+                    <div className="flex items-center justify-center text-center gap-2">
+                      <Zap className="w-4 h-4 text-slate-950 fill-slate-950 shrink-0" />
+                      <span className="text-center leading-snug">
+                        {sedeSuspendida 
+                          ? 'Sede Suspendida Temporalmente' 
+                          : esClaseGratis 
+                            ? 'Reclama tu clase de prueba' 
+                            : `Solicitar clase de prueba · ${tarifaClase}`}
+                      </span>
+                    </div>
                   )}
                 </button>
-                {openFaq === index && (
-                  <div className="px-6 pb-5 text-xs sm:text-sm text-slate-300 leading-relaxed border-t border-slate-800/60 pt-3">
-                    {faq.a}
-                  </div>
-                )}
               </div>
-            ))}
-          </div>
+            </form>
+          )}
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="bg-[#03060c] border-t border-teal-950/60 py-12 text-slate-400 text-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <img 
-              src="/logo.png" 
-              alt="Logo Campeones Lima" 
-              className="w-8 h-8 object-contain"
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            />
-            <div>
-              <p className="font-black text-white text-sm tracking-tight">CAMPEONES LIMA</p>
-              <p className="text-[11px] text-slate-500">Club & Academia Deportiva · Desde 2015</p>
-            </div>
+      {/* CATÁLOGO DE SEDES */}
+      <section className="py-16 max-w-6xl mx-auto px-4 sm:px-6 space-y-8 relative z-10 border-t border-slate-800/80">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <span className="text-xs font-black uppercase text-[#F7B52C] tracking-wider">
+              Infraestructura Techada
+            </span>
+            <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-tight text-white italic">
+              Nuestras 6 Sedes en Lima
+            </h2>
           </div>
-
-          <div className="flex flex-wrap items-center gap-6 text-slate-300">
-            <Link to="/nosotros" className="hover:text-teal-400">Nosotros</Link>
-            <Link to="/sedes" className="hover:text-teal-400">Sedes</Link>
-            <Link to="/eventos" className="hover:text-teal-400">Eventos</Link>
-            <Link to="/tienda" className="hover:text-teal-400">Tienda</Link>
-            <Link to="/trabaja" className="hover:text-teal-400">Trabaja con Nosotros</Link>
-            <a 
-              href={`https://wa.me/${WHATSAPP_PHONE}`} 
-              target="_blank" 
-              rel="noreferrer" 
-              className="hover:text-teal-400 flex items-center gap-1.5"
-            >
-              <Phone className="w-3.5 h-3.5 text-teal-400" /> +51 963 896 985
-            </a>
-          </div>
-
-          <p className="text-slate-600 text-center md:text-right">
-            © {new Date().getFullYear()} Campeones Lima. Todos los derechos reservados.
-          </p>
+          <Link to="/sedes" className="text-xs font-bold text-[#00B4A7] hover:underline flex items-center gap-1 self-start sm:self-auto">
+            <span>Ver fotos, canchas y mapa de todas las sedes</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
-      </footer>
 
-      {/* BOTÓN FLOTANTE DE WHATSAPP */}
-      <a
-        href={`https://wa.me/${WHATSAPP_PHONE}?text=Hola%20Campeones%20Lima,%20deseo%20más%20información`}
-        target="_blank"
-        rel="noreferrer"
-        className="fixed bottom-6 right-6 z-50 bg-[#25D366] hover:bg-[#20ba59] text-white p-4 rounded-full shadow-2xl shadow-green-500/30 flex items-center justify-center transition-all transform hover:scale-110 active:scale-95"
-        aria-label="Contactar por WhatsApp"
-      >
-        <MessageCircle className="w-7 h-7 fill-white stroke-none" />
-      </a>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sedes.slice(0, 3).map((s) => (
+            <div key={s.id} className="bg-[#071527] border border-slate-800 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group">
+              <div>
+                <div className="relative aspect-video bg-slate-950 overflow-hidden">
+                  <img src={s.foto_principal || (s.imagenes && s.imagenes[0]) || ""} alt={s.nombre} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  
+                  <span className="absolute top-3 left-3 bg-[#00B4A7] text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded shadow">
+                    📍 {s.distrito}
+                  </span>
 
+                  {estaSuspendida(s) && (
+                    <span className="absolute top-3 right-3 bg-red-600 text-white font-black text-[10px] px-2.5 py-0.5 rounded shadow flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" /> Suspendida
+                    </span>
+                  )}
+                </div>
+                <div className="p-5 space-y-1.5">
+                  <h3 className="font-black text-white text-base">{s.nombre}</h3>
+                  <p className="text-xs text-slate-400 truncate">{s.direccion}</p>
+                </div>
+              </div>
+
+              <div className="p-5 pt-0">
+                <Link to={`/sedes/${s.id}`} className="w-full py-2.5 px-4 rounded-xl bg-[#040914] hover:bg-[#00B4A7] hover:text-slate-950 text-white font-bold text-xs flex items-center justify-center text-center gap-1.5 border border-slate-700 transition-colors">
+                  <span className="text-center">Ver Horarios & Tarifas</span>
+                  <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <Footer />
     </div>
+  );
+}
+
+function EnrutadorConScroll() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#040914] grid place-items-center" role="status">Cargando…</div>}>
+      <Routes>
+        <Route path="/" element={<PaginaInicio />} />
+        <Route path="/sedes" element={<Sedes />} />
+        <Route path="/sedes/:id" element={<SedeDetalle />} />
+        <Route path="/nosotros" element={<Nosotros />} />
+        <Route path="/tienda" element={<Tienda />} />
+        <Route path="/trabaja" element={<TrabajaConNosotros />} />
+        <Route path="/eventos" element={<Eventos />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/terminos" element={<Terminos />} />
+        <Route path="*" element={<NoEncontrado />} />
+      </Routes>
+    </Suspense>
   );
 }
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <ScrollToTop />
-      <Routes>
-        <Route path="/" element={<Inicio />} />
-        <Route path="/nosotros" element={<Nosotros />} />
-        <Route path="/sedes" element={<SedesPage />} />
-        <Route path="/eventos" element={<EventosPage />} />
-        <Route path="/tienda" element={<TiendaPage />} />
-        <Route path="/trabaja" element={<TrabajaConNosotros />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-      </Routes>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <EnrutadorConScroll />
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }

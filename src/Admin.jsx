@@ -1,105 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
-import { supabase } from './supabase';
-
+import { useState } from 'react';
+import { ExternalLink, Loader2, Menu, X } from 'lucide-react';
+import { AuthProvider } from './admin/AuthContext';
+import { useAuth } from './admin/auth';
+import { MODULOS, tienePermiso } from './domain';
+import Login from './admin/Login';
 import AdminSidebar from './admin/AdminSidebar';
+import AdminDashboard from './admin/AdminDashboard';
 import AdminInicio from './admin/AdminInicio';
 import AdminSedes from './admin/AdminSedes';
-import AdminNosotros from './admin/AdminNosotros';
-import AdminPreciosPromos from './admin/AdminPreciosPromos';
-import AdminPagos from './admin/AdminPagos';
+import AdminEventos from './admin/AdminEventos';
 import AdminTienda from './admin/AdminTienda';
+import AdminNosotros from './admin/AdminNosotros';
+import AdminProspectos from './admin/AdminProspectos';
+import AdminPagos from './admin/AdminPagos';
 import AdminTrabaja from './admin/AdminTrabaja';
 import AdminTerminos from './admin/AdminTerminos';
-import AdminProspectos from './admin/AdminProspectos';
-import AdminEventos from './admin/AdminEventos';
+import AdminPreciosPromos from './admin/AdminPreciosPromos';
 import AdminUsuarios from './admin/AdminUsuarios';
 
-export default function AdminDashboard() {
-  const [usuario, setUsuario] = useState(null);
-  const [rolUsuario, setRolUsuario] = useState('ministro');
-  const [nombreAdmin, setNombreAdmin] = useState('');
-  const [cargandoSesion, setCargandoSesion] = useState(true);
-
-  const [seccionActiva, setSeccionActiva] = useState('inicio_web');
-
-  useEffect(() => {
-    async function validarAcceso() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        window.location.href = '/login';
-        return;
-      }
-
-      const emailLimpio = session.user.email.toLowerCase().trim();
-      const { data: adminData } = await supabase
-        .from('admin_usuarios')
-        .select('*')
-        .eq('email', emailLimpio)
-        .maybeSingle();
-
-      if (adminData) {
-        if (adminData.estado === 'inactivo') {
-          await supabase.auth.signOut();
-          window.location.href = '/login';
-          return;
-        }
-        setRolUsuario(adminData.rol || 'ministro');
-        setNombreAdmin(adminData.nombre || adminData.email);
-      } else if (emailLimpio === 'diosalexanderjesus@gmail.com') {
-        setRolUsuario('rey');
-        setNombreAdmin('Alexander Dios (Rey)');
-      } else {
-        await supabase.auth.signOut();
-        window.location.href = '/login';
-        return;
-      }
-
-      setUsuario(session.user);
-      setCargandoSesion(false);
-    }
-    validarAcceso();
-  }, []);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/login';
-  };
-
-  if (cargandoSesion) {
-    return (
-      <div className="min-h-screen bg-[#040812] flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-[#00B4A7] animate-spin" />
-      </div>
-    );
+const PANELES = { inicio: AdminInicio, sedes: AdminSedes, eventos: AdminEventos, tienda: AdminTienda, nosotros: AdminNosotros, prospectos: AdminProspectos, pagos: AdminPagos, trabaja: AdminTrabaja, terminos: AdminTerminos, precios: AdminPreciosPromos, categorias: AdminPreciosPromos, usuarios: AdminUsuarios };
+function PanelAdmin() {
+  const { usuario, cargando, errorAcceso } = useAuth();
+  const [seleccion, setSeleccion] = useState('dashboard');
+  const [menuAbierto, setMenuAbierto] = useState(false);
+  const pestañaActiva = tienePermiso(usuario, seleccion) ? seleccion : MODULOS.find(m => tienePermiso(usuario, m));
+  const Panel = PANELES[pestañaActiva];
+  function cambiarPestaña(modulo) {
+    if (tienePermiso(usuario, modulo)) { setSeleccion(modulo); setMenuAbierto(false); }
   }
-
-  const esRey = rolUsuario === 'rey' || usuario?.email?.toLowerCase() === 'diosalexanderjesus@gmail.com';
-
-  return (
-    <div className="min-h-screen bg-[#040812] text-slate-100 flex flex-col md:flex-row font-sans">
-      <AdminSidebar 
-        seccionActiva={seccionActiva}
-        setSeccionActiva={setSeccionActiva}
-        esRey={esRey}
-        nombreAdmin={nombreAdmin}
-        usuario={usuario}
-        onLogout={handleLogout}
-      />
-
-      <main className="flex-1 p-6 sm:p-10 overflow-y-auto">
-        {seccionActiva === 'inicio_web' && <AdminInicio />}
-        {seccionActiva === 'sedes' && <AdminSedes />}
-        {seccionActiva === 'nosotros' && <AdminNosotros />}
-        {seccionActiva === 'precios' && <AdminPreciosPromos />}
-        {seccionActiva === 'pagos' && <AdminPagos />}
-        {seccionActiva === 'tienda' && <AdminTienda />}
-        {seccionActiva === 'trabaja' && <AdminTrabaja />}
-        {seccionActiva === 'terminos' && <AdminTerminos />}
-        {seccionActiva === 'prospectos' && <AdminProspectos />}
-        {seccionActiva === 'eventos' && <AdminEventos />}
-        {seccionActiva === 'administradores' && esRey && <AdminUsuarios usuarioActual={usuario} />}
+  if (cargando) return <div className="min-h-screen bg-[#040914] grid place-items-center"><Loader2 className="animate-spin text-[#00B4A7]" aria-label="Verificando acceso" /></div>;
+  if (!usuario) return <Login />;
+  return <div className="min-h-screen bg-[#040914] text-slate-100 font-sans flex flex-col">
+    <header className="border-b border-slate-800 bg-[#071527] sticky top-0 z-40 px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <button className="lg:hidden" aria-label="Abrir menú administrativo" aria-expanded={menuAbierto} onClick={() => setMenuAbierto(!menuAbierto)}>{menuAbierto ? <X /> : <Menu />}</button>
+        <img src="/logo.png" alt="Campeones Lima" className="w-8 h-8 object-contain" />
+        <h1 className="text-sm font-black">CAMPEONES LIMA <span className="text-[#F7B52C]">ADMIN</span></h1>
+      </div>
+      <a href="/" target="_blank" rel="noreferrer" className="text-xs flex items-center gap-1">Ver Web Pública <ExternalLink className="w-4 h-4" /></a>
+    </header>
+    {errorAcceso && <p role="alert" className="p-4 text-red-300">{errorAcceso}</p>}
+    <div className="flex-1 flex min-w-0">
+      <div className={`${menuAbierto ? 'block fixed inset-y-14 left-0 z-40 shadow-2xl' : 'hidden'} lg:block lg:static`}>
+        <AdminSidebar pestañaActiva={pestañaActiva} setPestañaActiva={cambiarPestaña} />
+      </div>
+      <main className="flex-1 min-w-0 p-4 sm:p-8 overflow-x-auto">
+        {pestañaActiva === 'dashboard' ? <AdminDashboard alCambiarPestaña={cambiarPestaña} /> : Panel ? <Panel /> : <p>No tienes módulos asignados.</p>}
       </main>
     </div>
-  );
+  </div>;
 }
+export default function Admin() { return <AuthProvider><PanelAdmin /></AuthProvider>; }

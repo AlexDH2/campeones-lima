@@ -1,39 +1,41 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" class="dark">
   <head>
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#060d19" />
-
-    <!-- Título y Descripción SEO -->
+    <meta name="theme-color" content="#040914" />
+    
+    <!-- Metadatos oficiales para compartir en WhatsApp y Redes -->
     <title>Campeones Lima | Club y Academia Deportiva</title>
-    <meta 
-      name="description" 
-      content="Academia formativa y de alto rendimiento en Básquetbol, Voleibol y Fútbol en Lima para niños, jóvenes y adultos. Fundada en 2015." 
-    />
-    <meta name="author" content="Campeones Lima" />
-
-    <!-- Vista previa al compartir por WhatsApp, Facebook y Redes Sociales (Open Graph) -->
+    <meta name="description" content="Formamos líderes en la cancha, para triunfar en la vida. Entrenamientos en coliseos cerrados en Lima para Básquetbol y Voleibol." />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://campeones-lima.vercel.app/" />
     <meta property="og:title" content="Campeones Lima | Club y Academia Deportiva" />
-    <meta 
-      property="og:description" 
-      content="Formamos atletas con pasión, desarrollamos campeones. Conoce nuestras sedes, torneos y clases de prueba en Lima." 
-    />
-    <meta property="og:image" content="https://campeones-lima.vercel.app/logo.png" />
+    <meta property="og:description" content="Academia formativa de básquetbol y vóley en San Miguel, Pueblo Libre y Cercado de Lima. Solicita tu clase de prueba." />
+    <meta property="og:image" content="/logo.png" />
+    <meta property="og:url" content="https://campeones-lima.vercel.app" />
 
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Campeones Lima | Club y Academia Deportiva" />
-    <meta 
-      name="twitter:description" 
-      content="Academia formativa y competitiva en Básquetbol, Voleibol y Fútbol en Lima. Desde 2015." 
-    />
-    <meta name="twitter:image" content="https://campeones-lima.vercel.app/logo.png" />
+    <!-- Enlace PWA -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Fuente Atlética Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+    <script>
+      (function() {
+        var temaGuardado; try { temaGuardado = localStorage.getItem('tema_campeones'); } catch (e) { temaGuardado = 'oscuro'; }
+        if (temaGuardado === 'claro') {
+          document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
   </head>
-  <body>
+  <body class="bg-[#040914] text-slate-100 antialiased font-['Outfit',sans-serif]">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

@@ -1,314 +1,309 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { 
-  Trophy, 
   MapPin, 
-  Clock, 
-  CheckCircle2, 
-  MessageCircle, 
-  ExternalLink, 
-  Phone, 
+  ArrowRight, 
+  Search, 
   Sparkles, 
-  Filter, 
-  ShieldCheck, 
-  Navigation,
-  Bus,
-  Layers,
-  ArrowLeft,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Image as ImageIcon
+  Loader2, 
+  Image as ImageIcon, 
+  AlertTriangle 
 } from 'lucide-react';
+import Navbar from './Navbar';
+import Footer from './Footer';
+import { useTheme } from './ThemeContext';
 import { supabase } from './supabase';
+import { estaSuspendida } from './domain';
 
-// Componente Carrusel para las fotos de cada sede (cambio automático cada 4s)
-function SedeImageSlider({ imagenes, nombreSede }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  useEffect(() => {
-    if (!imagenes || imagenes.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % imagenes.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [imagenes]);
-
-  const prevSlide = (e) => {
-    e.stopPropagation();
-    setCurrentIndex((prev) => (prev === 0 ? imagenes.length - 1 : prev - 1));
-  };
-
-  const nextSlide = (e) => {
-    e.stopPropagation();
-    setCurrentIndex((prev) => (prev + 1) % imagenes.length);
-  };
-
-  if (!imagenes || imagenes.length === 0) return null;
-
-  return (
-    <div className="relative w-full h-56 sm:h-64 bg-[#060d19] rounded-2xl overflow-hidden mb-5 border border-teal-950 group">
-      <img 
-        src={imagenes[currentIndex]} 
-        alt={`${nombreSede} - foto ${currentIndex + 1}`}
-        className="w-full h-full object-cover transition-all duration-500 transform group-hover:scale-105"
-        onError={(e) => {
-          e.currentTarget.src = "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=600&auto=format&fit=crop&q=60";
-        }}
-      />
-
-      {/* Flechas de navegación (si tiene más de 1 foto) */}
-      {imagenes.length > 1 && (
-        <>
-          <button 
-            onClick={prevSlide}
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-slate-950/70 hover:bg-teal-500 hover:text-slate-950 text-white p-1.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-            aria-label="Anterior"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button 
-            onClick={nextSlide}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-950/70 hover:bg-teal-500 hover:text-slate-950 text-white p-1.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-            aria-label="Siguiente"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-
-          {/* Indicadores de puntos inferiores */}
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-slate-950/60 px-2.5 py-1 rounded-full backdrop-blur-sm">
-            {imagenes.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentIndex(idx)}
-                className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
-                  currentIndex === idx ? 'bg-teal-400 w-4' : 'bg-slate-500'
-                }`}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-export default function SedesPage() {
-  const WHATSAPP_PHONE = "51963896985";
-  const [distritoFiltro, setDistritoFiltro] = useState('todos');
-  const [deporteFiltro, setDeporteFiltro] = useState('todos');
-  const [sedesData, setSedesData] = useState([]);
+export default function Sedes() {
+  const { esOscuro = true } = useTheme();
+  const [sedes, setSedes] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [busqueda, setBusqueda] = useState('');
+  const [distritoFiltro, setDistritoFiltro] = useState('TODOS');
 
-  const location = useLocation();
-  const vieneDeAdmin = new URLSearchParams(location.search).get('from') === 'admin';
+  const [canchasFondo, setCanchasFondo] = useState([]);
+  const [canchaActivaIdx, setCanchaActivaIdx] = useState(0);
 
   useEffect(() => {
-    async function cargarSedes() {
+    async function cargarSedesYFondo() {
       try {
-        const { data, error } = await supabase
-          .from('sedes')
-          .select('*')
-          .order('created_at', { ascending: true });
+        const [resSedes, resConfig] = await Promise.all([
+          supabase.from('sedes').select('*').order('created_at', { ascending: true }),
+          supabase.from('configuracion_web').select('valor').eq('clave', 'banner_canchas_sedes').maybeSingle()
+        ]);
 
-        if (!error && data) {
-          setSedesData(data);
+        if (resSedes.data && resSedes.data.length > 0) {
+          setSedes(resSedes.data);
+        }
+
+        if (resConfig.data?.valor && Array.isArray(resConfig.data.valor) && resConfig.data.valor.length > 0) {
+          setCanchasFondo(resConfig.data.valor);
+        } else if (resSedes.data && resSedes.data.length > 0) {
+          const listaCanchas = [];
+          resSedes.data.forEach(s => {
+            const fotosSede = Array.isArray(s.imagenes) && s.imagenes.length > 0 
+              ? s.imagenes 
+              : [s.foto_principal].filter(Boolean);
+
+            fotosSede.forEach(itemFoto => {
+              const urlFoto = typeof itemFoto === 'string' ? itemFoto : (itemFoto?.url || itemFoto?.imagen || '');
+              if (!urlFoto) return;
+
+              const pos = s.posiciones_fotos?.[urlFoto];
+              listaCanchas.push({
+                url: urlFoto,
+                sedeNombre: s.nombre,
+                distrito: s.distrito,
+                posX: typeof pos === 'object' && pos !== null ? (pos.x || 50) : 50,
+                posY: typeof pos === 'object' && pos !== null ? (pos.y || 50) : (Number(pos) || 50)
+              });
+            });
+          });
+
+          setCanchasFondo(listaCanchas);
         }
       } catch (err) {
-        console.error("Error al cargar sedes:", err);
+        console.error("Error al cargar sedes y fondo:", err);
       } finally {
         setCargando(false);
       }
     }
-    cargarSedes();
+    cargarSedesYFondo();
   }, []);
 
-  const sedesFiltradas = sedesData.filter((sede) => {
-    const coincideDistrito = distritoFiltro === 'todos' || sede.distrito.toLowerCase().includes(distritoFiltro.toLowerCase());
-    const coincideDeporte = deporteFiltro === 'todos' || (sede.disciplinas && sede.disciplinas.some(d => d.toLowerCase().includes(deporteFiltro.toLowerCase())));
-    return coincideDistrito && coincideDeporte;
+  useEffect(() => {
+    if (canchasFondo.length <= 1) return;
+    const timer = setInterval(() => {
+      setCanchaActivaIdx(prev => (prev + 1) % canchasFondo.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [canchasFondo.length]);
+
+  const canchaActual = canchasFondo[canchaActivaIdx] || null;
+  const distritosDisponibles = Array.from(new Set(sedes.map(s => s.distrito).filter(Boolean)));
+
+  const sedesFiltradas = sedes.filter(s => {
+    const coincideTexto = s.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
+                          s.distrito?.toLowerCase().includes(busqueda.toLowerCase()) ||
+                          s.direccion?.toLowerCase().includes(busqueda.toLowerCase());
+
+    const coincideDistrito = distritoFiltro === 'TODOS' || s.distrito === distritoFiltro;
+    return coincideTexto && coincideDistrito;
   });
 
   return (
-    <div className="min-h-screen bg-[#060d19] text-slate-100 font-sans selection:bg-teal-400 selection:text-slate-950">
-      
-      {vieneDeAdmin && (
-        <div className="fixed top-0 left-0 w-full z-50 bg-gradient-to-r from-amber-500 via-teal-500 to-cyan-500 text-slate-950 px-4 py-2 text-xs font-black flex items-center justify-between shadow-xl">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4" /> Modo Previsualización: Sedes en vivo
-          </div>
-          <Link 
-            to="/admin" 
-            className="bg-slate-950 hover:bg-slate-900 text-white px-3.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Volver al Panel de Admin
-          </Link>
-        </div>
-      )}
+    <div className={`min-h-screen font-sans transition-colors duration-300 relative overflow-hidden ${
+      esOscuro ? 'bg-[#040914] text-slate-100' : 'bg-slate-50 text-slate-900'
+    }`}>
+      <Navbar />
 
-      {/* NAVBAR */}
-      <nav className={`fixed left-0 w-full z-40 bg-[#060d19]/90 backdrop-blur-md border-b border-teal-950/60 transition-all ${vieneDeAdmin ? 'top-8' : 'top-0'}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <img src="/logo.png" alt="Logo" className="w-11 h-11 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xl font-black text-white">CAMPEONES <span className="text-amber-400">LIMA</span></span>
+      {/* CABECERA PANORÁMICA DE CANCHAS */}
+      <header className="relative min-h-[60vh] sm:min-h-[72vh] flex items-center justify-center text-center px-4 sm:px-6 pt-32 pb-20 overflow-hidden z-10 border-b border-slate-800">
+        {canchasFondo.length > 0 && (
+          <div className="absolute inset-0 z-0 overflow-hidden">
+            {canchasFondo.map((cancha, idx) => (
+              <div
+                key={idx}
+                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                  idx === canchaActivaIdx ? 'opacity-95 sm:opacity-100 scale-105' : 'opacity-0 scale-100'
+                }`}
+                style={{
+                  backgroundImage: `url("${cancha.url}")`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: `${cancha.posX || 50}% ${cancha.posY || 50}%`,
+                  transitionProperty: 'opacity, transform',
+                  transitionDuration: '1600ms'
+                }}
+              />
+            ))}
+
+            <div className="absolute inset-0 bg-black/30" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#040914] via-[#040914]/20 to-[#040914]/45" />
+          </div>
+        )}
+
+        <div className="max-w-4xl mx-auto space-y-6 relative z-10 w-full">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#071527]/90 border border-slate-700 shadow-2xl backdrop-blur-md">
+            <Sparkles className="w-3.5 h-3.5 text-[#F7B52C]" />
+            <span className="text-[11px] font-black uppercase tracking-wider text-[#00B4A7]">
+              Infraestructura Oficial Techada
+            </span>
+          </div>
+
+          <h1 className="text-4xl sm:text-6xl font-black uppercase tracking-tight text-white italic drop-shadow-[0_4px_35px_rgba(0,0,0,0.95)]">
+            Nuestras Canchas & Sedes
+          </h1>
+
+          <p className="text-xs sm:text-base text-slate-100 max-w-2xl mx-auto font-bold leading-relaxed drop-shadow-[0_2px_15px_rgba(0,0,0,0.95)] px-2">
+            Entrena en coliseos techados de primer nivel con piso protegido, tableros oficiales e iluminación profesional en los principales distritos de Lima.
+          </p>
+
+          {canchaActual && (
+            <div className="pt-2 flex items-center justify-center gap-2">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#071527]/95 border border-slate-700 backdrop-blur-md shadow-2xl text-xs">
+                <span className="w-2 h-2 rounded-full bg-[#00B4A7] animate-pulse" />
+                <span className="text-slate-300 font-bold">Cancha en pantalla:</span>
+                <strong className="text-white uppercase tracking-wide">{canchaActual.sedeNombre || 'Coliseo Oficial'}</strong>
+                {canchaActual.distrito && (
+                  <span className="text-[#F7B52C] font-mono font-bold">({canchaActual.distrito})</span>
+                )}
               </div>
-              <p className="text-[10px] text-slate-400 uppercase font-semibold">Club & Academia Deportiva</p>
-            </div>
-          </Link>
-
-          <div className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-300">
-            <Link to="/" className="hover:text-teal-400 transition-colors">Inicio</Link>
-            <Link to="/nosotros" className="hover:text-teal-400 transition-colors">Nosotros</Link>
-            <Link to="/sedes" className="text-teal-400 font-bold">Sedes</Link>
-            <Link to="/eventos" className="hover:text-teal-400 transition-colors">Eventos</Link>
-            <Link to="/tienda" className="hover:text-teal-400 transition-colors">Tienda</Link>
-            <Link to="/trabaja" className="hover:text-teal-400 transition-colors">Trabaja con Nosotros</Link>
-          </div>
-
-          <a 
-            href={`https://wa.me/${WHATSAPP_PHONE}?text=Hola,%20deseo%20consultar%20vacantes%20en%20sus%20sedes`}
-            target="_blank"
-            rel="noreferrer"
-            className="bg-gradient-to-r from-teal-400 to-cyan-400 text-slate-950 font-extrabold px-5 py-2.5 rounded-xl text-sm"
-          >
-            Clase de Prueba
-          </a>
-        </div>
-      </nav>
-
-      {/* HEADER */}
-      <section className={`pb-16 text-center ${vieneDeAdmin ? 'pt-44' : 'pt-36'}`}>
-        <h1 className="text-4xl sm:text-6xl font-black text-white">Nuestras <span className="text-teal-300">Sedes y Horarios</span></h1>
-        <p className="mt-4 text-slate-300 text-sm">Entrenamientos en coliseos cerrados y complejos de primer nivel en Lima.</p>
-      </section>
-
-      {/* LISTADO DE SEDES */}
-      <section className="py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {cargando ? (
-            <div className="text-center py-20">
-              <Loader2 className="w-10 h-10 text-teal-400 animate-spin mx-auto mb-3" />
-              <p className="text-sm text-slate-400">Cargando sedes...</p>
-            </div>
-          ) : sedesFiltradas.length === 0 ? (
-            <div className="text-center py-20 bg-[#081322] border border-slate-800 rounded-3xl p-8 max-w-md mx-auto">
-              <MapPin className="w-12 h-12 text-teal-400/50 mx-auto mb-3" />
-              <h3 className="text-lg font-bold text-white mb-1">Próximamente nuevas sedes</h3>
-              <p className="text-xs text-slate-400 mb-6">Estamos actualizando los horarios y sedes de la temporada.</p>
-              <a 
-                href={`https://wa.me/${WHATSAPP_PHONE}?text=Hola%20Campeones%20Lima,%20deseo%20consultar%20por%20sedes%20cercanas`}
-                target="_blank"
-                rel="noreferrer"
-                className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-xs"
-              >
-                Consultar por WhatsApp
-              </a>
-            </div>
-          ) : (
-            <div className="space-y-12">
-              {sedesFiltradas.map((sede) => (
-                <div key={sede.id} className="bg-[#081322] border border-teal-900/40 rounded-3xl p-6 sm:p-10 shadow-2xl">
-                  
-                  {/* CARRUSEL DE FOTOS DE LA SEDE (SI TIENE IMÁGENES CARGADAS) */}
-                  {sede.imagenes && sede.imagenes.length > 0 && (
-                    <SedeImageSlider imagenes={sede.imagenes} nombreSede={sede.nombre} />
-                  )}
-
-                  <div className="grid lg:grid-cols-12 gap-8 items-start">
-                    <div className="lg:col-span-7 space-y-4">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-teal-500/10 text-teal-300 border border-teal-500/30">
-                        <MapPin className="w-3.5 h-3.5" /> {sede.distrito}
-                      </span>
-                      <h2 className="text-2xl sm:text-3xl font-black text-white">{sede.nombre}</h2>
-                      <p className="text-xs sm:text-sm text-slate-300 font-semibold">{sede.direccion}</p>
-                      {sede.referencia && <p className="text-xs text-slate-400">{sede.referencia}</p>}
-
-                      {sede.disciplinas && sede.disciplinas.length > 0 && (
-                        <div className="pt-2">
-                          <p className="text-xs font-bold uppercase text-slate-400 mb-2">Disciplinas:</p>
-                          <div className="flex flex-wrap gap-2">
-                            {sede.disciplinas.map((d, i) => (
-                              <span key={i} className="text-xs font-bold px-3 py-1 rounded-lg bg-[#0d1f36] text-teal-300 border border-teal-900/60">
-                                {d}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {sede.instalaciones && (
-                        <div className="pt-2">
-                          <p className="text-xs font-bold uppercase text-slate-400 mb-1">Instalaciones:</p>
-                          <p className="text-xs text-slate-300 leading-relaxed">{sede.instalaciones}</p>
-                        </div>
-                      )}
-
-                      <div className="pt-4 flex flex-wrap items-center gap-3">
-                        <a 
-                          href={`https://wa.me/${WHATSAPP_PHONE}?text=Hola,%20deseo%20inscribirme%20en%20la%20${encodeURIComponent(sede.nombre)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="bg-gradient-to-r from-teal-400 to-cyan-400 text-slate-950 font-black px-6 py-3 rounded-xl text-xs"
-                        >
-                          Inscribirme en esta Sede
-                        </a>
-                        {sede.maps && (
-                          <a href={sede.maps} target="_blank" rel="noreferrer" className="bg-[#0a182b] text-slate-200 font-bold px-4 py-3 rounded-xl border border-slate-700 text-xs flex items-center gap-1.5">
-                            Ver Maps <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="lg:col-span-5 bg-[#0a182b]/80 border border-slate-800 rounded-2xl p-6 space-y-3">
-                      <div className="flex items-center gap-2 border-b border-slate-800 pb-3 text-white font-bold text-xs uppercase tracking-wider">
-                        <Clock className="w-4 h-4 text-amber-400" /> Horarios de Entrenamiento
-                      </div>
-                      {sede.horarios && sede.horarios.length > 0 ? (
-                        sede.horarios.map((h, idx) => (
-                          <div key={idx} className="bg-[#060d19] p-3 rounded-xl border border-teal-950/60">
-                            <p className="text-xs font-bold text-amber-300">{h.dias} — <span className="text-teal-300">{h.horas}</span></p>
-                            <p className="text-xs text-slate-300 mt-0.5">{h.grupo}</p>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-xs text-slate-400 py-2">Horarios en coordinación.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
           )}
         </div>
+      </header>
+
+      {/* FILTROS */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-6 relative z-10">
+        <div className={`p-4 sm:p-5 rounded-2xl border shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+          esOscuro ? 'bg-[#071527] border-slate-800' : 'bg-white border-slate-200'
+        }`}>
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Buscar sede por nombre, distrito o dirección..."
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-xs font-bold border transition-colors focus:outline-none focus:border-[#00B4A7] ${
+                esOscuro ? 'bg-[#040914] border-slate-800 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400'
+              }`}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setDistritoFiltro('TODOS')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                distritoFiltro === 'TODOS'
+                  ? 'bg-[#00B4A7] text-slate-950 border-[#00B4A7] shadow'
+                  : esOscuro ? 'bg-[#040914] text-slate-400 border-slate-800 hover:text-white' : 'bg-slate-100 text-slate-700 border-slate-300 hover:text-slate-950'
+              }`}
+            >
+              Todos ({sedes.length})
+            </button>
+
+            {distritosDisponibles.map((dist, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setDistritoFiltro(dist)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                  distritoFiltro === dist
+                    ? 'bg-[#F7B52C] text-slate-950 border-[#F7B52C] shadow'
+                    : esOscuro ? 'bg-[#040914] text-slate-400 border-slate-800 hover:text-white' : 'bg-slate-100 text-slate-700 border-slate-300 hover:text-slate-950'
+                }`}
+              >
+                {dist}
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="bg-[#03060c] border-t border-teal-950/60 py-10 text-slate-400 text-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-            <div>
-              <p className="font-black text-white text-sm">CAMPEONES LIMA</p>
-              <p className="text-[11px] text-slate-500">Club & Academia Deportiva · Desde 2015</p>
-            </div>
+      {/* CATÁLOGO DE SEDES */}
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 pb-24 relative z-10">
+        {cargando ? (
+          <div className="p-20 text-center space-y-3">
+            <Loader2 className="w-10 h-10 text-[#00B4A7] animate-spin mx-auto" />
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Cargando Sedes y Canchas...</p>
           </div>
-          <div className="flex flex-wrap items-center gap-6 text-slate-300">
-            <Link to="/" className="hover:text-teal-400">Inicio</Link>
-            <Link to="/nosotros" className="hover:text-teal-400">Nosotros</Link>
-            <Link to="/sedes" className="text-teal-400 font-bold">Sedes</Link>
-            <Link to="/eventos" className="hover:text-teal-400">Eventos</Link>
-            <Link to="/tienda" className="hover:text-teal-400">Tienda</Link>
-            <a href={`https://wa.me/${WHATSAPP_PHONE}`} target="_blank" rel="noreferrer" className="hover:text-teal-400 flex items-center gap-1.5">
-              <Phone className="w-3.5 h-3.5 text-teal-400" /> +51 963 896 985
-            </a>
+        ) : sedesFiltradas.length === 0 ? (
+          <div className={`p-16 text-center rounded-3xl border border-dashed text-xs space-y-2 ${
+            esOscuro ? 'bg-[#071527] border-slate-800 text-slate-400' : 'bg-white border-slate-300 text-slate-600'
+          }`}>
+            <p className={`text-base font-black ${esOscuro ? 'text-white' : 'text-slate-900'}`}>No se encontraron sedes con esos filtros</p>
           </div>
-          <p className="text-slate-600 text-center md:text-right">© {new Date().getFullYear()} Campeones Lima.</p>
-        </div>
-      </footer>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {sedesFiltradas.map((s) => {
+              const fotos = Array.isArray(s.imagenes) && s.imagenes.length > 0 
+                ? s.imagenes 
+                : [s.foto_principal].filter(Boolean);
+
+              const fotoPortada = s.foto_principal || fotos[0] || '';
+              const pos = s.posiciones_fotos?.[fotoPortada];
+              const posX = typeof pos === 'object' && pos !== null ? (pos.x || 50) : 50;
+              const posY = typeof pos === 'object' && pos !== null ? (pos.y || 50) : (Number(pos) || 50);
+              const suspendida = estaSuspendida(s);
+
+              return (
+                <div key={s.id} className={`border rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group transition-all duration-300 ${
+                  esOscuro ? 'bg-[#071527] border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-slate-300'
+                }`}>
+                  <div>
+                    <div className="relative aspect-video bg-slate-950 overflow-hidden">
+                      {fotoPortada ? (
+                        <img 
+                          src={fotoPortada} 
+                          alt={s.nombre} 
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                          style={{ objectPosition: `${posX}% ${posY}%` }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs font-bold">
+                          Foto en preparación
+                        </div>
+                      )}
+                      
+                      <span className="absolute top-3 left-3 bg-[#00B4A7] text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded shadow">
+                        📍 {s.distrito}
+                      </span>
+
+                      {suspendida && (
+                        <span className="absolute top-3 right-3 bg-red-600 text-white font-black text-[10px] px-2.5 py-0.5 rounded shadow flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> Suspendida
+                        </span>
+                      )}
+
+                      {fotos.length > 1 && (
+                        <span className="absolute bottom-3 right-3 bg-black/85 text-white font-mono text-[10px] px-2.5 py-0.5 rounded-full border border-white/20 flex items-center gap-1 shadow">
+                          <ImageIcon className="w-3 h-3 text-[#00B4A7]" />
+                          <span>{fotos.length} fotos</span>
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="p-5 space-y-2">
+                      <h3 className={`font-black text-lg group-hover:text-[#F7B52C] transition-colors leading-tight ${
+                        esOscuro ? 'text-white' : 'text-slate-900'
+                      }`}>
+                        {s.nombre}
+                      </h3>
+                      <p className={`text-xs line-clamp-2 ${esOscuro ? 'text-slate-400' : 'text-slate-600'}`}>{s.direccion}</p>
+
+                      <div className="flex flex-wrap gap-1 pt-2">
+                        {(s.disciplinas_disponibles || ['Básquetbol', 'Voleibol']).map((dep, i) => (
+                          <span key={i} className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-[#00B4A7]/10 text-[#00B4A7] border border-[#00B4A7]/30">
+                            {dep}
+                          </span>
+                        ))}
+                        <span className="text-[10px] text-slate-400 font-mono py-0.5">
+                          · {(s.horarios || []).length} turnos
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-5 pt-0">
+                    <Link
+                      to={`/sedes/${s.id}`}
+                      className="w-full py-3 px-4 rounded-xl bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center text-center gap-2 shadow transition-all cursor-pointer"
+                    >
+                      <span>Ver Fotos, Cancha & Horarios</span>
+                      <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </main>
+
+      <Footer />
     </div>
   );
 }

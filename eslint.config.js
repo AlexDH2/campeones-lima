@@ -13,6 +13,7 @@ export default defineConfig([
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
+    rules: { 'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }] },
     languageOptions: {
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
