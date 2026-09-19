@@ -10,9 +10,20 @@ export function precioValido(valor) {
     return Number.isFinite(valor) && valor >= 0 ? valor : null;
   }
   if (typeof valor === 'string') {
-    const limpio = valor.replace(/[^0-9.]/g, '').trim();
+    let limpio = valor.trim();
     if (!limpio) return null;
-    const numero = Number(limpio);
+
+    // Remover prefijo de moneda opcional si viene incluido (S/, S/., $)
+    limpio = limpio.replace(/^(?:S\/\.?|\$)\s*/i, '').trim();
+
+    // Validar formato numérico estricto no negativo: dígitos con separador decimal opcional (. o ,)
+    if (!/^\d+(?:[.,]\d+)?$/.test(limpio)) {
+      return null;
+    }
+
+    // Normalizar coma a punto
+    const normalizado = limpio.replace(',', '.');
+    const numero = Number(normalizado);
     return Number.isFinite(numero) && numero >= 0 ? numero : null;
   }
   return null;

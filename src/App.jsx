@@ -1,3 +1,4 @@
+import NotificacionPromo from './NotificacionPromo';
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { 
@@ -213,7 +214,7 @@ function PaginaInicio() {
     if (heroFotos.length <= 1) return;
     const timer = setInterval(() => {
       setFotoActivaIdx(prev => (prev + 1) % heroFotos.length);
-    }, 5000);
+    }, 5500);
     return () => clearInterval(timer);
   }, [heroFotos.length]);
 
@@ -269,32 +270,9 @@ function PaginaInicio() {
 
   return (
     <div className={`min-h-screen font-sans transition-colors duration-300 relative overflow-hidden ${
-      esOscuro ? 'bg-[#040914] text-slate-100' : 'bg-slate-50 text-slate-900'
+      esOscuro ? 'bg-[#040813] text-slate-100' : 'bg-slate-50 text-slate-900'
     }`}>
       
-      {promocionActiva && (
-        <div className="relative z-40 mt-20 bg-gradient-to-r from-[#F7B52C] via-[#ffc247] to-[#00B4A7] text-slate-950 px-4 py-2.5 text-center shadow-lg flex items-center justify-center gap-2 flex-wrap text-xs font-black">
-          <span className="flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-slate-950" />
-            <strong className="uppercase">¡Promo Temporal!</strong> {promocionActiva.titulo}
-            {promocionActiva.valor_beneficio && (
-              <span className="bg-slate-950 text-[#F7B52C] px-2.5 py-0.5 rounded-full text-[10px] ml-1 font-mono">
-                {promocionActiva.valor_beneficio}
-              </span>
-            )}
-          </span>
-
-          <button
-            type="button"
-            onClick={() => setMostrarModalFlyer(true)}
-            className="bg-slate-950 hover:bg-slate-900 text-white px-3.5 py-1 rounded-full text-[11px] font-bold uppercase transition-transform active:scale-95 cursor-pointer ml-1 sm:ml-3 flex items-center gap-1 shadow"
-          >
-            <span>{promocionActiva.flyer_url ? 'Ver Flyer & Promo' : 'Ver Detalles'}</span>
-            <ArrowRight className="w-3 h-3 text-[#F7B52C]" />
-          </button>
-        </div>
-      )}
-
       <Navbar />
       {errorConsulta && <p role="alert" className="mt-24 p-4 bg-red-950 text-red-200">{errorConsulta}</p>}
 
@@ -361,10 +339,16 @@ function PaginaInicio() {
         </div>
       )}
 
-      {/* CABECERA HERO */}
-      <header className="relative min-h-[92vh] lg:min-h-[96vh] flex items-center justify-center text-center px-4 sm:px-6 pt-28 sm:pt-36 pb-20 overflow-hidden z-10">
+{/* =========================================================================
+          HERO (INICIA EXACTAMENTE DEBAJO DE LA CABECERA, NO DETRÁS)
+         ========================================================================= */}
+      <header className={`relative min-h-[calc(100vh-5rem)] flex items-center overflow-hidden z-10 ${
+        promocionActiva ? 'mt-0' : 'mt-20'
+      } pt-8 sm:pt-12 pb-16`}>
+        
+        {/* FONDOS CON NITIDEZ Y MÁSCARA HORIZONTAL */}
         {heroFotos.length > 0 && (
-          <div className="absolute inset-0 z-0 overflow-hidden">
+          <div className="absolute inset-0 z-0 overflow-hidden select-none pointer-events-none">
             {heroFotos.map((fotoItem, idx) => {
               const fotoUrl = typeof fotoItem === 'string' 
                 ? fotoItem 
@@ -380,96 +364,132 @@ function PaginaInicio() {
                 <div
                   key={idx}
                   className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                    idx === fotoActivaIdx ? 'opacity-70 sm:opacity-75 scale-105' : 'opacity-0 scale-100'
+                    idx === fotoActivaIdx ? 'opacity-95 lg:opacity-100 scale-100' : 'opacity-0 scale-100'
                   }`}
                   style={{
                     backgroundImage: `url("${fotoUrl}")`,
                     backgroundSize: 'cover',
                     backgroundPosition: `${posX}% ${posY}%`,
+                    filter: 'contrast(1.1) saturate(1.18) brightness(0.96)',
                     transitionProperty: 'opacity, transform',
                     transitionDuration: '1400ms'
                   }}
                 />
               );
             })}
-            <div className="absolute inset-0 bg-gradient-to-b from-[#040914]/65 via-[#040914]/60 to-[#040914]" />
+
+            {/* Máscara concentrada únicamente a la izquierda para dejar 100% visible a los chicos y el trofeo */}
+            <div className="absolute inset-0 bg-gradient-to-r from-[#040813] via-[#040813]/90 lg:via-[#040813]/60 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#040813] via-transparent to-black/40" />
           </div>
         )}
 
-        <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8 relative z-10 w-full">
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black uppercase tracking-tighter leading-tight sm:leading-none text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.95)]">
-            FORMAMOS <br />
-            <span className="italic bg-gradient-to-r from-[#00B4A7] via-[#38bdf8] to-[#F7B52C] bg-clip-text text-transparent filter drop-shadow-[0_2px_15px_rgba(0,180,167,0.4)]">
-              LÍDERES EN LA CANCHA
-            </span> <br className="hidden sm:inline" />
-            PARA TRIUNFAR EN LA VIDA
-          </h1>
+        {/* CONTENIDO DESPLAZADO AL BORDE IZQUIERDO */}
+        <div className="w-full px-5 sm:px-8 lg:px-12 xl:px-16 2xl:px-20 relative z-10">
+          <div className="max-w-xl sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl space-y-5 text-left">
 
-          <p className="text-xs sm:text-base lg:text-lg text-slate-100 max-w-2xl mx-auto font-bold leading-relaxed drop-shadow-[0_2px_15px_rgba(0,0,0,0.9)] px-2">
-            Club <strong className="text-[#F7B52C]">deportivo</strong> y <strong className="text-[#00B4A7]">cultural</strong> donde vives tu pasión y desarrollas tu talento.
-          </p>
+            {/* TIPOGRAFÍA DEPORTIVA EN BLOQUE */}
+            <div className="space-y-1">
+              <span className="block text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tight text-slate-200 drop-shadow-md">
+                FORMAMOS
+              </span>
+              <h1 className="text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-black uppercase italic tracking-tighter text-[#F7B52C] leading-none drop-shadow-[0_4px_30px_rgba(247,181,44,0.4)]">
+                LÍDERES EN LA CANCHA
+              </h1>
+              <span className="block text-2xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-white drop-shadow-md pt-1">
+                PARA TRIUNFAR EN LA VIDA
+              </span>
+            </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-2">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#071527]/90 border border-slate-700 text-[11px] font-bold text-white backdrop-blur-md shadow-lg">
-              <ShieldCheck className="w-4 h-4 text-[#00B4A7]" /> Coliseos 100% Techados
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#071527]/90 border border-slate-700 text-[11px] font-bold text-white backdrop-blur-md shadow-lg">
-              <Award className="w-4 h-4 text-[#F7B52C]" /> Entrenadores Certificados
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#071527]/90 border border-slate-700 text-[11px] font-bold text-white backdrop-blur-md shadow-lg">
-              <Users className="w-4 h-4 text-cyan-400" /> Formación por Edades
-            </span>
-          </div>
+            {/* SUBTÍTULO */}
+            <p className="text-xs sm:text-base text-slate-200 font-medium max-w-lg lg:max-w-xl leading-relaxed drop-shadow-md border-l-2 border-slate-700/80 pl-3">
+              Academia deportiva de <strong className="text-[#F7B52C]">básquetbol</strong> y <strong className="text-[#00B4A7]">voleibol</strong> en coliseos techados de Lima. Formación física, técnica y valores competitivos desde los 6 años.
+            </p>
 
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-lg mx-auto w-full px-2">
-            <a
-              href="#ticket-cancha"
-              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-[#F7B52C] to-[#e6a524] hover:from-[#ffc247] hover:to-[#F7B52C] text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center text-center gap-2 shadow-2xl shadow-[#F7B52C]/30 transition-all transform active:scale-98 cursor-pointer"
-            >
-              <Ticket className="w-4 h-4 text-slate-950 shrink-0" />
-              <span className="text-center leading-tight">Reclama tu clase de prueba</span>
-            </a>
+            {/* BADGES DEL CLUB */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pt-1">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#071527]/95 border border-slate-700 text-[11px] font-bold text-white shadow">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#00B4A7]" /> Coliseos 100% Techados
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#071527]/95 border border-slate-700 text-[11px] font-bold text-white shadow">
+                <Award className="w-3.5 h-3.5 text-[#F7B52C]" /> Entrenadores Certificados
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#071527]/95 border border-slate-700 text-[11px] font-bold text-white shadow">
+                <Users className="w-3.5 h-3.5 text-cyan-400" /> Formación por Edades
+              </span>
+            </div>
 
-            <Link
-              to="/sedes"
-              className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-[#071527]/95 hover:bg-slate-800 border border-slate-600 text-white font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center text-center gap-2 transition-colors cursor-pointer shadow-xl backdrop-blur-md"
-            >
-              <MapPin className="w-4 h-4 text-[#00B4A7]" />
-              <span className="text-center leading-tight">Conocer Nuestras 6 Sedes</span>
-            </Link>
+            {/* BOTONES DE ACCIÓN */}
+            <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <a
+                href="#ticket-cancha"
+                className="px-7 py-3.5 rounded-xl bg-[#F7B52C] hover:bg-[#ffc247] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(247,181,44,0.4)] hover:shadow-[0_0_35px_rgba(247,181,44,0.6)] transition-all transform hover:-translate-y-0.5 active:scale-95 cursor-pointer text-center"
+              >
+                <Ticket className="w-4 h-4 text-slate-950 shrink-0" />
+                <span>Reclama tu clase de prueba</span>
+              </a>
+
+              <Link
+                to="/sedes"
+                className="px-6 py-3.5 rounded-xl bg-[#0a1122]/90 hover:bg-[#0e1830] border border-slate-700 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg backdrop-blur-md hover:border-[#00B4A7] text-center"
+              >
+                <MapPin className="w-4 h-4 text-[#00B4A7]" />
+                <span>Conocer Nuestras 6 Sedes</span>
+              </Link>
+            </div>
+
+            {/* SELECTOR DE FOTOS */}
+            {heroFotos.length > 1 && (
+              <div className="pt-2 flex items-center gap-1.5">
+                {heroFotos.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setFotoActivaIdx(i)}
+                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                      i === fotoActivaIdx ? 'w-8 bg-[#F7B52C] shadow' : 'w-2.5 bg-white/40 hover:bg-white/70'
+                    }`}
+                    aria-label={`Ver foto ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+
           </div>
         </div>
       </header>
 
-      {/* MARCADOR LED */}
-      <section className="border-y border-slate-800/80 bg-[#071527]/80 py-6 relative z-10 backdrop-blur-md shadow-2xl">
+      {/* =========================================================================
+          MARCADOR LED SCOREBOARD (INSPIRADO EN LA TABLA DE CHALLENGERS)
+         ========================================================================= */}
+      <section className="border-y border-slate-800 bg-[#070d1a] py-5 relative z-10 shadow-2xl">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-            <div className="p-4 rounded-2xl bg-[#040914]/80 border border-slate-800 shadow-md">
-              <p className="text-3xl sm:text-4xl font-black text-[#F7B52C] font-mono tracking-tight">+11 Años</p>
-              <p className="text-[11px] sm:text-xs text-slate-300 font-black uppercase tracking-wider mt-1">De Experiencia Oficial</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-center">
+            <div className="p-4 rounded-xl bg-[#040813] border border-slate-800/80 shadow">
+              <p className="text-2xl sm:text-3xl font-black text-[#F7B52C] font-mono tracking-tight">+11 Años</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 font-black uppercase tracking-wider mt-0.5">De Experiencia Oficial</p>
             </div>
-            <div className="p-4 rounded-2xl bg-[#040914]/80 border border-slate-800 shadow-md">
-              <p className="text-3xl sm:text-4xl font-black text-[#00B4A7] font-mono tracking-tight">+4,000</p>
-              <p className="text-[11px] sm:text-xs text-slate-300 font-black uppercase tracking-wider mt-1">Atletas Formados</p>
+            <div className="p-4 rounded-xl bg-[#040813] border border-slate-800/80 shadow">
+              <p className="text-2xl sm:text-3xl font-black text-[#00B4A7] font-mono tracking-tight">+4,000</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 font-black uppercase tracking-wider mt-0.5">Atletas Formados</p>
             </div>
-            <div className="p-4 rounded-2xl bg-[#040914]/80 border border-slate-800 shadow-md">
-              <p className="text-3xl sm:text-4xl font-black text-cyan-400 font-mono tracking-tight">+6,766</p>
-              <p className="text-[11px] sm:text-xs text-slate-300 font-black uppercase tracking-wider mt-1">Comunidad en Redes</p>
+            <div className="p-4 rounded-xl bg-[#040813] border border-slate-800/80 shadow">
+              <p className="text-2xl sm:text-3xl font-black text-cyan-400 font-mono tracking-tight">+6,766</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 font-black uppercase tracking-wider mt-0.5">Comunidad en Redes</p>
             </div>
-            <div className="p-4 rounded-2xl bg-[#040914]/80 border border-slate-800 shadow-md">
-              <p className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight">6 Sedes</p>
-              <p className="text-[11px] sm:text-xs text-slate-300 font-black uppercase tracking-wider mt-1">Coliseos Techados</p>
+            <div className="p-4 rounded-xl bg-[#040813] border border-slate-800/80 shadow">
+              <p className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">6 Sedes</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 font-black uppercase tracking-wider mt-0.5">Coliseos Techados</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* DISCIPLINAS */}
+      {/* DISCIPLINAS FORMATIVAS (TARJETAS DEPORTIVAS) */}
       {disciplinas.length > 0 && (
         <section className="py-16 sm:py-24 max-w-6xl mx-auto px-4 sm:px-6 space-y-12 relative z-10">
           <div className="text-center max-w-2xl mx-auto space-y-2">
-            <span className="text-xs font-black uppercase tracking-widest text-[#00B4A7] bg-[#00B4A7]/10 px-3 py-1 rounded-full border border-[#00B4A7]/30">
+            <span className="text-xs font-black uppercase tracking-widest text-[#00B4A7] bg-[#00B4A7]/10 px-3.5 py-1 rounded-full border border-[#00B4A7]/30">
               Disciplinas Formativas
             </span>
             <h2 className="text-3xl sm:text-5xl font-black uppercase tracking-tight text-white italic">
@@ -548,7 +568,7 @@ function PaginaInicio() {
         </section>
       )}
 
-      {/* VIDEOS Y SHORT OFICIALES */}
+      {/* VIDEOS Y HIGHLIGHTS EN CANCHA */}
       {videosAdmin.length > 0 && (
         <section className="py-16 sm:py-24 max-w-6xl mx-auto px-4 sm:px-6 space-y-10 relative z-10 border-t border-slate-800/80">
           <div className="text-center max-w-2xl mx-auto space-y-2">
@@ -640,7 +660,7 @@ function PaginaInicio() {
         </section>
       )}
 
-      {/* TICKET VIP */}
+      {/* TICKET VIP DE CANCHA */}
       <section id="ticket-cancha" className="py-16 sm:py-24 max-w-4xl mx-auto px-4 sm:px-6 relative z-10">
         <div className="rounded-3xl bg-[#071527] border-2 border-[#F7B52C]/60 shadow-2xl p-6 sm:p-10 relative overflow-hidden space-y-6">
           <div className="border-b-2 border-dashed border-slate-800 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -801,7 +821,7 @@ function PaginaInicio() {
         </div>
       </section>
 
-      {/* CATÁLOGO DE SEDES */}
+      {/* CATÁLOGO DE SEDES (ESTILO ARENAS DEL CLUB) */}
       <section className="py-16 max-w-6xl mx-auto px-4 sm:px-6 space-y-8 relative z-10 border-t border-slate-800/80">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>

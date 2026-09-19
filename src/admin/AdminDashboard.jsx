@@ -13,6 +13,7 @@ import {
   RefreshCw 
 } from 'lucide-react';
 import { supabase } from '../supabase';
+import { promocionVigente } from '../domain';
 
 export default function AdminDashboard({ alCambiarPestaña }) {
   const [cargando, setCargando] = useState(true);
@@ -37,7 +38,7 @@ export default function AdminDashboard({ alCambiarPestaña }) {
 
       if (resSedes.data) setSedes(resSedes.data);
       if (resPromos.data?.valor && Array.isArray(resPromos.data.valor)) {
-        setPromociones(resPromos.data.valor.filter(p => p.activa));
+        setPromociones(resPromos.data.valor.filter(p => promocionVigente(p)));
       }
       if (resPostulaciones.count !== null && resPostulaciones.count !== undefined) {
         setPostulacionesCount(resPostulaciones.count);
@@ -65,7 +66,16 @@ export default function AdminDashboard({ alCambiarPestaña }) {
     let motivo = sede.motivo_suspension || '';
 
     if (nuevoEstado) {
-      motivo = prompt(`Motivo de suspensión para ${sede.nombre} (ej. Lluvia, cancha mojada o falta de profesor):`, "Por lluvia y cancha mojada") || "Por lluvia";
+      const motivoIngresado = prompt(
+        `Motivo de suspensión para ${sede.nombre} (ej. Lluvia, cancha mojada o falta de profesor):`,
+        "Por lluvia y cancha mojada"
+      );
+
+      if (motivoIngresado === null) {
+        return;
+      }
+
+      motivo = motivoIngresado.trim() || "Por lluvia y cancha mojada";
     }
 
     setActualizandoSede(sede.id);
@@ -216,7 +226,7 @@ export default function AdminDashboard({ alCambiarPestaña }) {
         </div>
       </div>
 
-      {/* MONITOREO DE CANCHAS */}
+      {/* ESTADO DE SEDES */}
       <div className="bg-[#071527] border border-slate-800 p-6 sm:p-8 rounded-3xl space-y-5 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
           <div>

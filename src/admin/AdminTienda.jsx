@@ -14,8 +14,15 @@ const TALLAS_ROPA = ['4', '6', '8', '10', '12', '14', '16', 'S', 'M', 'L', 'XL']
 const TALLAS_BALON = ['N° 5 (Mini)', 'N° 6 (Femenino / U13)', 'N° 7 (Masculino Oficial)'];
 const TALLAS_ACCESORIOS = ['Talla Única', 'S/M', 'L/XL'];
 
+const normalizarCoordenada = (val, defecto = 50) => {
+  if (val === null || val === undefined || val === '') return defecto;
+  const num = Number(val);
+  return Number.isFinite(num) && num >= 0 && num <= 100 ? num : defecto;
+};
+
 export default function AdminTienda() {
   const [productos, setProductos] = useState([]);
+  const [errorCarga, setErrorCarga] = useState('');
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
 
@@ -32,19 +39,23 @@ export default function AdminTienda() {
   useEffect(() => {
     async function cargarProductosReales() {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('configuracion_web')
           .select('valor')
           .eq('clave', 'tienda_productos')
           .maybeSingle();
+
+        if (error) throw error;
 
         if (data?.valor && Array.isArray(data.valor)) {
           setProductos(data.valor);
         } else {
           setProductos([]);
         }
+        setErrorCarga('');
       } catch (err) {
         console.error("Error al cargar productos:", err);
+        setErrorCarga("No se pudo cargar el catálogo de productos. Recarga para reintentar antes de realizar modificaciones.");
       } finally {
         setCargando(false);
       }
@@ -84,6 +95,11 @@ export default function AdminTienda() {
 
   const handleCrearProducto = async (e) => {
     e.preventDefault();
+    if (errorCarga) {
+      alert("No se pueden guardar productos porque la carga inicial falló. Recarga la página.");
+      return;
+    }
+
     if (!nombre.trim() || !precio) {
       return alert("Por favor, ingresa el nombre y el precio del producto.");
     }
@@ -96,6 +112,7 @@ export default function AdminTienda() {
       descripcion: descripcion.trim(),
       foto: fotoUrl || "",
       tallas: tallasSeleccionadas,
+      posicionX: 50,
       posicionY: 50
     };
 
@@ -124,6 +141,11 @@ export default function AdminTienda() {
   };
 
   const handleEliminarProducto = async (id) => {
+    if (errorCarga) {
+      alert("Operación bloqueada por error de carga previa.");
+      return;
+    }
+
     if (!confirm("¿Deseas eliminar definitivamente este producto?")) return;
 
     const listaActualizada = productos.filter(p => p.id !== id);
@@ -141,6 +163,11 @@ export default function AdminTienda() {
   };
 
   const handleVaciarTiendaCompleta = async () => {
+    if (errorCarga) {
+      alert("Operación bloqueada por error de carga previa.");
+      return;
+    }
+
     if (!confirm("¿Deseas BORRAR TODOS los productos existentes para dejar la tienda vacía?")) return;
 
     try {
@@ -156,11 +183,15 @@ export default function AdminTienda() {
     }
   };
 
-  const handleGuardarEncuadre = async (posicionY) => {
-    if (!productoAEncuadrar) return;
+  // Guardar ambas coordenadas x e y
+  const handleGuardarEncuadre = async (posicion) => {
+    if (!productoAEncuadrar || errorCarga) return false;
+
+    const posX = typeof posicion === 'object' && posicion !== null ? normalizarCoordenada(posicion.x) : 50;
+    const posY = typeof posicion === 'object' && posicion !== null ? normalizarCoordenada(posicion.y) : 50;
 
     const listaActualizada = productos.map(p => 
-      p.id === productoAEncuadrar.id ? { ...p, posicionY } : p
+      p.id === productoAEncuadrar.id ? { ...p, posicionX: posX, posicionY: posY } : p
     );
 
     try {
@@ -172,10 +203,27 @@ export default function AdminTienda() {
       setProductos(listaActualizada);
       setModalEncuadreAbierto(false);
       setProductoAEncuadrar(null);
+      return true;
     } catch (err) {
       alert("No se pudo guardar el encuadre: " + err.message);
+      return false;
     }
   };
+
+  if (errorCarga) {
+    return (
+      <div role="alert" className="p-8 text-center bg-red-950/20 border border-red-500/40 rounded-3xl max-w-5xl space-y-4">
+        <p className="text-red-300 font-bold text-sm">{errorCarga}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl cursor-pointer"
+        >
+          Reintentar carga
+        </button>
+      </div>
+    );
+  }
 
   if (cargando) {
     return (
@@ -191,13 +239,17 @@ export default function AdminTienda() {
       
       {modalEncuadreAbierto && productoAEncuadrar && (
         <ModalEncuadre
+          key={`prod_${productoAEncuadrar.id}_${productoAEncuadrar.foto}`}
           abierto={modalEncuadreAbierto}
           alCerrar={() => {
             setModalEncuadreAbierto(false);
             setProductoAEncuadrar(null);
           }}
           imagenUrl={productoAEncuadrar.foto}
-          posicionInicial={productoAEncuadrar.posicionY || 50}
+          posicionInicial={{
+            x: normalizarCoordenada(productoAEncuadrar.posicionX),
+            y: normalizarCoordenada(productoAEncuadrar.posicionY)
+          }}
           alGuardar={handleGuardarEncuadre}
         />
       )}
@@ -327,8 +379,8 @@ export default function AdminTienda() {
 
           <button
             type="submit"
-            disabled={guardando}
-            className="bg-[#F7B52C] hover:bg-[#e6a524] text-slate-950 font-black px-6 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-lg shadow-[#F7B52C]/20 transition-all"
+            disabled={guardando || Boolean(errorCarga)}
+            className="bg-[#F7B52C] hover:bg-[#e6a524] text-slate-950 font-black px-6 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-lg shadow-[#F7B52C]/20 transition-all disabled:opacity-50"
           >
             {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             <span>Agregar Producto a la Tienda</span>
@@ -351,80 +403,85 @@ export default function AdminTienda() {
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {productos.map(p => (
-              <div key={p.id} className="bg-[#071527] border border-slate-800 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group">
-                <div>
-                  <div className="relative aspect-square bg-slate-950 overflow-hidden">
-                    {p.foto ? (
-                      <img
-                        src={p.foto}
-                        alt={p.nombre}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        style={{ objectPosition: `center ${p.posicionY || 50}%` }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs text-slate-500 font-bold">
-                        Sin foto
-                      </div>
-                    )}
+            {productos.map(p => {
+              const posX = normalizarCoordenada(p.posicionX);
+              const posY = normalizarCoordenada(p.posicionY);
 
-                    <span className="absolute top-3 left-3 bg-[#00B4A7] text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded shadow">
-                      {p.categoria}
-                    </span>
+              return (
+                <div key={p.id} className="bg-[#071527] border border-slate-800 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group">
+                  <div>
+                    <div className="relative aspect-square bg-slate-950 overflow-hidden">
+                      {p.foto ? (
+                        <img
+                          src={p.foto}
+                          alt={p.nombre}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          style={{ objectPosition: `${posX}% ${posY}%` }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs text-slate-500 font-bold">
+                          Sin foto
+                        </div>
+                      )}
 
-                    {p.foto && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProductoAEncuadrar(p);
-                          setModalEncuadreAbierto(true);
-                        }}
-                        className="absolute bottom-3 right-3 bg-black/80 hover:bg-[#F7B52C] hover:text-slate-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg backdrop-blur-sm border border-white/20 flex items-center gap-1 cursor-pointer transition-colors shadow"
-                      >
-                        <Crop className="w-3 h-3" />
-                        <span>Encuadrar 1:1</span>
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="p-5 space-y-2">
-                    <div className="flex justify-between items-start gap-2">
-                      <h3 className="font-bold text-white text-sm leading-tight">{p.nombre}</h3>
-                      <span className="font-mono text-base font-black text-[#F7B52C] shrink-0">
-                        S/. {p.precio}
+                      <span className="absolute top-3 left-3 bg-[#00B4A7] text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded shadow">
+                        {p.categoria}
                       </span>
+
+                      {p.foto && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProductoAEncuadrar(p);
+                            setModalEncuadreAbierto(true);
+                          }}
+                          className="absolute bottom-3 right-3 bg-black/80 hover:bg-[#F7B52C] hover:text-slate-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg backdrop-blur-sm border border-white/20 flex items-center gap-1 cursor-pointer transition-colors shadow"
+                        >
+                          <Crop className="w-3 h-3" />
+                          <span>Encuadrar 1:1</span>
+                        </button>
+                      )}
                     </div>
 
-                    {p.descripcion && (
-                      <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                        {p.descripcion}
-                      </p>
-                    )}
-
-                    {p.tallas && p.tallas.length > 0 && (
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {p.tallas.map(t => (
-                          <span key={t} className="text-[10px] bg-[#040914] text-slate-300 px-2 py-0.5 rounded border border-slate-800 font-mono">
-                            {t}
-                          </span>
-                        ))}
+                    <div className="p-5 space-y-2">
+                      <div className="flex justify-between items-start gap-2">
+                        <h3 className="font-bold text-white text-sm leading-tight">{p.nombre}</h3>
+                        <span className="font-mono text-base font-black text-[#F7B52C] shrink-0">
+                          S/. {p.precio}
+                        </span>
                       </div>
-                    )}
+
+                      {p.descripcion && (
+                        <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                          {p.descripcion}
+                        </p>
+                      )}
+
+                      {p.tallas && p.tallas.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {p.tallas.map(t => (
+                            <span key={t} className="text-[10px] bg-[#040914] text-slate-300 px-2 py-0.5 rounded border border-slate-800 font-mono">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-5 pt-0 border-t border-slate-800/80 mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handleEliminarProducto(p.id)}
+                      className="text-xs text-red-400 hover:text-red-300 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Eliminar</span>
+                    </button>
                   </div>
                 </div>
-
-                <div className="p-5 pt-0 border-t border-slate-800/80 mt-2 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => handleEliminarProducto(p.id)}
-                    className="text-xs text-red-400 hover:text-red-300 font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Eliminar</span>
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

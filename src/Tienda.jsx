@@ -3,23 +3,18 @@ import {
   ShoppingBag, 
   MessageCircle, 
   Sparkles, 
-  Filter, 
-  Check, 
-  Loader2,
-  Trophy,
-  ShieldCheck
+  Loader2 
 } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { useTheme } from './theme';
 import { supabase } from './supabase';
 
-// Nombres de los productos de prueba que quedaron en la base de datos para purgarlos
-const PRODUCTOS_SIMULADOS_ANTIGUOS = [
-  "Camiseta Oficial de Básquetbol 2026",
-  "Conjunto Oficial de Voleibol Femenino",
-  "Balón Oficial de Básquetbol Molten"
-];
+const normalizarCoordenada = (val, defecto = 50) => {
+  if (val === null || val === undefined || val === '') return defecto;
+  const num = Number(val);
+  return Number.isFinite(num) && num >= 0 && num <= 100 ? num : defecto;
+};
 
 export default function Tienda() {
   const { esOscuro = true } = useTheme() || {};
@@ -40,7 +35,6 @@ export default function Tienda() {
           .maybeSingle();
 
         if (data?.valor && Array.isArray(data.valor)) {
-          // PURGA DE DATOS SIMULADOS: solo deja pasar productos creados legítimamente por el admin
           const productosReales = data.valor.filter(
             p => p && p.nombre && true
           );
@@ -77,7 +71,7 @@ export default function Tienda() {
     }`}>
       <Navbar />
 
-      {/* MARCA DE AGUA VECTORIAL DUAL */}
+      {/* MARCA DE AGUA */}
       <div className="absolute inset-0 pointer-events-none opacity-[0.04] select-none overflow-hidden z-0">
         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
           <circle cx="20%" cy="35%" r="260" fill="none" stroke="#F7B52C" strokeWidth="2" strokeDasharray="8 8" />
@@ -121,7 +115,7 @@ export default function Tienda() {
           ))}
         </div>
 
-        {/* LISTADO REAL DE PRODUCTOS */}
+        {/* LISTADO DE PRODUCTOS */}
         {cargando ? (
           <div className="p-16 text-center space-y-3">
             <Loader2 className="w-10 h-10 text-[#00B4A7] animate-spin mx-auto" />
@@ -145,6 +139,9 @@ export default function Tienda() {
                 (tallaElegida ? `📏 *Talla:* ${encodeURIComponent(tallaElegida)}%0A%0A` : `%0A`) +
                 `¿Tienen stock disponible para entrega en sede?`;
 
+              const posX = normalizarCoordenada(p.posicionX);
+              const posY = normalizarCoordenada(p.posicionY);
+
               return (
                 <div key={p.id} className="bg-[#071527] border border-slate-800 hover:border-slate-700 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group transition-all">
                   <div>
@@ -155,7 +152,7 @@ export default function Tienda() {
                           src={p.foto}
                           alt={p.nombre}
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          style={{ objectPosition: `center ${p.posicionY || 50}%` }}
+                          style={{ objectPosition: `${posX}% ${posY}%` }}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-xs text-slate-500 font-bold">
@@ -181,7 +178,7 @@ export default function Tienda() {
                         </p>
                       )}
 
-                      {/* SELECTOR DE TALLAS */}
+                      {/* TALLAS */}
                       {p.tallas && p.tallas.length > 0 && (
                         <div className="space-y-1.5 pt-1">
                           <label className="text-[11px] font-bold text-slate-400 block">Selecciona tu talla:</label>

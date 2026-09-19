@@ -3,25 +3,28 @@ import { useParams, Link } from 'react-router-dom';
 import { 
   MapPin, 
   ArrowLeft, 
-  MessageCircle, 
   Loader2, 
   ExternalLink, 
   Tag, 
   ChevronLeft, 
   ChevronRight, 
   Send, 
-  CreditCard 
+  CreditCard, 
+  Sparkles, 
+  X, 
+  Phone, 
+  Clock, 
+  Star, 
+  Image as ImageIcon 
 } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import ModalPago from './ModalPago';
-import { useTheme } from './ThemeContext';
 import { supabase } from './supabase';
 import { normalizarPagos, precioValido, mostrarPrecio, whatsappNumero, estaSuspendida } from './domain';
 
 export default function SedeDetalle() {
   const { id } = useParams();
-  const { esOscuro = true } = useTheme();
 
   const [errorConsulta, setErrorConsulta] = useState('');
   const [sede, setSede] = useState(null);
@@ -33,6 +36,10 @@ export default function SedeDetalle() {
   const [modalPagoAbierto, setModalPagoAbierto] = useState(false);
   const [datosPagoSede, setDatosPagoSede] = useState(null);
 
+  const [bannerPromocionalSede, setBannerPromocionalSede] = useState(null);
+  const [todasLasPromociones, setTodasLasPromociones] = useState([]);
+  const [modalPromosAbierto, setModalPromosAbierto] = useState(false);
+
   useEffect(() => {
     let activo = true;
     async function cargarDetalleSede() {
@@ -43,17 +50,19 @@ export default function SedeDetalle() {
       setPrecioClaseModelo(null);
       setIndiceActual(0);
       setFiltroDeporte('TODOS');
+      setBannerPromocionalSede(null);
       try {
-        const [resSede, resConfig, resPagos] = await Promise.all([
+        const [resSede, resConfig, resPagos, resPromos, resBanners] = await Promise.all([
           supabase.from('sedes').select('*').eq('id', id).maybeSingle(),
           supabase.from('configuracion_web').select('valor').eq('clave', 'precios_clase_modelo').maybeSingle(),
-          supabase.from('configuracion_web').select('valor').eq('clave', 'metodos_pago_sedes').maybeSingle()
+          supabase.from('configuracion_web').select('valor').eq('clave', 'metodos_pago_sedes').maybeSingle(),
+          supabase.from('configuracion_web').select('valor').eq('clave', 'promociones_vigentes').maybeSingle(),
+          supabase.from('configuracion_web').select('valor').eq('clave', 'banners_promociones_sedes').maybeSingle()
         ]);
 
         if (!activo) return;
         if (resSede.error) throw resSede.error;
-        if (resConfig.error) console.error('No se pudieron cargar los precios:', resConfig.error);
-        if (resPagos.error) console.error('No se pudieron cargar los pagos:', resPagos.error);
+        
         if (resSede.data) {
           const s = resSede.data;
           setSede(s);
@@ -69,7 +78,19 @@ export default function SedeDetalle() {
               setDatosPagoSede(normalizarPagos(infoSede));
             }
           }
+
+          if (resBanners.data?.valor && typeof resBanners.data.valor === 'object') {
+            const b = resBanners.data.valor[s.nombre];
+            if (b && b.activo !== false && b.flyer_url) {
+              setBannerPromocionalSede(b.flyer_url);
+            }
+          }
+
+          if (resPromos.data?.valor && Array.isArray(resPromos.data.valor)) {
+            setTodasLasPromociones(resPromos.data.valor.filter(p => p.visible_en_web !== false));
+          }
         }
+
       } catch (err) {
         console.error("Error al cargar sede:", err);
         if (activo) setErrorConsulta("No se pudo cargar la sede. Recarga para reintentar.");
@@ -81,6 +102,33 @@ export default function SedeDetalle() {
     return () => { activo = false; };
   }, [id]);
 
+  const promocionesDeEstaSede = useMemo(() => {
+    if (!sede?.nombre || !Array.isArray(todasLasPromociones)) return [];
+
+    const nombreLimpio = sede.nombre.toLowerCase().replace(/sede\s*/gi, '').trim();
+
+    return todasLasPromociones.filter((p) => {
+      const campoSede = (p.sede || p.sedes || '').toLowerCase().trim();
+      const titulo = (p.titulo || '').toLowerCase();
+      const descripcion = (p.descripcion || '').toLowerCase();
+
+      if (campoSede && (campoSede.includes(nombreLimpio) || nombreLimpio.includes(campoSede))) {
+        return true;
+      }
+      if (titulo.includes(nombreLimpio)) {
+        return true;
+      }
+      if (descripcion.includes(nombreLimpio)) {
+        return true;
+      }
+      if (campoSede.includes('todas') || campoSede === 'general') {
+        const tieneOtraSede = titulo.includes(' - ') && !titulo.includes(nombreLimpio);
+        return !tieneOtraSede;
+      }
+      return false;
+    });
+  }, [sede?.nombre, todasLasPromociones]);
+
   const fotos = useMemo(() => {
     if (!sede) return [];
     let list = [];
@@ -91,7 +139,7 @@ export default function SedeDetalle() {
       try {
         const parsed = JSON.parse(sede.imagenes);
         if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
-      } catch { /* Usar foto principal */ }
+      } catch { /* fallback */ }
     }
 
     if (list.length === 0 && sede.foto_principal) {
@@ -156,22 +204,31 @@ export default function SedeDetalle() {
     `¡Hola Campeones Lima! Deseo reservar una *Clase de Prueba* (${esGratis ? 'Gratis' : mostrarPrecio(precioClaseModelo)}) en la sede *${sede.nombre}*. ¿Cuáles son los horarios disponibles para empezar?`
   )}`;
 
+  // Se incorpora el parámetro monto en el cuerpo del mensaje
   const crearLinkWsPromo = (turno, promoNombre, monto) => {
-    const texto = `¡Hola Campeones Lima! Deseo inscribirme en la *${promoNombre}* para la sede *${sede.nombre}*:%0A%0A` +
+    const texto = `¡Hola Campeones Lima! Deseo inscribirme en el *${promoNombre}* para la sede *${sede.nombre}*:%0A%0A` +
       `🏆 *Deporte:* ${encodeURIComponent(turno.deporte)} (${encodeURIComponent(turno.categoria)})%0A` +
       `📅 *Días:* ${encodeURIComponent(turno.dias)}%0A` +
       `⏰ *Horario:* ${encodeURIComponent(turno.horaInicio)} - ${encodeURIComponent(turno.horaFin)}%0A` +
-      `💰 *Inversión:* ${encodeURIComponent(mostrarPrecio(monto))}%0A%0A` +
+      (monto !== undefined && monto !== null && monto !== '' ? `💰 *Inversión:* ${mostrarPrecio(monto)}%0A` : '') +
       `¿Cuáles son las formas de pago de la matrícula/reserva?`;
     return `https://wa.me/${numeroWhatsappSede}?text=${texto}`;
   };
 
+  const crearLinkWsTarjetaPromo = (promo) => {
+    const texto = `¡Hola Campeones Lima! Deseo reclamar la siguiente promoción en la sede *${sede.nombre}*:%0A%0A` +
+      `🔥 *Promoción:* ${encodeURIComponent(promo.titulo)}%0A` +
+      (promo.valor_beneficio ? `💰 *Inversión:* ${encodeURIComponent(promo.valor_beneficio)}%0A` : '') +
+      (promo.descripcion ? `📋 *Detalle:* ${encodeURIComponent(promo.descripcion)}%0A` : '') +
+      `%0A¿Cuáles son los pasos para realizar la inscripción con esta promo?`;
+    return `https://wa.me/${numeroWhatsappSede}?text=${texto}`;
+  };
+
   const enlaceMapa = sede.maps || sede.mapa || sede.mapa_url || '';
+  const flyerDeLaSede = bannerPromocionalSede || promocionesDeEstaSede.find(p => p.flyer_url)?.flyer_url || null;
 
   return (
-    <div className={`min-h-screen font-sans transition-colors duration-300 relative overflow-hidden ${
-      esOscuro ? 'bg-[#040914] text-slate-100' : 'bg-slate-50 text-slate-900'
-    }`}>
+    <div className="min-h-screen font-sans bg-[#040914] text-slate-100 relative overflow-hidden">
       <Navbar />
 
       <ModalPago
@@ -182,6 +239,130 @@ export default function SedeDetalle() {
         telefonoContacto={numeroWhatsappSede}
       />
 
+      {modalPromosAbierto && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in select-none"
+          onClick={(e) => { if (e.target === e.currentTarget) setModalPromosAbierto(false); }}
+        >
+          <div className="bg-[#071527] border-2 border-[#F7B52C] w-full max-w-5xl rounded-3xl p-5 sm:p-7 space-y-4 shadow-2xl max-h-[94vh] flex flex-col">
+            
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-[#F7B52C]/15 text-[#F7B52C]">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-white uppercase italic tracking-wide">
+                    PROMOCIONES OFICIALES DE TEMPORADA
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Packs especiales y campañas vigentes para la sede <strong className="text-[#F7B52C]">{sede.nombre}</strong>
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setModalPromosAbierto(false)} 
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-hidden flex-1 min-h-0">
+              
+              <div className="lg:col-span-5 flex flex-col items-center justify-center rounded-2xl bg-black/70 border-2 border-[#F7B52C]/40 p-2 overflow-hidden shadow-inner">
+                {flyerDeLaSede ? (
+                  <img
+                    src={flyerDeLaSede}
+                    alt={`Flyer Promocional ${sede.nombre}`}
+                    className="w-full h-auto max-h-[45vh] lg:max-h-[65vh] object-contain rounded-xl shadow-2xl"
+                  />
+                ) : (
+                  <div className="p-8 text-center space-y-3 text-slate-500">
+                    <ImageIcon className="w-12 h-12 text-[#F7B52C] mx-auto opacity-70" />
+                    <p className="text-xs font-black text-white uppercase">Campaña Oficial {sede.nombre}</p>
+                    <p className="text-[11px] text-slate-400">
+                      Consulta los precios y paquetes disponibles en el panel lateral.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="lg:col-span-7 flex flex-col overflow-y-auto space-y-3 pr-1">
+                
+                {promocionesDeEstaSede.length === 0 ? (
+                  <div className="p-8 text-center bg-[#040914] rounded-2xl border border-dashed border-slate-800 text-slate-400 text-xs space-y-2 my-auto">
+                    <Tag className="w-8 h-8 text-slate-600 mx-auto" />
+                    <p className="font-bold text-white text-sm">No hay promociones activas para la sede {sede.nombre} en este momento.</p>
+                    <p className="text-slate-500">Consulta nuestras tarifas regulares mensuales directamente con nosotros.</p>
+                  </div>
+                ) : (
+                  promocionesDeEstaSede.map((promo) => (
+                    <div 
+                      key={promo.id} 
+                      className="p-4 rounded-2xl bg-[#040914] border-2 border-slate-800 hover:border-[#F7B52C]/70 transition-all flex flex-col sm:flex-row gap-3.5 justify-between items-start sm:items-center shadow-lg"
+                    >
+                      <div className="space-y-1.5 flex-1 pr-2 text-left">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="text-xs sm:text-sm font-black uppercase text-white tracking-wide">
+                            {promo.titulo}
+                          </h4>
+                          {promo.valor_beneficio && (
+                            <span className="text-[11px] font-mono font-black px-2 py-0.5 rounded bg-[#F7B52C] text-slate-950 shadow-sm">
+                              {promo.valor_beneficio}
+                            </span>
+                          )}
+                        </div>
+
+                        {promo.descripcion && (
+                          <p className="text-xs text-slate-300 leading-relaxed">{promo.descripcion}</p>
+                        )}
+
+                        <div className="flex items-center gap-2 pt-1 text-[10px] font-mono">
+                          <span className="text-[#00B4A7] flex items-center gap-1 font-bold">
+                            <Star className="w-3 h-3 fill-current" /> Campaña Oficial
+                          </span>
+                          {promo.valido_hasta && (
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <Clock className="w-3 h-3" /> Hasta: {promo.valido_hasta}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <a
+                        href={crearLinkWsTarjetaPromo(promo)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[#F7B52C] hover:bg-[#ffc247] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#F7B52C]/25 transition-all transform hover:scale-105 shrink-0 cursor-pointer"
+                      >
+                        <Phone className="w-4 h-4 fill-slate-950" />
+                        <span>RECLAMAR PROMO</span>
+                      </a>
+                    </div>
+                  ))
+                )}
+
+              </div>
+
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setModalPromosAbierto(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-300 hover:text-white cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* RETORNO */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-28 pb-4 relative z-10">
         <Link to="/sedes" className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#00B4A7] hover:underline">
           <ArrowLeft className="w-4 h-4" />
@@ -198,13 +379,9 @@ export default function SedeDetalle() {
         )}
 
         {/* CABECERA Y CARRUSEL */}
-        <section className={`border-2 rounded-3xl overflow-hidden shadow-2xl p-6 sm:p-8 space-y-6 ${
-          esOscuro ? 'bg-gradient-to-b from-[#071527] to-[#050e1c] border-slate-800' : 'bg-white border-slate-200'
-        }`}>
+        <section className="border-2 rounded-3xl overflow-hidden shadow-2xl p-6 sm:p-8 space-y-6 bg-gradient-to-b from-[#071527] to-[#050e1c] border-slate-800">
           
-          <div className={`flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b pb-6 ${
-            esOscuro ? 'border-slate-800/80' : 'border-slate-200'
-          }`}>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b pb-6 border-slate-800/80">
             
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -221,15 +398,11 @@ export default function SedeDetalle() {
                 ))}
               </div>
 
-              <h1 className={`text-3xl sm:text-5xl font-black uppercase italic tracking-tight ${
-                esOscuro ? 'text-white' : 'text-slate-900'
-              }`}>
+              <h1 className="text-3xl sm:text-5xl font-black uppercase italic tracking-tight text-white">
                 {sede.nombre}
               </h1>
 
-              <div className={`flex flex-wrap items-center gap-3 text-xs sm:text-sm ${
-                esOscuro ? 'text-slate-300' : 'text-slate-600'
-              }`}>
+              <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-slate-300">
                 <span>{sede.direccion} {sede.referencia && `(${sede.referencia})`}</span>
                 
                 {enlaceMapa && (
@@ -255,10 +428,8 @@ export default function SedeDetalle() {
               </div>
             </div>
 
-            {/* Tarjeta de Acción */}
-            <div className={`w-full lg:w-auto border rounded-2xl p-4 sm:px-6 sm:py-4 shadow-xl flex flex-row lg:flex-col items-center justify-between lg:justify-center gap-4 ${
-              esOscuro ? 'bg-[#040914]/90 border-slate-800' : 'bg-slate-50 border-slate-300'
-            }`}>
+            {/* CLASE MODELO */}
+            <div className="w-full lg:w-auto border rounded-2xl p-4 sm:px-6 sm:py-4 shadow-xl flex flex-row lg:flex-col items-center justify-between lg:justify-center gap-4 bg-[#040914]/90 border-slate-800">
               <div className="text-left lg:text-center">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
                   Clase Modelo
@@ -354,23 +525,20 @@ export default function SedeDetalle() {
           </div>
         </section>
 
-        {/* SECCIÓN DE PROMOCIONES Y TARIFAS */}
-        <section className={`border-2 border-[#F7B52C]/50 rounded-3xl p-6 sm:p-8 space-y-8 shadow-2xl ${
-          esOscuro ? 'bg-[#071527]' : 'bg-white'
-        }`}>
+        {/* HORARIOS Y TARIFAS */}
+        <section className="border-2 border-[#F7B52C]/50 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl bg-[#071527]">
+          
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F7B52C]/15 border border-[#F7B52C]/30 text-[#F7B52C] text-xs font-black uppercase tracking-wider mb-2">
                 <Tag className="w-3.5 h-3.5" /> Temporada 2026
               </div>
-              <h2 className={`text-2xl sm:text-4xl font-black uppercase italic tracking-tight ${
-                esOscuro ? 'text-white' : 'text-slate-900'
-              }`}>
-                Tarifas, Planes & Promociones
+              <h2 className="text-2xl sm:text-4xl font-black uppercase italic tracking-tight text-white">
+                Tarifas, Planes & Horarios
               </h2>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setFiltroDeporte('TODOS')}
@@ -400,17 +568,41 @@ export default function SedeDetalle() {
             </div>
           </div>
 
+          {(promocionesDeEstaSede.length > 0 || flyerDeLaSede) && (
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#F7B52C]/15 via-[#00B4A7]/15 to-[#040914] border border-[#F7B52C]/50 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+              <div className="flex items-center gap-3 text-left">
+                <div className="p-3 rounded-2xl bg-[#F7B52C] text-slate-950 font-black shrink-0">
+                  <Sparkles className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Revisa el flyer oficial de temporada, uniformes y paquetes de 3 meses.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModalPromosAbierto(true)}
+                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#F7B52C] hover:bg-[#e6a524] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#F7B52C]/25 transition-all transform hover:-translate-y-0.5 active:scale-95 shrink-0 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-slate-950" />
+                <span>Ver Promociones de esta Sede</span>
+              </button>
+            </div>
+          )}
+
           {/* MATRIZ DE HORARIOS */}
           <div className="space-y-4">
             {horariosFiltrados.map((t, idx) => {
               const esVoley = t.deporte?.toLowerCase().includes('voley');
+              const tieneX2 = precioValido(t.precio_x2) > 0;
+              const tieneX2U = precioValido(t.precio_x2_u) > 0;
 
               return (
                 <div 
                   key={idx} 
-                  className={`p-5 sm:p-6 rounded-2xl border-2 transition-all space-y-4 ${
-                    esOscuro ? 'bg-[#040914] border-slate-800' : 'bg-slate-50 border-slate-300'
-                  }`}
+                  className="p-5 sm:p-6 rounded-2xl border-2 transition-all space-y-4 bg-[#040914] border-slate-800"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700/50 pb-3">
                     <div className="space-y-1">
@@ -420,7 +612,7 @@ export default function SedeDetalle() {
                         }`}>
                           {t.deporte || 'Básquetbol'}
                         </span>
-                        <strong className={`text-base sm:text-lg ${esOscuro ? 'text-white' : 'text-slate-900'}`}>{t.categoria}</strong>
+                        <strong className="text-base sm:text-lg text-white">{t.categoria}</strong>
                       </div>
                       <p className="text-slate-400 text-xs font-medium">
                         🗓️ {t.dias} · ⏰ <span className="font-mono font-bold">{t.horaInicio} - {t.horaFin}</span>
@@ -435,97 +627,64 @@ export default function SedeDetalle() {
                     )}
                   </div>
 
-                  {/* MATRIZ DE PRECIOS */}
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-                    <div className={`p-3 rounded-xl border text-center flex flex-col justify-between ${
-                      esOscuro ? 'bg-[#071527] border-slate-800' : 'bg-white border-slate-300'
-                    }`}>
+                  {/* MATRIZ REGULAR */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    
+                    {/* 1 MES REGULAR */}
+                    <div className="p-3.5 rounded-xl border text-center flex flex-col justify-between bg-[#071527] border-slate-800">
                       <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase block">1 Mes</span>
-                        <span className={`text-lg font-black font-mono ${esOscuro ? 'text-white' : 'text-slate-900'}`}>{mostrarPrecio(t.precio_mes)}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">1 Mes Regular</span>
+                        <span className="text-xl font-black font-mono text-white">{mostrarPrecio(t.precio_mes)}</span>
                       </div>
                       <a
                         href={suspendida ? undefined : crearLinkWsPromo(t, "Plan 1 Mes", t.precio_mes)}
                         aria-disabled={suspendida}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-2 py-1 px-2 rounded-lg bg-[#00B4A7] text-slate-950 text-[10px] font-bold block"
+                        className="mt-2.5 py-1.5 px-3 rounded-lg bg-[#00B4A7] text-slate-950 text-xs font-bold block"
                       >
                         Inscribirme
                       </a>
                     </div>
 
-                    <div className={`p-3 rounded-xl border border-[#F7B52C]/40 text-center flex flex-col justify-between ${
-                      esOscuro ? 'bg-[#071527]' : 'bg-white'
-                    }`}>
-                      <div>
-                        <span className="text-[10px] font-bold text-[#F7B52C] uppercase block">Promo X2</span>
-                        <span className="text-lg font-black font-mono text-[#F7B52C]">{mostrarPrecio(t.precio_x2)}</span>
+                    {/* PROMO X2 */}
+                    {tieneX2 && (
+                      <div className="p-3.5 rounded-xl border border-[#F7B52C]/40 text-center flex flex-col justify-between bg-[#071527]">
+                        <div>
+                          <span className="text-[10px] font-bold text-[#F7B52C] uppercase block">Promo X2 (2 Meses)</span>
+                          <span className="text-xl font-black font-mono text-[#F7B52C]">{mostrarPrecio(t.precio_x2)}</span>
+                        </div>
+                        <a
+                          href={suspendida ? undefined : crearLinkWsPromo(t, "Promo X2", t.precio_x2)}
+                          aria-disabled={suspendida}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2.5 py-1.5 px-3 rounded-lg bg-[#F7B52C] text-slate-950 text-xs font-black block"
+                        >
+                          Elegir X2
+                        </a>
                       </div>
-                      <a
-                        href={suspendida ? undefined : crearLinkWsPromo(t, "Promo X2", t.precio_x2)}
-                        aria-disabled={suspendida}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 py-1 px-2 rounded-lg bg-[#F7B52C] text-slate-950 text-[10px] font-black block"
-                      >
-                        Elegir X2
-                      </a>
-                    </div>
+                    )}
 
-                    <div className={`p-3 rounded-xl border border-[#00B4A7]/50 text-center flex flex-col justify-between ${
-                      esOscuro ? 'bg-[#071527]' : 'bg-white'
-                    }`}>
-                      <div>
-                        <span className="text-[10px] font-bold text-[#00B4A7] uppercase block">X2 + Uniforme</span>
-                        <span className="text-lg font-black font-mono text-[#00B4A7]">{mostrarPrecio(t.precio_x2_u)}</span>
+                    {/* X2 + UNIFORME */}
+                    {tieneX2U && (
+                      <div className="p-3.5 rounded-xl border border-[#00B4A7]/50 text-center flex flex-col justify-between bg-[#071527]">
+                        <div>
+                          <span className="text-[10px] font-bold text-[#00B4A7] uppercase block">X2 + Uniforme</span>
+                          <span className="text-xl font-black font-mono text-[#00B4A7]">{mostrarPrecio(t.precio_x2_u)}</span>
+                        </div>
+                        <a
+                          href={suspendida ? undefined : crearLinkWsPromo(t, "Promo X2 + Uniforme", t.precio_x2_u)}
+                          aria-disabled={suspendida}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2.5 py-1.5 px-3 rounded-lg bg-[#00B4A7] text-slate-950 text-xs font-black block"
+                        >
+                          Elegir X2 + U
+                        </a>
                       </div>
-                      <a
-                        href={suspendida ? undefined : crearLinkWsPromo(t, "Promo X2 + Uniforme", t.precio_x2_u)}
-                        aria-disabled={suspendida}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 py-1 px-2 rounded-lg bg-[#00B4A7] text-slate-950 text-[10px] font-black block"
-                      >
-                        Elegir X2 + U
-                      </a>
-                    </div>
+                    )}
 
-                    <div className={`p-3 rounded-xl border text-center flex flex-col justify-between ${
-                      esOscuro ? 'bg-[#071527] border-slate-800' : 'bg-white border-slate-300'
-                    }`}>
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Promo X3</span>
-                        <span className={`text-lg font-black font-mono ${esOscuro ? 'text-white' : 'text-slate-900'}`}>{mostrarPrecio(t.precio_x3)}</span>
-                      </div>
-                      <a
-                        href={suspendida ? undefined : crearLinkWsPromo(t, "Promo X3", t.precio_x3)}
-                        aria-disabled={suspendida}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 py-1 px-2 rounded-lg bg-slate-700 text-white text-[10px] font-bold block"
-                      >
-                        Elegir X3
-                      </a>
-                    </div>
-
-                    <div className={`p-3 rounded-xl border border-emerald-500/50 text-center flex flex-col justify-between col-span-2 sm:col-span-1 ${
-                      esOscuro ? 'bg-[#071527]' : 'bg-white'
-                    }`}>
-                      <div>
-                        <span className="text-[10px] font-bold text-emerald-500 uppercase block">X3 + Uniforme</span>
-                        <span className="text-lg font-black font-mono text-emerald-500">{mostrarPrecio(t.precio_x3_u)}</span>
-                      </div>
-                      <a
-                        href={suspendida ? undefined : crearLinkWsPromo(t, "Promo X3 + Uniforme", t.precio_x3_u)}
-                        aria-disabled={suspendida}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 py-1 px-2 rounded-lg bg-emerald-500 text-slate-950 text-[10px] font-black block"
-                      >
-                        Elegir Pack
-                      </a>
-                    </div>
                   </div>
                 </div>
               );

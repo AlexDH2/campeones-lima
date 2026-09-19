@@ -11,22 +11,16 @@ import {
   Upload, 
   Crop, 
   Clock, 
-  Check, 
   X, 
   Image as ImageIcon,
   Trophy,
-  Users,
   Copy,
-  DollarSign,
   Phone,
-  Sparkles,
-  ChevronDown,
-  ChevronUp
+  Sparkles
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import ModalEncuadre from './ModalEncuadre';
 
-// PARSEADOR ROBUSTO DE HORA
 function parsearHora(strHora) {
   if (!strHora || typeof strHora !== 'string') {
     return { h: '05', m: '00', p: 'PM' };
@@ -43,6 +37,23 @@ function parsearHora(strHora) {
   };
 }
 
+const normalizarCoordenada = (val, defecto = 50) => {
+  if (val === null || val === undefined || val === '') return defecto;
+  const num = Number(val);
+  return Number.isFinite(num) && num >= 0 && num <= 100 ? num : defecto;
+};
+
+// Función que limpia distrito: todo a minúsculas, sin números ni símbolos
+const sanitizarDistrito = (str) => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .replace(/[0-9]/g, '')
+    .replace(/[^a-záéíóúüñ\s]/gi, '')
+    .trim()
+    .replace(/\s+/g, ' ');
+};
+
 export default function AdminSedes() {
   const [sedes, setSedes] = useState([]);
   const [errorCarga, setErrorCarga] = useState('');
@@ -54,13 +65,9 @@ export default function AdminSedes() {
   const [categoriasCentrales, setCategoriasCentrales] = useState([]);
   const [disciplinasGlobales, setDisciplinasGlobales] = useState(['Básquetbol', 'Voleibol']);
 
-  // =========================================================================
-  // GESTIÓN INDEPENDIENTE DEL FONDO PANORÁMICO DE /sedes
-  // =========================================================================
   const [canchasPanoramicas, setCanchasPanoramicas] = useState([]);
   const [guardandoPanoramicas, setGuardandoPanoramicas] = useState(false);
 
-  // Estado del formulario de sede
   const [formSede, setFormSede] = useState({
     nombre: '',
     distrito: '',
@@ -75,7 +82,6 @@ export default function AdminSedes() {
     horarios: []
   });
 
-  // Estado para turnos
   const [turnoEnEdicionIdx, setTurnoEnEdicionIdx] = useState(null);
   const [formTurno, setFormTurno] = useState({
     deporte: 'Básquetbol',
@@ -90,63 +96,56 @@ export default function AdminSedes() {
     horaFinM: '00',
     horaFinP: 'PM',
     precio_mes: 180,
-    precio_x2: 330,
-    precio_x2_u: 400,
-    precio_x3: 450,
-    precio_x3_u: 550,
-    precio_clase: 25
+    precio_x2: 270,
+    precio_x2_u: 340,
+    precio_clase: 20
   });
 
   const [modalEncuadreAbierto, setModalEncuadreAbierto] = useState(false);
   const [fotoParaEncuadrar, setFotoParaEncuadrar] = useState(null);
 
   useEffect(() => {
-  async function cargarDatosIniciales() {
-    try {
-      const [resSedes, resConfig] = await Promise.all([
-        supabase.from('sedes').select('*').order('created_at', { ascending: true }),
-        supabase.from('configuracion_web').select('clave, valor').in('clave', [
-          'categorias_edades',
-          'inicio_disciplinas',
-          'tarjetas_disciplina',
-          'banner_canchas_sedes'
-        ])
-      ]);
-      for (const respuesta of [resSedes, resConfig]) { if (respuesta.error) throw respuesta.error; }
+    async function cargarDatosIniciales() {
+      try {
+        const [resSedes, resConfig] = await Promise.all([
+          supabase.from('sedes').select('*').order('created_at', { ascending: true }),
+          supabase.from('configuracion_web').select('clave, valor').in('clave', [
+            'categorias_edades',
+            'inicio_disciplinas',
+            'tarjetas_disciplina',
+            'banner_canchas_sedes'
+          ])
+        ]);
+        for (const respuesta of [resSedes, resConfig]) { if (respuesta.error) throw respuesta.error; }
 
-      if (resSedes.data) {
-        setSedes(resSedes.data);
-      }
+        if (resSedes.data) setSedes(resSedes.data);
 
-      if (resConfig.data) {
-        resConfig.data.forEach(item => {
-          if (item.clave === 'categorias_edades' && Array.isArray(item.valor)) {
-            setCategoriasCentrales(item.valor);
-          }
-          if ((item.clave === 'inicio_disciplinas' || item.clave === 'tarjetas_disciplina') && Array.isArray(item.valor)) {
-            const nombres = item.valor.map(d => d.nombre || d.titulo).filter(Boolean);
-            if (nombres.length > 0) {
-              setDisciplinasGlobales(Array.from(new Set(['Básquetbol', 'Voleibol', ...nombres])));
+        if (resConfig.data) {
+          resConfig.data.forEach(item => {
+            if (item.clave === 'categorias_edades' && Array.isArray(item.valor)) {
+              setCategoriasCentrales(item.valor);
             }
-          }
-          if (item.clave === 'banner_canchas_sedes' && Array.isArray(item.valor)) {
-            setCanchasPanoramicas(item.valor);
-          }
-        });
+            if ((item.clave === 'inicio_disciplinas' || item.clave === 'tarjetas_disciplina') && Array.isArray(item.valor)) {
+              const nombres = item.valor.map(d => d.nombre || d.titulo).filter(Boolean);
+              if (nombres.length > 0) {
+                setDisciplinasGlobales(Array.from(new Set(['Básquetbol', 'Voleibol', ...nombres])));
+              }
+            }
+            if (item.clave === 'banner_canchas_sedes' && Array.isArray(item.valor)) {
+              setCanchasPanoramicas(item.valor);
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Error al cargar sedes:", err);
+        setErrorCarga('No se pudo cargar la información. Recarga para reintentar.');
+      } finally {
+        setCargando(false);
       }
-    } catch (err) {
-      console.error("Error al cargar sedes:", err);
-      setErrorCarga('No se pudo cargar la información. Recarga para reintentar.');
-    } finally {
-      setCargando(false);
     }
-  }
     cargarDatosIniciales();
   }, []);
 
-
-
-  // --- HANDLERS DEL FONDO PANORÁMICO DE /sedes ---
   const handleSubirFotoPanoramica = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -160,30 +159,29 @@ export default function AdminSedes() {
     if (error) return alert("Error al subir foto panorámica: " + error.message);
 
     const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`sedes/${nombreLimpio}`);
-    const nuevaUrl = data.publicUrl;
-
     const nuevoItem = {
       id: Date.now(),
-      url: nuevaUrl,
+      url: data.publicUrl,
       sedeNombre: 'Nueva Cancha Techada',
-      distrito: 'Lima',
+      distrito: 'lima',
       posX: 50,
       posY: 50
     };
 
     const nuevaLista = [...canchasPanoramicas, nuevoItem];
-    // Guardado inmediato en Supabase
     if (!await guardar(supabase.from('configuracion_web').upsert({
       clave: 'banner_canchas_sedes',
       valor: nuevaLista
     }))) return;
     setCanchasPanoramicas(nuevaLista);
-    alert("✓ Foto de cancha subida y agregada al fondo panorámico.");
   };
 
   const handleCambiarTextoPanoramica = (idx, campo, valor) => {
     const nuevaLista = [...canchasPanoramicas];
-    nuevaLista[idx] = { ...nuevaLista[idx], [campo]: valor };
+    nuevaLista[idx] = { 
+      ...nuevaLista[idx], 
+      [campo]: campo === 'distrito' ? sanitizarDistrito(valor) : valor 
+    };
     setCanchasPanoramicas(nuevaLista);
   };
 
@@ -204,18 +202,17 @@ export default function AdminSedes() {
         clave: 'banner_canchas_sedes',
         valor: canchasPanoramicas
       }))) return;
-      alert("✓ Fondo panorámico de /sedes guardado exitosamente.");
+      alert("✓ Fondo panorámico guardado exitosamente.");
     } finally {
       setGuardandoPanoramicas(false);
     }
   };
 
-  // --- MODALES DE SEDE ---
   const abrirModalNuevaSede = () => {
     setSedeEnEdicion(null);
     setFormSede({
       nombre: '',
-      distrito: 'San Miguel',
+      distrito: 'san miguel',
       direccion: '',
       referencia: '',
       maps: '',
@@ -232,15 +229,12 @@ export default function AdminSedes() {
 
   const abrirModalEditarSede = (sede) => {
     setSedeEnEdicion(sede);
-    
     let fotosArray = Array.isArray(sede.imagenes) ? [...sede.imagenes] : [];
-    if (fotosArray.length === 0 && sede.foto_principal) {
-      fotosArray = [sede.foto_principal];
-    }
+    if (fotosArray.length === 0 && sede.foto_principal) fotosArray = [sede.foto_principal];
 
     setFormSede({
       nombre: sede.nombre || '',
-      distrito: sede.distrito || '',
+      distrito: sanitizarDistrito(sede.distrito) || '',
       direccion: sede.direccion || '',
       referencia: sede.referencia || '',
       maps: sede.maps || sede.mapa || sede.mapa_url || '',
@@ -271,15 +265,13 @@ export default function AdminSedes() {
     if (error) return alert("Error al subir foto: " + error.message);
 
     const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`sedes/${nombreLimpio}`);
-    const nuevaUrl = data.publicUrl;
-
-    const nuevasFotos = [...formSede.imagenes, nuevaUrl];
+    const nuevasFotos = [...formSede.imagenes, data.publicUrl];
     const esPrimera = nuevasFotos.length === 1;
 
     setFormSede(prev => ({
       ...prev,
       imagenes: nuevasFotos,
-      foto_principal: esPrimera || !prev.foto_principal ? nuevaUrl : prev.foto_principal
+      foto_principal: esPrimera || !prev.foto_principal ? data.publicUrl : prev.foto_principal
     }));
   };
 
@@ -300,10 +292,23 @@ export default function AdminSedes() {
     }));
   };
 
-  const handleGuardarEncuadreFoto = async (posY, posX = 50) => {
+  const handleGuardarEncuadreFoto = async (posOValorY, posObjeto) => {
     if (!fotoParaEncuadrar) return;
 
-    // Si viene del Fondo Panorámico de /sedes
+    let posX = 50;
+    let posY = 50;
+
+    if (typeof posOValorY === 'object' && posOValorY !== null) {
+      posX = normalizarCoordenada(posOValorY.x);
+      posY = normalizarCoordenada(posOValorY.y);
+    } else if (typeof posObjeto === 'object' && posObjeto !== null) {
+      posX = normalizarCoordenada(posObjeto.x);
+      posY = normalizarCoordenada(posObjeto.y);
+    } else {
+      posY = normalizarCoordenada(posOValorY);
+      posX = normalizarCoordenada(posObjeto);
+    }
+
     if (fotoParaEncuadrar.esFondoPanoramico) {
       const idx = fotoParaEncuadrar.idx;
       const nuevaLista = [...canchasPanoramicas];
@@ -314,7 +319,6 @@ export default function AdminSedes() {
       }))) return;
       setCanchasPanoramicas(nuevaLista);
     } else {
-      // Si viene de una sede individual
       const urlTarget = fotoParaEncuadrar.url;
       setFormSede(prev => ({
         ...prev,
@@ -350,8 +354,8 @@ export default function AdminSedes() {
       precio_mes: precioValido(formTurno.precio_mes),
       precio_x2: precioValido(formTurno.precio_x2),
       precio_x2_u: precioValido(formTurno.precio_x2_u),
-      precio_x3: precioValido(formTurno.precio_x3),
-      precio_x3_u: precioValido(formTurno.precio_x3_u),
+      precio_x3: null,
+      precio_x3_u: null,
       precio_clase: precioValido(formTurno.precio_clase)
     };
 
@@ -377,11 +381,9 @@ export default function AdminSedes() {
       horaFinM: '00',
       horaFinP: 'PM',
       precio_mes: 180,
-      precio_x2: 330,
-      precio_x2_u: 400,
-      precio_x3: 450,
-      precio_x3_u: 550,
-      precio_clase: 25
+      precio_x2: 270,
+      precio_x2_u: 340,
+      precio_clase: 20
     });
   };
 
@@ -409,8 +411,6 @@ export default function AdminSedes() {
       precio_mes: turno.precio_mes ?? '',
       precio_x2: turno.precio_x2 ?? '',
       precio_x2_u: turno.precio_x2_u ?? '',
-      precio_x3: turno.precio_x3 ?? '',
-      precio_x3_u: turno.precio_x3_u ?? '',
       precio_clase: turno.precio_clase ?? ''
     });
   };
@@ -419,11 +419,7 @@ export default function AdminSedes() {
     const turnoOriginal = formSede.horarios.slice(idx).shift();
     if (!turnoOriginal) return;
 
-    const turnoClonado = {
-      ...turnoOriginal,
-      id: crypto.randomUUID()
-    };
-
+    const turnoClonado = { ...turnoOriginal, id: crypto.randomUUID() };
     const nuevosHorarios = [...formSede.horarios];
     nuevosHorarios.splice(idx + 1, 0, turnoClonado);
     setFormSede(prev => ({ ...prev, horarios: nuevosHorarios }));
@@ -436,16 +432,17 @@ export default function AdminSedes() {
     }));
   };
 
-  // --- GUARDADO DE SEDE ---
   const handleGuardarSede = async (e) => {
     e.preventDefault();
     if (!formSede.nombre.trim()) return alert("Ingresa el nombre de la sede.");
+
+    const distritoLimpio = sanitizarDistrito(formSede.distrito);
 
     setGuardando(true);
     try {
       const payload = {
         nombre: formSede.nombre.trim(),
-        distrito: formSede.distrito.trim(),
+        distrito: distritoLimpio,
         direccion: formSede.direccion.trim(),
         referencia: formSede.referencia.trim(),
         maps: formSede.maps.trim(),
@@ -468,10 +465,9 @@ export default function AdminSedes() {
       }
 
       setModalAbierto(false);
-      alert("✓ ¡Sede, horarios y teléfono guardados exitosamente!");
+      alert("✓ ¡Sede, tarifas y horarios guardados exitosamente!");
     } catch (err) {
-      console.error("Error al guardar sede:", err);
-      alert("Error al guardar: " + (err.message || JSON.stringify(err)));
+      alert("Error al guardar: " + err.message);
     } finally {
       setGuardando(false);
     }
@@ -480,7 +476,6 @@ export default function AdminSedes() {
   const handleEliminarSede = async (id, nombre) => {
     if (!confirm(`¿Eliminar definitivamente la ${nombre}?`)) return;
     const { error } = await supabase.from('sedes').delete().eq('id', id);
-    if (error) alert('No se pudo guardar el cambio: ' + error.message);
     if (!error) {
       setSedes(sedes.filter(s => s.id !== id));
       alert("✓ Sede eliminada.");
@@ -501,14 +496,19 @@ export default function AdminSedes() {
   return (
     <div className="space-y-8 max-w-5xl animate-in fade-in duration-300">
       
+      {/* MODAL DE ENCUADRE LIBRE */}
       {modalEncuadreAbierto && fotoParaEncuadrar && (
         <ModalEncuadre
           abierto={modalEncuadreAbierto}
           alCerrar={() => { setModalEncuadreAbierto(false); setFotoParaEncuadrar(null); }}
           imagenUrl={fotoParaEncuadrar.url}
-          posicionInicial={fotoParaEncuadrar.posY || 50}
-          posicionInicialX={fotoParaEncuadrar.posX || 50}
+          posicionInicial={{ x: fotoParaEncuadrar.posX ?? 50, y: fotoParaEncuadrar.posY ?? 50 }}
           alGuardar={handleGuardarEncuadreFoto}
+          esSede={true}
+          sedeData={{
+            nombre: fotoParaEncuadrar.sedeNombre || formSede.nombre || 'SEDE OFICIAL',
+            distrito: fotoParaEncuadrar.distrito || formSede.distrito || 'lima'
+          }}
         />
       )}
 
@@ -519,23 +519,21 @@ export default function AdminSedes() {
             <MapPin className="w-7 h-7 text-[#00B4A7]" /> Sedes, Canchas & Horarios
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Gestiona la cabecera panorámica de /sedes, turnos, tarifas y fotos oficiales de cada coliseo.
+            Gestiona la cabecera panorámica de /sedes, turnos fijos y fotos oficiales de cada coliseo.
           </p>
         </div>
 
         <button
           type="button"
           onClick={abrirModalNuevaSede}
-          className="px-5 py-2.5 rounded-xl bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-[#00B4A7]/25 cursor-pointer self-start sm:self-auto"
+          className="px-5 py-2.5 rounded-xl bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-[#00B4A7]/25 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>+ Nueva Sede</span>
         </button>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 🏟️ SECCIÓN NUEVA: CABECERA PANORÁMICA INDEPENDIENTE PARA /sedes          */}
-      {/* ========================================================================= */}
+      {/* FONDO PANORÁMICO DE CANCHAS */}
       <div className="bg-[#071527] border-2 border-[#00B4A7]/50 rounded-3xl p-6 shadow-2xl space-y-5">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center gap-3">
@@ -547,7 +545,7 @@ export default function AdminSedes() {
                 Fondo Panorámico de Canchas (/sedes) ({canchasPanoramicas.length} fotos)
               </h2>
               <p className="text-xs text-slate-400">
-                Sube fotos de canchas panorámicas y asigna el nombre y distrito que saldrá en la placa "Cancha en pantalla".
+                Sube fotos de coliseos y encuádralas libremente para el banner de la web pública.
               </p>
             </div>
           </div>
@@ -555,7 +553,7 @@ export default function AdminSedes() {
           <div className="flex items-center gap-2">
             <label className="bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950 font-black px-4 py-2 rounded-xl text-xs cursor-pointer shadow flex items-center gap-1.5">
               <Upload className="w-3.5 h-3.5" />
-              <span>+ Subir Foto de Cancha</span>
+              <span>+ Subir Foto</span>
               <input type="file" accept="image/*" onChange={handleSubirFotoPanoramica} className="hidden" />
             </label>
 
@@ -574,33 +572,21 @@ export default function AdminSedes() {
         </div>
 
         {canchasPanoramicas.length === 0 ? (
-          <div className="p-8 text-center bg-[#040914] rounded-2xl border border-dashed border-slate-800 text-xs text-slate-400 space-y-2">
-            <ImageIcon className="w-8 h-8 text-slate-600 mx-auto" />
-            <p className="font-bold text-white text-sm">No has configurado fotos independientes para el fondo de /sedes.</p>
-            <p className="text-slate-500">
-              Actualmente /sedes usa de respaldo las fotos de tus sedes creadas. Haz clic en "+ Subir Foto de Cancha" para personalizar este fondo independientemente.
-            </p>
+          <div className="p-8 text-center bg-[#040914] rounded-2xl border border-dashed border-slate-800 text-xs text-slate-400">
+            No has configurado fotos independientes para el fondo de /sedes.
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
             {canchasPanoramicas.map((cancha, idx) => (
-              <div 
-                key={cancha.id || idx} 
-                className="bg-[#040914] border border-slate-800 rounded-2xl p-3.5 space-y-3 shadow-lg flex flex-col justify-between"
-              >
+              <div key={cancha.id || idx} className="bg-[#040914] border border-slate-800 rounded-2xl p-3.5 space-y-3 shadow-lg flex flex-col justify-between">
                 <div>
                   <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-slate-800">
                     <img
                       src={cancha.url}
                       alt={cancha.sedeNombre}
                       className="w-full h-full object-cover"
-                      style={{ objectPosition: `${cancha.posX || 50}% ${cancha.posY || 50}%` }}
+                      style={{ objectPosition: `${normalizarCoordenada(cancha.posX)}% ${normalizarCoordenada(cancha.posY)}%` }}
                     />
-
-                    <span className="absolute top-2 left-2 bg-[#00B4A7] text-slate-950 font-black text-[9px] px-2 py-0.5 rounded shadow">
-                      Foto #{idx + 1}
-                    </span>
-
                     <button
                       type="button"
                       onClick={() => {
@@ -608,12 +594,14 @@ export default function AdminSedes() {
                           esFondoPanoramico: true,
                           url: cancha.url,
                           idx,
-                          posX: cancha.posX || 50,
-                          posY: cancha.posY || 50
+                          posX: cancha.posX ?? 50,
+                          posY: cancha.posY ?? 50,
+                          sedeNombre: cancha.sedeNombre,
+                          distrito: sanitizarDistrito(cancha.distrito)
                         });
                         setModalEncuadreAbierto(true);
                       }}
-                      className="absolute bottom-2 right-2 bg-black/80 hover:bg-[#F7B52C] hover:text-slate-950 text-white font-bold text-[10px] px-2 py-1 rounded-lg border border-white/20 flex items-center gap-1 transition-colors cursor-pointer"
+                      className="absolute bottom-2 right-2 bg-black/80 hover:bg-[#F7B52C] hover:text-slate-950 text-white font-bold text-[10px] px-2 py-1 rounded-lg border border-white/20 flex items-center gap-1 cursor-pointer"
                     >
                       <Crop className="w-3 h-3" />
                       <span>Encuadrar</span>
@@ -625,18 +613,15 @@ export default function AdminSedes() {
                       <label className="text-[10px] font-bold text-slate-400 block mb-0.5">Nombre en Pantalla:</label>
                       <input
                         type="text"
-                        placeholder="Ej. COLISEO LICEO NAVAL"
                         value={cancha.sedeNombre || ''}
                         onChange={(e) => handleCambiarTextoPanoramica(idx, 'sedeNombre', e.target.value)}
                         className="w-full bg-[#071527] border border-slate-800 p-2 rounded-xl text-white font-bold text-xs uppercase"
                       />
                     </div>
-
                     <div>
-                      <label className="text-[10px] font-bold text-slate-400 block mb-0.5">Distrito:</label>
+                      <label className="text-[10px] font-bold text-slate-400 block mb-0.5">Distrito (en minúsculas):</label>
                       <input
                         type="text"
-                        placeholder="Ej. San Miguel"
                         value={cancha.distrito || ''}
                         onChange={(e) => handleCambiarTextoPanoramica(idx, 'distrito', e.target.value)}
                         className="w-full bg-[#071527] border border-slate-800 p-2 rounded-xl text-white text-xs font-bold"
@@ -652,7 +637,7 @@ export default function AdminSedes() {
                     className="text-xs text-red-400 hover:text-red-300 font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Quitar foto del fondo</span>
+                    <span>Quitar foto</span>
                   </button>
                 </div>
               </div>
@@ -661,9 +646,7 @@ export default function AdminSedes() {
         )}
       </div>
 
-      {/* ========================================================================= */}
-      {/* 📍 CATÁLOGO DE SEDES INDIVIDUALES                                         */}
-      {/* ========================================================================= */}
+      {/* CATÁLOGO DE SEDES INDIVIDUALES */}
       <div className="space-y-4 pt-4">
         <div className="flex justify-between items-center border-b border-slate-800 pb-2">
           <h2 className="text-base font-black text-white flex items-center gap-2">
@@ -676,8 +659,8 @@ export default function AdminSedes() {
             const fotos = Array.isArray(s.imagenes) && s.imagenes.length > 0 ? s.imagenes : [s.foto_principal].filter(Boolean);
             const fotoPortada = s.foto_principal || fotos.slice(0).shift() || '';
             const pos = s.posiciones_fotos?.[fotoPortada];
-            const posX = typeof pos === 'object' ? (pos.x || 50) : 50;
-            const posY = typeof pos === 'object' ? (pos.y || 50) : 50;
+            const posX = typeof pos === 'object' && pos !== null ? normalizarCoordenada(pos.x) : 50;
+            const posY = typeof pos === 'object' && pos !== null ? normalizarCoordenada(pos.y) : normalizarCoordenada(pos);
 
             return (
               <div key={s.id} className="bg-[#071527] border border-slate-800 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group">
@@ -687,7 +670,7 @@ export default function AdminSedes() {
                       <img 
                         src={fotoPortada} 
                         alt={s.nombre} 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
                         style={{ objectPosition: `${posX}% ${posY}%` }}
                       />
                     ) : (
@@ -695,36 +678,17 @@ export default function AdminSedes() {
                         Sin fotos cargadas
                       </div>
                     )}
-
                     <span className="absolute top-3 left-3 bg-[#00B4A7] text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded shadow">
-                      📍 {s.distrito}
+                      📍 {sanitizarDistrito(s.distrito)}
                     </span>
-
-                    {fotos.length > 1 && (
-                      <span className="absolute bottom-3 right-3 bg-black/80 text-white font-mono text-[10px] px-2 py-0.5 rounded-full border border-white/20">
-                        📷 {fotos.length} fotos
-                      </span>
-                    )}
                   </div>
 
                   <div className="p-5 space-y-2">
                     <h3 className="font-black text-white text-base leading-tight">{s.nombre}</h3>
                     <p className="text-xs text-slate-400 truncate">{s.direccion}</p>
-                    
                     <div className="text-[11px] font-mono text-emerald-400 flex items-center gap-1.5 pt-0.5">
                       <Phone className="w-3 h-3 text-emerald-400" />
                       <span>{s.telefono_contacto ? `WhatsApp: ${s.telefono_contacto}` : 'WhatsApp General'}</span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1 pt-1">
-                      {(s.disciplinas || s.disciplinas_disponibles || ['Básquetbol', 'Voleibol']).map((d, i) => (
-                        <span key={i} className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-[#040914] text-[#F7B52C] border border-slate-800">
-                          {d}
-                        </span>
-                      ))}
-                      <span className="text-[10px] text-slate-500 font-mono py-0.5">
-                        · {(s.horarios || []).length} turnos
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -736,14 +700,13 @@ export default function AdminSedes() {
                     className="flex-1 py-2 rounded-xl bg-[#040914] hover:bg-slate-800 text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 border border-slate-700 cursor-pointer"
                   >
                     <Edit2 className="w-3.5 h-3.5 text-[#00B4A7]" />
-                    <span>Editar</span>
+                    <span>Editar Sede & Turnos</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleEliminarSede(s.id, s.nombre)}
                     className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 cursor-pointer"
-                    title="Eliminar sede"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -765,13 +728,9 @@ export default function AdminSedes() {
                   <MapPin className="w-5 h-5 text-[#F7B52C]" />
                   {sedeEnEdicion ? `Editando ${formSede.nombre || 'Sede'}` : 'Nueva Sede Deportiva'}
                 </h3>
-                <p className="text-xs text-slate-400">Configura datos, teléfono de informes, galería, turnos y promociones.</p>
+                <p className="text-xs text-slate-400">Configura datos, galería de fotos y tarifas regulares de la sede.</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setModalAbierto(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
-              >
+              <button type="button" onClick={() => setModalAbierto(false)} className="p-2 rounded-xl text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -792,14 +751,14 @@ export default function AdminSedes() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-bold mb-1">Distrito *:</label>
+                  <label className="block text-slate-300 font-bold mb-1">Distrito (se guardará en minúsculas) *:</label>
                   <input
                     type="text"
                     required
-                    placeholder="Ej. San Miguel / Jesús María"
+                    placeholder="Ej. san miguel / cercado de lima"
                     value={formSede.distrito}
                     onChange={e => setFormSede({ ...formSede, distrito: e.target.value })}
-                    className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-bold"
+                    className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-bold lowercase"
                   />
                 </div>
               </div>
@@ -809,7 +768,6 @@ export default function AdminSedes() {
                   <label className="block text-slate-300 font-bold mb-1">Dirección Exacta:</label>
                   <input
                     type="text"
-                    placeholder="Ej. Av. Venezuela s/n"
                     value={formSede.direccion}
                     onChange={e => setFormSede({ ...formSede, direccion: e.target.value })}
                     className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white"
@@ -817,55 +775,30 @@ export default function AdminSedes() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-bold mb-1">Referencia de Acceso:</label>
-                  <input
-                    type="text"
-                    placeholder="Ej. Frente al hospital naval, coliseo techado"
-                    value={formSede.referencia}
-                    onChange={e => setFormSede({ ...formSede, referencia: e.target.value })}
-                    className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-300 font-bold mb-1">Enlace de Google Maps (Columna 'maps'):</label>
-                  <input
-                    type="text"
-                    placeholder="https://maps.app.goo.gl/..."
-                    value={formSede.maps}
-                    onChange={e => setFormSede({ ...formSede, maps: e.target.value })}
-                    className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-mono"
-                  />
-                </div>
-
-                <div>
                   <label className="block text-emerald-400 font-bold mb-1 flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5" /> Teléfono / WhatsApp de Atención de la Sede:
+                    <Phone className="w-3.5 h-3.5" /> WhatsApp de Atención de la Sede:
                   </label>
                   <input
                     type="text"
-                    placeholder="Ej. 941614559"
                     value={formSede.telefono_contacto}
                     onChange={e => setFormSede({ ...formSede, telefono_contacto: e.target.value })}
-                    className="w-full bg-[#040914] border border-emerald-500/40 p-2.5 rounded-xl text-white font-mono font-bold focus:border-emerald-400 focus:outline-none"
+                    className="w-full bg-[#040914] border border-emerald-500/40 p-2.5 rounded-xl text-white font-mono font-bold"
                   />
                 </div>
               </div>
 
-              {/* 📸 GALERÍA DE MÚLTIPLES FOTOS DE LA SEDE */}
+              {/* GALERÍA DE FOTOS */}
               <div className="p-4 sm:p-5 rounded-2xl bg-[#040914] border border-slate-800 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
                   <div>
                     <h4 className="font-black text-white text-xs flex items-center gap-2">
                       <ImageIcon className="w-4 h-4 text-[#00B4A7]" />
-                      Galería de Fotos de la Cancha ({formSede.imagenes.length} fotos)
+                      Galería de Fotos ({formSede.imagenes.length} fotos)
                     </h4>
-                    <p className="text-[11px] text-slate-400">Sube fotos de las instalaciones y elige cuál será la portada principal.</p>
+                    <p className="text-[11px] text-slate-400">Sube fotos y encuadra cada imagen arrastrando libremente con el ratón.</p>
                   </div>
 
-                  <label className="bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950 font-black px-4 py-2 rounded-xl text-xs cursor-pointer shadow flex items-center gap-1.5 self-start sm:self-auto">
+                  <label className="bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950 font-black px-4 py-2 rounded-xl text-xs cursor-pointer shadow flex items-center gap-1.5">
                     <Upload className="w-3.5 h-3.5" />
                     <span>+ Subir Foto</span>
                     <input type="file" accept="image/*" onChange={handleSubirFotoSede} className="hidden" />
@@ -874,15 +807,15 @@ export default function AdminSedes() {
 
                 {formSede.imagenes.length === 0 ? (
                   <div className="p-6 text-center border border-dashed border-slate-800 rounded-xl text-slate-500 text-xs">
-                    No hay fotos subidas para esta sede. Haz clic en "+ Subir Foto".
+                    No hay fotos subidas. Haz clic en "+ Subir Foto".
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {formSede.imagenes.map((url, idx) => {
                       const esPrincipal = formSede.foto_principal === url;
                       const pos = formSede.posiciones_fotos?.[url];
-                      const posX = typeof pos === 'object' ? (pos.x || 50) : 50;
-                      const posY = typeof pos === 'object' ? (pos.y || 50) : 50;
+                      const posX = typeof pos === 'object' && pos !== null ? normalizarCoordenada(pos.x) : 50;
+                      const posY = typeof pos === 'object' && pos !== null ? normalizarCoordenada(pos.y) : normalizarCoordenada(pos);
 
                       return (
                         <div key={idx} className={`relative rounded-xl overflow-hidden border-2 bg-slate-950 flex flex-col justify-between group ${
@@ -895,7 +828,6 @@ export default function AdminSedes() {
                               className="w-full h-full object-cover"
                               style={{ objectPosition: `${posX}% ${posY}%` }}
                             />
-
                             {esPrincipal && (
                               <span className="absolute top-1.5 left-1.5 bg-[#F7B52C] text-slate-950 font-black text-[9px] px-2 py-0.5 rounded shadow">
                                 ★ Portada
@@ -907,11 +839,17 @@ export default function AdminSedes() {
                             <button
                               type="button"
                               onClick={() => {
-                                setFotoParaEncuadrar({ esFondoPanoramico: false, url, posX, posY });
+                                setFotoParaEncuadrar({
+                                  esFondoPanoramico: false,
+                                  url,
+                                  posX,
+                                  posY,
+                                  sedeNombre: formSede.nombre,
+                                  distrito: sanitizarDistrito(formSede.distrito)
+                                });
                                 setModalEncuadreAbierto(true);
                               }}
                               className="p-1 rounded bg-black/60 hover:bg-[#00B4A7] hover:text-slate-950 text-slate-300 text-[10px] font-bold flex items-center gap-1 border border-slate-700 cursor-pointer"
-                              title="Acomodar encuadre"
                             >
                               <Crop className="w-3 h-3" />
                               <span>Encuadrar</span>
@@ -931,9 +869,8 @@ export default function AdminSedes() {
                               type="button"
                               onClick={() => handleEliminarFoto(url)}
                               className="p-1 text-red-400 hover:text-red-300 cursor-pointer"
-                              title="Eliminar foto"
                             >
-                              <Trash2 className="w-3 h-3" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
@@ -943,22 +880,20 @@ export default function AdminSedes() {
                 )}
               </div>
 
-              {/* 🏀 🏐 TURNOS Y MATRIZ DE PRECIOS */}
+              {/* HORARIOS Y TARIFAS REGULARES */}
               <div className="p-4 sm:p-5 rounded-2xl bg-[#040914] border border-slate-800 space-y-4">
-                <div className="border-b border-slate-800/80 pb-2 flex justify-between items-center">
-                  <div>
-                    <h4 className="font-black text-white text-xs flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-[#F7B52C]" />
-                      Horarios de Entrenamiento & Promociones ({formSede.horarios.length} turnos)
-                    </h4>
-                    <p className="text-[11px] text-slate-400">
-                      Gestiona los turnos y la escala de tarifas (Mes, X2, X2+U, X3, X3+U, Clase).
-                    </p>
-                  </div>
+                
+                <div className="border-b border-slate-800/80 pb-2">
+                  <h4 className="font-black text-white text-xs flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-[#F7B52C]" />
+                    Horarios de Entrenamiento & Tarifas Regulares ({formSede.horarios.length} turnos)
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    Configura las tarifas habituales (Mes, X2 y Clase).
+                  </p>
                 </div>
 
-                {/* FORMULARIO DE TURNO */}
-                <div className="p-4 rounded-xl bg-[#071527] border border-slate-800 space-y-3">
+                <div className="p-4 rounded-xl bg-[#071527] border border-slate-800 space-y-4">
                   <span className="text-[11px] font-black uppercase text-[#00B4A7] tracking-wider block">
                     {turnoEnEdicionIdx !== null ? '✏️ Editando Turno' : '+ Agregar Turno a la Sede'}
                   </span>
@@ -974,8 +909,8 @@ export default function AdminSedes() {
                         <option value="Básquetbol">🏀 Básquetbol</option>
                         <option value="Voleibol">🏐 Voleibol</option>
                         <option value="Básquetbol Femenino">🏀 Básquetbol Femenino</option>
-                        <option value="Pre-Selección Vóley">⭐ Pre-Selección Vóley (Competitivo)</option>
-                        <option value="Pre-Selección Básquet">⭐ Pre-Selección Básquet (Competitivo)</option>
+                        <option value="Pre-Selección Vóley">⭐ Pre-Selección Vóley</option>
+                        <option value="Pre-Selección Básquet">⭐ Pre-Selección Básquet</option>
                         {disciplinasGlobales
                           .filter(d => !['Básquetbol', 'Voleibol', 'Básquetbol Femenino', 'Pre-Selección Vóley'].includes(d))
                           .map((d, i) => (
@@ -983,21 +918,10 @@ export default function AdminSedes() {
                           ))}
                         <option value="OTRA">+ Otra disciplina...</option>
                       </select>
-
-                      {formTurno.deporte === 'OTRA' && (
-                        <input
-                          type="text"
-                          required
-                          placeholder="Nombre de la nueva disciplina..."
-                          value={formTurno.otraDisciplina}
-                          onChange={e => setFormTurno({ ...formTurno, otraDisciplina: e.target.value })}
-                          className="w-full mt-2 bg-[#040914] border border-slate-800 p-2 rounded-xl text-white font-bold"
-                        />
-                      )}
                     </div>
 
                     <div>
-                      <label className="block text-slate-300 font-bold mb-1">Categoría / Sub / Edades:</label>
+                      <label className="block text-slate-300 font-bold mb-1">Categoría / Edades:</label>
                       <input
                         type="text"
                         list="categorias-sugeridas"
@@ -1032,7 +956,7 @@ export default function AdminSedes() {
                       <span className="text-[11px] text-slate-400 font-bold">Inicio:</span>
                       <input
                         type="text"
-                        maxLength="2"
+                        maxLength={2}
                         value={formTurno.horaInicioH}
                         onChange={e => setFormTurno({ ...formTurno, horaInicioH: e.target.value })}
                         className="w-12 bg-[#040914] border border-slate-800 p-1.5 rounded-lg text-center text-white font-mono font-bold"
@@ -1040,7 +964,7 @@ export default function AdminSedes() {
                       <span className="text-slate-400 font-bold">:</span>
                       <input
                         type="text"
-                        maxLength="2"
+                        maxLength={2}
                         value={formTurno.horaInicioM}
                         onChange={e => setFormTurno({ ...formTurno, horaInicioM: e.target.value })}
                         className="w-12 bg-[#040914] border border-slate-800 p-1.5 rounded-lg text-center text-white font-mono font-bold"
@@ -1059,7 +983,7 @@ export default function AdminSedes() {
                       <span className="text-[11px] text-slate-400 font-bold">Fin:</span>
                       <input
                         type="text"
-                        maxLength="2"
+                        maxLength={2}
                         value={formTurno.horaFinH}
                         onChange={e => setFormTurno({ ...formTurno, horaFinH: e.target.value })}
                         className="w-12 bg-[#040914] border border-slate-800 p-1.5 rounded-lg text-center text-white font-mono font-bold"
@@ -1067,7 +991,7 @@ export default function AdminSedes() {
                       <span className="text-slate-400 font-bold">:</span>
                       <input
                         type="text"
-                        maxLength="2"
+                        maxLength={2}
                         value={formTurno.horaFinM}
                         onChange={e => setFormTurno({ ...formTurno, horaFinM: e.target.value })}
                         className="w-12 bg-[#040914] border border-slate-800 p-1.5 rounded-lg text-center text-white font-mono font-bold"
@@ -1083,69 +1007,50 @@ export default function AdminSedes() {
                     </div>
                   </div>
 
-                  {/* PRECIOS */}
-                  <div className="pt-2 border-t border-slate-800/80">
-                    <label className="block text-slate-300 font-bold mb-1.5">
-                      💰 Escala de Tarifas y Promociones Oficiales (Soles):
+                  {/* TARIFAS REGULARES */}
+                  <div className="pt-2 border-t border-slate-800/80 space-y-2">
+                    <label className="text-slate-300 font-bold text-xs block">
+                      💰 Tarifas Regulares del Turno (Soles):
                     </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-center">
-                      <div className="p-2 rounded-lg bg-[#040914] border border-slate-800">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold block">1 Mes</span>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+                      <div className="p-2.5 rounded-xl bg-[#040914] border border-slate-800">
+                        <span className="text-[10px] text-slate-400 uppercase font-bold block mb-1">1 Mes Regular</span>
                         <input
                           type="number"
                           value={formTurno.precio_mes}
                           onChange={e => setFormTurno({ ...formTurno, precio_mes: e.target.value })}
-                          className="w-full bg-[#071527] border border-slate-800 p-1 rounded text-center text-white font-mono font-bold"
+                          className="w-full bg-[#071527] border border-slate-800 p-1.5 rounded-lg text-center text-white font-mono font-bold text-sm"
                         />
                       </div>
 
-                      <div className="p-2 rounded-lg bg-[#040914] border border-[#F7B52C]/40">
-                        <span className="text-[10px] text-[#F7B52C] uppercase font-bold block">Promo X2</span>
+                      <div className="p-2.5 rounded-xl bg-[#040914] border border-[#F7B52C]/40">
+                        <span className="text-[10px] text-[#F7B52C] uppercase font-bold block mb-1">Promo X2</span>
                         <input
                           type="number"
                           value={formTurno.precio_x2}
                           onChange={e => setFormTurno({ ...formTurno, precio_x2: e.target.value })}
-                          className="w-full bg-[#071527] border border-slate-800 p-1 rounded text-center text-[#F7B52C] font-mono font-bold"
+                          className="w-full bg-[#071527] border border-slate-800 p-1.5 rounded-lg text-center text-[#F7B52C] font-mono font-bold text-sm"
                         />
                       </div>
 
-                      <div className="p-2 rounded-lg bg-[#040914] border border-[#00B4A7]/50">
-                        <span className="text-[10px] text-[#00B4A7] uppercase font-bold block">X2 + Unif</span>
+                      <div className="p-2.5 rounded-xl bg-[#040914] border border-[#00B4A7]/50">
+                        <span className="text-[10px] text-[#00B4A7] uppercase font-bold block mb-1">X2 + Uniforme</span>
                         <input
                           type="number"
                           value={formTurno.precio_x2_u}
                           onChange={e => setFormTurno({ ...formTurno, precio_x2_u: e.target.value })}
-                          className="w-full bg-[#071527] border border-slate-800 p-1 rounded text-center text-[#00B4A7] font-mono font-bold"
+                          className="w-full bg-[#071527] border border-slate-800 p-1.5 rounded-lg text-center text-[#00B4A7] font-mono font-bold text-sm"
                         />
                       </div>
 
-                      <div className="p-2 rounded-lg bg-[#040914] border border-slate-800">
-                        <span className="text-[10px] text-slate-300 uppercase font-bold block">Promo X3</span>
-                        <input
-                          type="number"
-                          value={formTurno.precio_x3}
-                          onChange={e => setFormTurno({ ...formTurno, precio_x3: e.target.value })}
-                          className="w-full bg-[#071527] border border-slate-800 p-1 rounded text-center text-white font-mono font-bold"
-                        />
-                      </div>
-
-                      <div className="p-2 rounded-lg bg-[#040914] border border-emerald-500/50">
-                        <span className="text-[10px] text-emerald-400 uppercase font-bold block">X3 + Unif</span>
-                        <input
-                          type="number"
-                          value={formTurno.precio_x3_u}
-                          onChange={e => setFormTurno({ ...formTurno, precio_x3_u: e.target.value })}
-                          className="w-full bg-[#071527] border border-slate-800 p-1 rounded text-center text-emerald-400 font-mono font-bold"
-                        />
-                      </div>
-
-                      <div className="p-2 rounded-lg bg-[#040914] border border-cyan-500/40">
-                        <span className="text-[10px] text-cyan-400 uppercase font-bold block">Clase</span>
+                      <div className="p-2.5 rounded-xl bg-[#040914] border border-cyan-500/40">
+                        <span className="text-[10px] text-cyan-400 uppercase font-bold block mb-1">Clase</span>
                         <input
                           type="number"
                           value={formTurno.precio_clase}
                           onChange={e => setFormTurno({ ...formTurno, precio_clase: e.target.value })}
-                          className="w-full bg-[#071527] border border-slate-800 p-1 rounded text-center text-cyan-400 font-mono font-bold"
+                          className="w-full bg-[#071527] border border-slate-800 p-1.5 rounded-lg text-center text-cyan-400 font-mono font-bold text-sm"
                         />
                       </div>
                     </div>
@@ -1211,7 +1116,6 @@ export default function AdminSedes() {
                               type="button"
                               onClick={() => handleEliminarTurno(idx)}
                               className="text-red-400 hover:text-red-300 p-1 cursor-pointer"
-                              title="Eliminar turno"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1220,12 +1124,15 @@ export default function AdminSedes() {
 
                         <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-mono">
                           <span className="text-slate-400 font-sans">Tarifas:</span>
-                          <span className="px-2 py-0.5 rounded bg-[#040914] text-white">Mes: S/.{t.precio_mes || 150}</span>
-                          <span className="px-2 py-0.5 rounded bg-[#040914] text-[#F7B52C] font-bold">X2: S/.{t.precio_x2 || 270}</span>
-                          <span className="px-2 py-0.5 rounded bg-[#040914] text-[#00B4A7] font-bold">X2+U: S/.{t.precio_x2_u || 340}</span>
-                          <span className="px-2 py-0.5 rounded bg-[#040914] text-slate-200">X3: S/.{t.precio_x3 || 370}</span>
-                          <span className="px-2 py-0.5 rounded bg-[#040914] text-emerald-400 font-bold">X3+U: S/.{t.precio_x3_u || 450}</span>
-                          <span className="px-2 py-0.5 rounded bg-[#040914] text-cyan-400">Clase: S/.{t.precio_clase || 20}</span>
+                          <span className="px-2 py-0.5 rounded bg-[#040914] text-white">
+                            {(() => {
+                              const p = precioValido(t.precio_mes);
+                              return p !== null ? `Mes: S/.${p}` : 'Mes: Por definir';
+                            })()}
+                          </span>
+                          {t.precio_x2 && <span className="px-2 py-0.5 rounded bg-[#040914] text-[#F7B52C] font-bold">X2: S/.{t.precio_x2}</span>}
+                          {t.precio_x2_u && <span className="px-2 py-0.5 rounded bg-[#040914] text-[#00B4A7] font-bold">X2+U: S/.{t.precio_x2_u}</span>}
+                          {t.precio_clase && <span className="px-2 py-0.5 rounded bg-[#040914] text-cyan-400">Clase: S/.{t.precio_clase}</span>}
                         </div>
                       </div>
                     );

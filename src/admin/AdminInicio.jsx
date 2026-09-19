@@ -8,14 +8,14 @@ import {
   Loader2, 
   Image as ImageIcon, 
   Video, 
-  Plus,
-  Share2,
-  ExternalLink,
-  Play
+  Plus, 
+  Share2, 
+  ExternalLink, 
+  Crop 
 } from 'lucide-react';
 import { supabase } from '../supabase';
+import ModalEncuadre from './ModalEncuadre';
 
-// EXTRACTOR DE ID DE YOUTUBE (SOPORTA SHORTS, WATCH, YOUUTU.BE Y EMBED)
 function obtenerIdYouTube(url) {
   if (!url || typeof url !== 'string') return '';
   if (url.includes('shorts/')) {
@@ -37,13 +37,19 @@ function obtenerIdYouTube(url) {
   return '';
 }
 
+const normalizarCoordenada = (val, defecto = 50) => {
+  if (val === null || val === undefined || val === '') return defecto;
+  const num = Number(val);
+  return Number.isFinite(num) && num >= 0 && num <= 100 ? num : defecto;
+};
+
 export default function AdminInicio() {
   const [errorCarga, setErrorCarga] = useState('');
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
 
-  // Estados sincronizados con configuracion_web
   const [banners, setBanners] = useState([]);
+  const [bannerPosiciones, setBannerPosiciones] = useState({});
   const [videos, setVideos] = useState([]);
   const [redes, setRedes] = useState({
     tiktok: '',
@@ -55,49 +61,56 @@ export default function AdminInicio() {
   const [nuevoVideoUrl, setNuevoVideoUrl] = useState('');
   const [nuevoVideoTitulo, setNuevoVideoTitulo] = useState('');
 
-  useEffect(() => {
-  async function cargarDatosInicio() {
-    try {
-      const { data, error } = await supabase
-        .from('configuracion_web')
-        .select('clave, valor')
-        .in('clave', [
-          'banner_hero_inicio', 
-          'banner_sedes', 
-          'banner_inicio', 
-          'inicio_videos', 
-          'videos_inicio', 
-          'videos_shorts', 
-          'videos', 
-          'redes_sociales'
-        ]);
+  const [modalEncuadreAbierto, setModalEncuadreAbierto] = useState(false);
+  const [bannerAEncuadrar, setBannerAEncuadrar] = useState(null);
 
-      if (error) throw error;
-      if (data) {
-        const config = Object.fromEntries(data.map(item => [item.clave, item.valor]));
-        const banner = config.banner_hero_inicio ?? config.banner_sedes ?? config.banner_inicio;
-        setBanners(Array.isArray(banner) ? banner : []);
-        let lista = config.inicio_videos ?? config.videos_inicio ?? config.videos_shorts ?? config.videos;
-        if (typeof lista === 'string') lista = [{ id: 1, url: lista, enlace: lista, titulo: 'Video Oficial' }];
-        else if (lista && !Array.isArray(lista) && typeof lista === 'object') lista = [lista];
-        setVideos(Array.isArray(lista) ? lista : []);
-        if (config.redes_sociales && typeof config.redes_sociales === 'object') {
-          setRedes(prev => ({ ...prev, ...config.redes_sociales }));
+  useEffect(() => {
+    async function cargarDatosInicio() {
+      try {
+        const { data, error } = await supabase
+          .from('configuracion_web')
+          .select('clave, valor')
+          .in('clave', [
+            'banner_hero_inicio', 
+            'banner_sedes', 
+            'banner_inicio', 
+            'banner_posiciones',
+            'inicio_videos', 
+            'videos_inicio', 
+            'videos_shorts', 
+            'videos', 
+            'redes_sociales'
+          ]);
+
+        if (error) throw error;
+        if (data) {
+          const config = Object.fromEntries(data.map(item => [item.clave, item.valor]));
+          const banner = config.banner_hero_inicio ?? config.banner_sedes ?? config.banner_inicio;
+          setBanners(Array.isArray(banner) ? banner : []);
+
+          if (config.banner_posiciones && typeof config.banner_posiciones === 'object') {
+            setBannerPosiciones(config.banner_posiciones);
+          }
+
+          let lista = config.inicio_videos ?? config.videos_inicio ?? config.videos_shorts ?? config.videos;
+          if (typeof lista === 'string') lista = [{ id: 1, url: lista, enlace: lista, titulo: 'Video Oficial' }];
+          else if (lista && !Array.isArray(lista) && typeof lista === 'object') lista = [lista];
+          setVideos(Array.isArray(lista) ? lista : []);
+
+          if (config.redes_sociales && typeof config.redes_sociales === 'object') {
+            setRedes(prev => ({ ...prev, ...config.redes_sociales }));
+          }
         }
+      } catch (err) {
+        console.error("Error al cargar configuración de inicio:", err);
+        setErrorCarga('No se pudo cargar la información. Recarga para reintentar.');
+      } finally {
+        setCargando(false);
       }
-    } catch (err) {
-      console.error("Error al cargar configuración de inicio:", err);
-      setErrorCarga('No se pudo cargar la información. Recarga para reintentar.');
-    } finally {
-      setCargando(false);
     }
-  }
     cargarDatosInicio();
   }, []);
 
-
-
-  // Subir imagen para el banner principal con guardado inmediato
   const handleSubirBanner = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -112,18 +125,57 @@ export default function AdminInicio() {
 
     const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`banners/${nombreLimpio}`);
     const nuevosBanners = [...banners, { url: data.publicUrl }];
-    // Persistencia directa
+    
     if (!await guardar(supabase.from('configuracion_web').upsert({ clave: 'banner_hero_inicio', valor: nuevosBanners }))) return;
     setBanners(nuevosBanners);
   };
 
-  const handleEliminarBanner = async (urlAEliminar) => {
-    const nuevosBanners = banners.filter(b => (b.url || b) !== urlAEliminar);
-    if (!await guardar(supabase.from('configuracion_web').upsert({ clave: 'banner_hero_inicio', valor: nuevosBanners }))) return;
+  const handleEliminarBanner = async (urlAEliminar, idxEliminar) => {
+    if (!confirm("¿Deseas eliminar definitivamente este banner?")) return;
+
+    const nuevosBanners = banners.filter((b, i) => {
+      const u = typeof b === 'string' ? b : (b?.url || b?.imagen || '');
+      return u !== urlAEliminar && i !== idxEliminar;
+    });
+
+    const copiaPos = { ...bannerPosiciones };
+    delete copiaPos[idxEliminar];
+    delete copiaPos[urlAEliminar];
+
+    if (!await guardar(supabase.from('configuracion_web').upsert([
+      { clave: 'banner_hero_inicio', valor: nuevosBanners },
+      { clave: 'banner_posiciones', valor: copiaPos }
+    ]))) return;
+
     setBanners(nuevosBanners);
+    setBannerPosiciones(copiaPos);
   };
 
-  // Agregar video con título y URL
+  // Guardar encuadre: devuelve explícitamente true o false
+  const handleGuardarEncuadreBanner = async (nuevaPosicion) => {
+    if (!bannerAEncuadrar) return false;
+
+    const posFinal = {
+      x: normalizarCoordenada(nuevaPosicion?.x),
+      y: normalizarCoordenada(nuevaPosicion?.y)
+    };
+
+    const nuevasPosiciones = {
+      ...bannerPosiciones,
+      [bannerAEncuadrar.idx]: posFinal
+    };
+
+    const guardadoOk = await guardar(supabase.from('configuracion_web').upsert({
+      clave: 'banner_posiciones',
+      valor: nuevasPosiciones
+    }));
+
+    if (!guardadoOk) return false;
+
+    setBannerPosiciones(nuevasPosiciones);
+    return true;
+  };
+
   const handleAgregarVideo = async () => {
     if (!nuevoVideoUrl.trim()) return alert("Ingresa el enlace de YouTube.");
     
@@ -140,26 +192,25 @@ export default function AdminInicio() {
 
     const nuevaLista = [...videos, nuevoItem];
 
-    // Guardado directo
     if (!await guardar(supabase.from('configuracion_web').upsert({ clave: 'inicio_videos', valor: nuevaLista }))) return;
     setVideos(nuevaLista);
     setNuevoVideoUrl('');
     setNuevoVideoTitulo('');
-
   };
 
   const handleEliminarVideo = async (id) => {
+    if (!confirm("¿Deseas eliminar este video?")) return;
     const nuevaLista = videos.filter(v => v.id !== id);
     if (!await guardar(supabase.from('configuracion_web').upsert({ clave: 'inicio_videos', valor: nuevaLista }))) return;
     setVideos(nuevaLista);
   };
 
-  // Guardar todos los cambios globales
   const handleGuardarCambios = async () => {
     setGuardando(true);
     try {
       if (!await guardar(supabase.from('configuracion_web').upsert([
         { clave: 'banner_hero_inicio', valor: banners },
+        { clave: 'banner_posiciones', valor: bannerPosiciones },
         { clave: 'inicio_videos', valor: videos },
         { clave: 'redes_sociales', valor: redes }
       ]))) return;
@@ -185,6 +236,21 @@ export default function AdminInicio() {
   return (
     <div className="space-y-8 max-w-5xl animate-in fade-in duration-300">
       
+      {modalEncuadreAbierto && bannerAEncuadrar && (
+        <ModalEncuadre
+          key={`banner_${bannerAEncuadrar.idx}_${bannerAEncuadrar.url}`}
+          abierto={modalEncuadreAbierto}
+          alCerrar={() => {
+            setModalEncuadreAbierto(false);
+            setBannerAEncuadrar(null);
+          }}
+          imagenUrl={bannerAEncuadrar.url}
+          posicionInicial={bannerAEncuadrar.pos}
+          alGuardar={handleGuardarEncuadreBanner}
+          esHero={true}
+        />
+      )}
+
       {/* CABECERA */}
       <div className="border-b border-slate-800 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -192,7 +258,7 @@ export default function AdminInicio() {
             <Sparkles className="w-7 h-7 text-[#00B4A7]" /> Portada, Videos & Redes
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Administra los banners de fondo, los videos de YouTube con previsualización en vivo y los enlaces de redes sociales.
+            Administra los banners de fondo con encuadre en vivo, videos de YouTube y enlaces de redes sociales.
           </p>
         </div>
 
@@ -207,14 +273,14 @@ export default function AdminInicio() {
         </button>
       </div>
 
-      {/* 1. BANNERS HERO */}
+      {/* BANNERS HERO */}
       <div className="p-5 sm:p-6 bg-[#040914] border border-slate-800 rounded-2xl space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
           <div>
             <h3 className="text-sm font-black text-white flex items-center gap-2">
               <ImageIcon className="w-4 h-4 text-[#00B4A7]" /> Banners del Fondo Hero ({banners.length} fotos)
             </h3>
-            <p className="text-[11px] text-slate-400">Fotos que rotan automáticamente de fondo en la portada.</p>
+            <p className="text-[11px] text-slate-400">Fotos que rotan de fondo en la portada. Haz clic en "Encuadrar" para acomodarlas con las letras.</p>
           </div>
           <label className="bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950 font-black px-4 py-2 rounded-xl text-xs cursor-pointer shadow flex items-center gap-1.5 self-start sm:self-auto">
             <Upload className="w-3.5 h-3.5" />
@@ -228,20 +294,53 @@ export default function AdminInicio() {
             No hay banners cargados. Haz clic en "+ Subir Banner".
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {banners.map((b, idx) => {
               const url = typeof b === 'string' ? b : (b?.url || b?.imagen || "");
+              const pos = bannerPosiciones[idx] || bannerPosiciones[url] || { x: 50, y: 50 };
+              const posX = normalizarCoordenada(pos?.x);
+              const posY = normalizarCoordenada(pos?.y);
+
               return (
-                <div key={idx} className="relative rounded-xl overflow-hidden border border-slate-800 bg-slate-950 aspect-video group">
-                  <img src={url} alt={`Banner ${idx + 1}`} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div 
+                  key={idx} 
+                  className="bg-[#071527] border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col justify-between group transition-all"
+                >
+                  <div className="relative aspect-video bg-slate-950 overflow-hidden">
+                    <img 
+                      src={url} 
+                      alt={`Banner ${idx + 1}`} 
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                      style={{ objectPosition: `${posX}% ${posY}%` }}
+                    />
+
+                    <span className="absolute top-2.5 left-2.5 bg-black/80 text-[#F7B52C] font-mono text-[10px] px-2 py-0.5 rounded-md border border-white/10 shadow">
+                      X: {posX}% · Y: {posY}%
+                    </span>
+
                     <button
                       type="button"
-                      onClick={() => handleEliminarBanner(url)}
-                      className="p-2 rounded-xl bg-red-600 hover:bg-red-500 text-white cursor-pointer transition-colors"
-                      title="Eliminar banner"
+                      onClick={() => {
+                        setBannerAEncuadrar({ idx, url, pos: { x: posX, y: posY } });
+                        setModalEncuadreAbierto(true);
+                      }}
+                      className="absolute bottom-2.5 right-2.5 bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950 font-black text-xs px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Crop className="w-3.5 h-3.5" />
+                      <span>Encuadrar</span>
+                    </button>
+                  </div>
+
+                  <div className="p-3 bg-[#040914] border-t border-slate-800/80 flex justify-between items-center text-xs">
+                    <span className="text-slate-400 font-mono text-[11px]">Banner #{idx + 1}</span>
+                    
+                    <button
+                      type="button"
+                      onClick={() => handleEliminarBanner(url, idx)}
+                      className="text-red-400 hover:text-red-300 font-bold flex items-center gap-1 cursor-pointer transition-colors p-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Eliminar</span>
                     </button>
                   </div>
                 </div>
@@ -251,7 +350,7 @@ export default function AdminInicio() {
         )}
       </div>
 
-      {/* 2. VIDEOS DE YOUTUBE CON PREVISUALIZACIÓN */}
+      {/* VIDEOS */}
       <div className="p-5 sm:p-6 bg-[#040914] border border-slate-800 rounded-2xl space-y-5">
         <div className="border-b border-slate-800 pb-3">
           <h3 className="text-sm font-black text-white flex items-center gap-2">
@@ -260,7 +359,6 @@ export default function AdminInicio() {
           <p className="text-[11px] text-slate-400">Agrega enlaces de videos o Shorts oficiales y previsualízalos aquí mismo.</p>
         </div>
 
-        {/* FORMULARIO AGREGAR VIDEO */}
         <div className="grid sm:grid-cols-3 gap-2.5 max-w-2xl">
           <input
             type="text"
@@ -286,7 +384,6 @@ export default function AdminInicio() {
           </button>
         </div>
 
-        {/* LISTA CON PREVISUALIZACIÓN EN VIVO */}
         {videos.length === 0 ? (
           <div className="p-6 text-center border border-dashed border-slate-800 rounded-xl text-slate-500 text-xs">
             No hay videos registrados. Añade uno arriba.
@@ -304,7 +401,6 @@ export default function AdminInicio() {
                   className="p-4 bg-[#071527] rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between shadow-xl"
                 >
                   <div className="space-y-2.5">
-                    {/* CABECERA DEL ITEM */}
                     <div className="flex justify-between items-start gap-2">
                       <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-red-600/20 text-red-400 font-mono">
                         YouTube
@@ -319,7 +415,6 @@ export default function AdminInicio() {
                       </button>
                     </div>
 
-                    {/* PREVISUALIZADOR EN VIVO */}
                     {idYt ? (
                       <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-slate-800 shadow-inner">
                         <iframe
@@ -359,7 +454,7 @@ export default function AdminInicio() {
         )}
       </div>
 
-      {/* 3. REDES SOCIALES */}
+      {/* REDES SOCIALES */}
       <div className="p-5 sm:p-6 bg-[#040914] border border-slate-800 rounded-2xl space-y-4">
         <div className="border-b border-slate-800 pb-3">
           <h3 className="text-sm font-black text-white flex items-center gap-2">

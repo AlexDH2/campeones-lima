@@ -1,350 +1,309 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   X, 
-  Check, 
   Crop, 
-  RotateCcw, 
-  Hand, 
-  Plus, 
-  Minus,
-  Move,
-  Upload,
-  Loader2,
-  Image as ImageIcon
+  Check, 
+  Eye, 
+  EyeOff, 
+  Move, 
+  RotateCcw,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
-import { supabase } from '../supabase';
 
-export default function ModalEncuadre(props) {
-  const estaAbierto = props.abierto ?? props.isOpen ?? props.show ?? false;
+const normalizarCoordenada = (val, defecto = 50) => {
+  if (val === null || val === undefined || val === '') return defecto;
+  const num = Number(val);
+  return Number.isFinite(num) && num >= 0 && num <= 100 ? num : defecto;
+};
 
-  const urlDetectada = props.imagenUrl || 
-                        props.imagen || 
-                        props.foto || 
-                        props.url || 
-                        props.image || 
-                        props.src || 
-                        props.fotoUrl || 
-                        props.banner || 
-                        props.foto_principal || 
-                        (props.item && (props.item.url || props.item.foto || props.item.imagen)) || 
-                        "";
-
-  const posInicialY = Number(props.posicionInicial ?? props.posicionY ?? props.posicion ?? props.pos ?? 50);
-  const posInicialX = Number(props.posicionInicialX ?? props.posicionX ?? props.posX ?? 50);
-
-  const fnCerrar = props.alCerrar || props.onClose || (() => {});
-  const fnGuardar = props.alGuardar || props.onSave || props.onGuardar || (() => {});
-
-  // Estados
-  const [urlImagenActual, setUrlImagenActual] = useState(urlDetectada);
-  const [posicionY, setPosicionY] = useState(posInicialY);
-  const [posicionX, setPosicionX] = useState(posInicialX);
-  const [zoom, setZoom] = useState(1.2);
-  const [arrastrando, setArrastrando] = useState(false);
-  const [subiendoNuevaFoto, setSubiendoNuevaFoto] = useState(false);
-
-  // Referencias para arrastre 360° fluido
-  const isDraggingRef = useRef(false);
-  const startXRef = useRef(0);
-  const startYRef = useRef(0);
-  const startPosXRef = useRef(posInicialX);
-  const startPosYRef = useRef(posInicialY);
-
-  const firmaEntrada = JSON.stringify([posInicialY, posInicialX, estaAbierto, urlDetectada]);
-  const [ultimaEntrada, setUltimaEntrada] = useState(firmaEntrada);
-  if (ultimaEntrada !== firmaEntrada) {
-    setUltimaEntrada(firmaEntrada);
-    setUrlImagenActual(urlDetectada);
-    setPosicionY(posInicialY);
-    setPosicionX(posInicialX);
-    setZoom(1.2);
+const obtenerCoordenadasIniciales = (posInicial, posInicialX) => {
+  if (typeof posInicial === 'object' && posInicial !== null) {
+    return {
+      x: normalizarCoordenada(posInicial.x),
+      y: normalizarCoordenada(posInicial.y)
+    };
   }
+  return {
+    x: normalizarCoordenada(posInicialX),
+    y: normalizarCoordenada(posInicial)
+  };
+};
 
-  // EVENTOS GLOBALES DE ARRASTRE
-  useEffect(() => {
-    if (!estaAbierto) return;
+export default function ModalEncuadre({
+  abierto,
+  alCerrar,
+  imagenUrl,
+  posicionInicial = 50,
+  posicionInicialX = 50,
+  alGuardar,
+  esHero = false,
+  esSede = false,
+  sedeData = null
+}) {
+  const [posX, setPosX] = useState(() => obtenerCoordenadasIniciales(posicionInicial, posicionInicialX).x);
+  const [posY, setPosY] = useState(() => obtenerCoordenadasIniciales(posicionInicial, posicionInicialX).y);
+  const [simularOverlay, setSimularOverlay] = useState(esHero || esSede);
+  const [estaArrastrando, setEstaArrastrando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
 
-    const handleMouseMove = (e) => {
-      if (!isDraggingRef.current) return;
-      const deltaX = e.clientX - startXRef.current;
-      const deltaY = e.clientY - startYRef.current;
+  const visorRef = useRef(null);
+  const arrastreInicioRef = useRef(null);
 
-      let nuevaPosX = startPosXRef.current - (deltaX * 0.4);
-      nuevaPosX = Math.max(0, Math.min(100, Math.round(nuevaPosX)));
-      setPosicionX(nuevaPosX);
+  if (!abierto) return null;
 
-      let nuevaPosY = startPosYRef.current - (deltaY * 0.4);
-      nuevaPosY = Math.max(0, Math.min(100, Math.round(nuevaPosY)));
-      setPosicionY(nuevaPosY);
+  const handlePointerDown = (e) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setEstaArrastrando(true);
+    arrastreInicioRef.current = {
+      inicioMouseX: e.clientX,
+      inicioMouseY: e.clientY,
+      inicioPosX: posX,
+      inicioPosY: posY,
     };
-
-    const handleMouseUp = () => {
-      isDraggingRef.current = false;
-      setArrastrando(false);
-    };
-
-    const handleTouchMove = (e) => {
-      if (!isDraggingRef.current || !e.touches[0]) return;
-      const deltaX = e.touches[0].clientX - startXRef.current;
-      const deltaY = e.touches[0].clientY - startYRef.current;
-
-      let nuevaPosX = startPosXRef.current - (deltaX * 0.4);
-      nuevaPosX = Math.max(0, Math.min(100, Math.round(nuevaPosX)));
-      setPosicionX(nuevaPosX);
-
-      let nuevaPosY = startPosYRef.current - (deltaY * 0.4);
-      nuevaPosY = Math.max(0, Math.min(100, Math.round(nuevaPosY)));
-      setPosicionY(nuevaPosY);
-    };
-
-    const handleTouchEnd = () => {
-      isDraggingRef.current = false;
-      setArrastrando(false);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    window.addEventListener('touchmove', handleTouchMove);
-    window.addEventListener('touchend', handleTouchEnd);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [estaAbierto]);
-
-  if (!estaAbierto) return null;
-
-  const handleMouseDown = (e) => {
-    e.preventDefault();
-    isDraggingRef.current = true;
-    startXRef.current = e.clientX;
-    startYRef.current = e.clientY;
-    startPosXRef.current = posicionX;
-    startPosYRef.current = posicionY;
-    setArrastrando(true);
   };
 
-  const handleTouchStart = (e) => {
-    if (!e.touches[0]) return;
-    isDraggingRef.current = true;
-    startXRef.current = e.touches[0].clientX;
-    startYRef.current = e.touches[0].clientY;
-    startPosXRef.current = posicionX;
-    startPosYRef.current = posicionY;
-    setArrastrando(true);
+  const handlePointerMove = (e) => {
+    if (!estaArrastrando || !arrastreInicioRef.current || !visorRef.current) return;
+
+    const rect = visorRef.current.getBoundingClientRect();
+    const deltaX = e.clientX - arrastreInicioRef.current.inicioMouseX;
+    const deltaY = e.clientY - arrastreInicioRef.current.inicioMouseY;
+
+    const factorSensibilidad = 0.9;
+    const porcentajeMovX = (deltaX / rect.width) * 100 * factorSensibilidad;
+    const porcentajeMovY = (deltaY / rect.height) * 100 * factorSensibilidad;
+
+    const nuevoX = Math.round(Math.min(100, Math.max(0, arrastreInicioRef.current.inicioPosX - porcentajeMovX)));
+    const nuevoY = Math.round(Math.min(100, Math.max(0, arrastreInicioRef.current.inicioPosY - porcentajeMovY)));
+
+    setPosX(nuevoX);
+    setPosY(nuevoY);
   };
 
-  // BOTÓN PARA CAMBIAR LA FOTO DIRECTAMENTE DESDE EL MODAL
-  const handleCambiarFotoEnModal = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setSubiendoNuevaFoto(true);
+  const handlePointerUp = (e) => {
     try {
-      const nombreLimpio = `nueva_foto_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
-      const { error } = await supabase.storage.from('imagenes_web').upload(`disciplinas/${nombreLimpio}`, file);
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // Ignorar si el puntero ya no está capturado
+    }
+    setEstaArrastrando(false);
+    arrastreInicioRef.current = null;
+  };
 
-      if (error) {
-        alert("Error al subir nueva foto: " + error.message);
-        return;
+  const handleRestablecer = () => {
+    setPosX(50);
+    setPosY(50);
+  };
+
+  const handleConfirmar = async () => {
+    if (!alGuardar) {
+      alCerrar();
+      return;
+    }
+
+    setGuardando(true);
+    try {
+      // Envía únicamente el objeto de coordenadas
+      const resultado = await alGuardar({ x: posX, y: posY });
+      // Cierra únicamente si el guardado reportó true
+      if (resultado === true) {
+        alCerrar();
       }
-
-      const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`disciplinas/${nombreLimpio}`);
-      setUrlImagenActual(data.publicUrl);
-      setPosicionX(50);
-      setPosicionY(50);
-      setZoom(1.2);
+    } catch (err) {
+      console.error("Error al guardar encuadre:", err);
     } finally {
-      setSubiendoNuevaFoto(false);
+      setGuardando(false);
     }
   };
 
-  // ZOOM + Y -
-  const handleAumentarZoom = () => {
-    setZoom((prev) => Math.min(2.5, Number((prev + 0.15).toFixed(2))));
-  };
-
-  const handleReducirZoom = () => {
-    setZoom((prev) => Math.max(1.0, Number((prev - 0.15).toFixed(2))));
-  };
-
-  const handleConfirmar = () => {
-    // Envía tanto la posición como la nueva URL si se cambió
-    fnGuardar(posicionY, posicionX, urlImagenActual);
-  };
-
-  const desplazamientoX = (50 - posicionX) * 1.6 * zoom;
-  const desplazamientoY = (50 - posicionY) * 1.6 * zoom;
+  const nombreCanchaActual = sedeData?.nombre || "SEDE LIBERTADORES-CANCHA VOLEY";
+  const distritoCanchaActual = sedeData?.distrito || "Lima";
 
   return (
     <div 
-      className="fixed inset-0 bg-black/95 z-[9999] flex flex-col items-center justify-center p-3 sm:p-6 select-none animate-in fade-in duration-200"
-      onClick={(e) => { if (e.target === e.currentTarget) fnCerrar(); }}
+      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in select-none"
+      onClick={(e) => { if (e.target === e.currentTarget && !guardando) alCerrar(); }}
     >
-      {/* CABECERA */}
-      <div className="w-full max-w-2xl flex items-center justify-between pb-3 border-b border-white/10 text-white">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-xl bg-[#00B4A7]/20 text-[#00B4A7]">
-            <Crop className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-sm sm:text-base font-black tracking-tight">Acomodar Foto</h3>
-            <p className="text-[11px] text-slate-400">Arrastra en cualquier dirección o cambia la foto abajo</p>
-          </div>
-        </div>
-
-        <button 
-          type="button" 
-          onClick={fnCerrar} 
-          className="p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
-        >
-          <X className="w-6 h-6" />
-        </button>
-      </div>
-
-      {/* ÁREA CENTRAL DE ENCUADRE */}
-      <div className="w-full max-w-2xl my-auto py-4 flex flex-col items-center">
+      <div className="bg-[#071527] border border-slate-700 w-full max-w-4xl rounded-3xl p-5 sm:p-7 space-y-5 shadow-2xl">
         
-        <div 
-          onMouseDown={handleMouseDown}
-          onTouchStart={handleTouchStart}
-          className={`relative w-full aspect-[16/10] max-h-[55vh] rounded-2xl overflow-hidden bg-black border-2 border-[#00B4A7] shadow-2xl flex items-center justify-center ${
-            arrastrando ? 'cursor-grabbing' : 'cursor-grab'
-          }`}
-        >
-          {subiendoNuevaFoto ? (
-            <div className="w-full h-full flex flex-col items-center justify-center text-[#00B4A7] text-xs gap-2">
-              <Loader2 className="w-8 h-8 animate-spin" />
-              <span>Subiendo tu foto original completa...</span>
+        {/* CABECERA */}
+        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Crop className="w-5 h-5 text-[#F7B52C]" />
+            <div>
+              <h3 className="text-base font-black text-white">
+                {esHero 
+                  ? "Encuadre del Banner Hero (Portada)" 
+                  : esSede 
+                  ? "Encuadre del Fondo Panorámico de Canchas (/sedes)" 
+                  : "Encuadre de Imagen"}
+              </h3>
+              <p className="text-xs text-slate-400">
+                {esHero 
+                  ? "Acomoda la foto y verifica que los textos del Hero no tapen los rostros ni el trofeo." 
+                  : esSede 
+                  ? "Arrastra libremente la foto para verificar que el título ni la placa tapen la red o la cancha."
+                  : "Haz clic y arrastra la foto con el ratón para acomodar el encuadre."}
+              </p>
             </div>
-          ) : urlImagenActual ? (
-            <img
-              src={urlImagenActual}
-              alt="Foto para encuadrar"
-              draggable={false}
-              className="w-full h-full object-cover pointer-events-none select-none transition-transform duration-75 ease-out"
-              style={{ 
-                objectPosition: `${posicionX}% ${posicionY}%`,
-                transform: `translate(${desplazamientoX}px, ${desplazamientoY}px) scale(${zoom})`
-              }}
-            />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs gap-2">
-              <ImageIcon className="w-8 h-8 text-slate-600 animate-pulse" />
-              <span>Cargando imagen...</span>
-            </div>
-          )}
-
-          {/* CUADRÍCULA 3x3 ESTILO WHATSAPP */}
-          <div className="absolute inset-0 pointer-events-none border border-white/20 grid grid-cols-3 grid-rows-3">
-            <div className="border-r border-b border-white/25" />
-            <div className="border-r border-b border-white/25" />
-            <div className="border-b border-white/25" />
-            <div className="border-r border-b border-white/25" />
-            <div className="border-r border-b border-white/25" />
-            <div className="border-b border-white/25" />
-            <div className="border-r border-b border-white/25" />
-            <div className="border-r border-b border-white/25" />
-            <div />
           </div>
-
-          {/* INDICADOR FLOTANTE */}
-          <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-[10px] font-mono font-bold text-[#00B4A7] flex items-center gap-1.5 shadow">
-            <Move className="w-3 h-3 text-[#F7B52C]" />
-            <span>X: {posicionX}% · Y: {posicionY}%</span>
-          </div>
+          <button 
+            type="button" 
+            onClick={alCerrar} 
+            disabled={guardando}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* CONTROLES DE ZOOM */}
-        <div className="w-full max-w-md mt-4 flex items-center justify-between gap-4 bg-white/5 px-4 py-2.5 rounded-2xl border border-white/10 text-xs">
-          
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleReducirZoom}
-              disabled={zoom <= 1.0}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer border border-white/10 shadow"
-              title="Alejar imagen (-)"
-            >
-              <Minus className="w-4 h-4" />
-            </button>
-
-            <input
-              type="range"
-              min="1.0"
-              max="2.5"
-              step="0.05"
-              value={zoom}
-              onChange={(e) => setZoom(Number(e.target.value))}
-              className="w-28 sm:w-36 accent-[#00B4A7] cursor-pointer h-1.5 bg-white/20 rounded-lg"
-            />
-
-            <button
-              type="button"
-              onClick={handleAumentarZoom}
-              disabled={zoom >= 2.5}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer border border-white/10 shadow"
-              title="Acercar imagen (+)"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-
-            <span className="font-mono text-[11px] text-slate-300 ml-1">
-              {Math.round(zoom * 100)}%
-            </span>
-          </div>
-
+        {/* BARRA DE HERRAMIENTAS */}
+        <div className="flex justify-between items-center text-xs">
           <button
             type="button"
-            onClick={() => {
-              setPosicionX(50);
-              setPosicionY(50);
-              setZoom(1.2);
-            }}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer border border-white/10 flex items-center gap-1.5 text-[11px] font-bold"
-            title="Recentrar la foto"
+            onClick={handleRestablecer}
+            disabled={guardando}
+            className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 flex items-center gap-1.5 border border-slate-700 transition-colors cursor-pointer disabled:opacity-50"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset</span>
+            <RotateCcw className="w-3.5 h-3.5 text-[#00B4A7]" />
+            <span>Centrar (50%)</span>
           </button>
 
+          {(esHero || esSede) && (
+            <button
+              type="button"
+              onClick={() => setSimularOverlay(!simularOverlay)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                simularOverlay 
+                  ? 'bg-[#F7B52C] text-slate-950 border-[#F7B52C] shadow' 
+                  : 'bg-[#040914] text-slate-400 border-slate-800 hover:text-white'
+              }`}
+            >
+              {simularOverlay ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+              <span>{simularOverlay ? 'Textos del Banner: Visibles' : 'Ocultar textos de prueba'}</span>
+            </button>
+          )}
         </div>
 
-      </div>
+        {/* LIENZO INTERACTIVO */}
+        <div 
+          ref={visorRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          className={`relative w-full rounded-2xl overflow-hidden bg-slate-950 border-2 border-slate-700 shadow-inner flex items-center justify-center touch-none select-none transition-shadow ${
+            esSede
+              ? 'aspect-[16/8] sm:aspect-[16/7]'
+              : esHero 
+              ? 'aspect-video sm:aspect-[16/9]' 
+              : 'aspect-square max-w-sm mx-auto'
+          } ${estaArrastrando ? 'cursor-grabbing ring-2 ring-[#00B4A7]/60' : 'cursor-grab'}`}
+          style={{
+            backgroundImage: `url("${imagenUrl}")`,
+            backgroundSize: 'cover',
+            backgroundPosition: `${posX}% ${posY}%`
+          }}
+        >
+          <div className="absolute top-2.5 right-2.5 bg-black/65 backdrop-blur-sm text-slate-300 text-[10px] font-medium px-2 py-1 rounded-lg border border-white/10 pointer-events-none flex items-center gap-1 z-20">
+            <Move className="w-3 h-3 text-[#F7B52C]" />
+            <span>Arrastra para mover</span>
+          </div>
 
-      {/* BARRA INFERIOR CON EL BOTÓN "CAMBIAR FOTO" */}
-      <div className="w-full max-w-2xl pt-3 border-t border-white/10 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+          {esHero && simularOverlay && (
+            <>
+              <div className="absolute inset-0 bg-gradient-to-r from-[#040813] via-[#040813]/85 lg:via-[#040813]/60 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#040813] via-transparent to-black/40 pointer-events-none" />
+
+              <div className="absolute inset-0 p-4 sm:p-7 flex flex-col justify-center text-left pointer-events-none max-w-sm sm:max-w-md">
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#071527]/90 border-l-2 border-[#F7B52C] text-[8px] sm:text-[9px] font-mono text-slate-100 font-bold mb-1.5 w-fit">
+                  TEMPORADA 2026 · OFICIAL
+                </div>
+                <span className="text-xs sm:text-sm font-black uppercase text-slate-200 leading-none">
+                  FORMAMOS
+                </span>
+                <h2 className="text-base sm:text-2xl font-black uppercase italic text-[#F7B52C] leading-tight my-0.5 drop-shadow">
+                  LÍDERES EN LA CANCHA
+                </h2>
+                <span className="text-[11px] sm:text-xs font-black uppercase text-white leading-tight">
+                  PARA TRIUNFAR EN LA VIDA
+                </span>
+
+                <div className="flex gap-2 mt-2.5">
+                  <span className="px-2 py-1 rounded-md bg-[#F7B52C] text-slate-950 font-black text-[8px] sm:text-[9px] uppercase shadow">
+                    Reclama tu clase
+                  </span>
+                  <span className="px-2 py-1 rounded-md bg-[#0a1122] border border-slate-700 text-white font-bold text-[8px] sm:text-[9px]">
+                    Nuestras 6 Sedes
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {esSede && simularOverlay && (
+            <>
+              <div className="absolute inset-0 bg-black/35 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#040914] via-[#040914]/25 to-[#040914]/50 pointer-events-none" />
+
+              <div className="absolute inset-0 p-4 sm:p-6 flex flex-col items-center justify-center text-center pointer-events-none max-w-2xl mx-auto space-y-2 sm:space-y-3 z-10">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#071527]/90 border border-slate-700 shadow-xl backdrop-blur-md">
+                  <Sparkles className="w-3 h-3 text-[#F7B52C]" />
+                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-[#00B4A7]">
+                    Infraestructura Oficial Techada
+                  </span>
+                </div>
+
+                <h1 className="text-xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tight text-white italic drop-shadow-[0_4px_25px_rgba(0,0,0,0.95)] leading-tight">
+                  Nuestras Canchas & Sedes
+                </h1>
+
+                <p className="text-[10px] sm:text-xs text-slate-100 font-bold leading-relaxed drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)] px-2 max-w-xl">
+                  Entrena en coliseos techados de primer nivel con piso protegido, tableros oficiales e iluminación profesional en los principales distritos de Lima.
+                </p>
+
+                <div className="pt-1 flex items-center justify-center">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#071527]/95 border border-slate-700 backdrop-blur-md shadow-xl text-[10px] sm:text-[11px]">
+                    <span className="w-2 h-2 rounded-full bg-[#00B4A7] animate-pulse" />
+                    <span className="text-slate-300 font-bold">Cancha en pantalla:</span>
+                    <strong className="text-white uppercase tracking-wide">{nombreCanchaActual}</strong>
+                    {distritoCanchaActual && (
+                      <span className="text-[#F7B52C] font-mono font-bold">({distritoCanchaActual})</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-sm text-white font-mono text-[10px] px-2.5 py-1 rounded-lg border border-white/20 pointer-events-none z-20">
+            X: {posX}% · Y: {posY}%
+          </div>
+        </div>
+
+        {/* ACCIONES */}
+        <div className="flex justify-end items-center gap-3 pt-2 border-t border-slate-800">
           <button
             type="button"
-            onClick={fnCerrar}
-            className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            onClick={alCerrar}
+            disabled={guardando}
+            className="px-4 py-2 text-slate-400 hover:text-white font-bold text-xs cursor-pointer transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>
-
-          {/* BOTÓN PARA SUBIR OTRA FOTO DIRECTAMENTE DESDE EL ENCUADRE */}
-          <label className="px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 active:scale-95 flex items-center gap-2 cursor-pointer transition-all border border-white/15 shadow">
-            <Upload className="w-3.5 h-3.5 text-[#F7B52C]" />
-            <span>Cambiar Foto</span>
-            <input type="file" accept="image/*" onChange={handleCambiarFotoEnModal} className="hidden" />
-          </label>
+          
+          <button
+            type="button"
+            onClick={handleConfirmar}
+            disabled={guardando}
+            className="px-6 py-2.5 rounded-xl bg-[#00B4A7] hover:bg-[#00c9ba] disabled:opacity-50 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-[#00B4A7]/20 transition-all cursor-pointer"
+          >
+            {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            <span>{guardando ? "Guardando..." : "Guardar Encuadre"}</span>
+          </button>
         </div>
 
-        <button
-          type="button"
-          disabled={subiendoNuevaFoto}
-          onClick={handleConfirmar}
-          className="px-8 py-3 rounded-full text-xs font-black text-slate-950 bg-[#00B4A7] hover:bg-[#00c9ba] shadow-xl shadow-[#00B4A7]/30 flex items-center gap-2 cursor-pointer transition-all transform active:scale-95"
-        >
-          <Check className="w-4 h-4" />
-          <span>Listo</span>
-        </button>
       </div>
-
     </div>
   );
 }

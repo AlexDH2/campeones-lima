@@ -3,19 +3,22 @@ import React, { useState, useEffect } from 'react';
 import { 
   Trophy, 
   Plus, 
-  Trash2, 
-  Save, 
   Loader2, 
   Crop, 
-  Upload, 
   Camera, 
   Sparkles,
-  CheckCircle2,
   Medal,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import ModalEncuadre from './ModalEncuadre';
+
+const normalizarCoordenada = (val, defecto = 50) => {
+  if (val === null || val === undefined || val === '') return defecto;
+  const num = Number(val);
+  return Number.isFinite(num) && num >= 0 && num <= 100 ? num : defecto;
+};
 
 export default function AdminNosotros() {
   const [errorCarga, setErrorCarga] = useState('');
@@ -37,11 +40,10 @@ export default function AdminNosotros() {
   const [nuevaFotoLogro, setNuevaFotoLogro] = useState('');
   const [subiendoFotoLogro, setSubiendoFotoLogro] = useState(false);
 
-  // Modal Encuadre interactivo estilo WhatsApp
+  // Modal Encuadre interactivo
   const [modalEncuadreAbierto, setModalEncuadreAbierto] = useState(false);
   const [itemAEncuadrar, setItemAEncuadrar] = useState(null);
 
-  // CARGA SEGURA: NO ELIMINA NINGÚN LOGRO LEGÍTIMO
   useEffect(() => {
     async function cargarDatos() {
       try {
@@ -55,8 +57,8 @@ export default function AdminNosotros() {
           const val = data.valor;
           setFotoBasquet(val.foto_basquet || "");
           setFotoVoley(val.foto_voley || "");
-          setPosicionBasquet(val.posicion_basquet ?? 50);
-          setPosicionVoley(val.posicion_voley ?? 50);
+          setPosicionBasquet(normalizarCoordenada(val.posicion_basquet));
+          setPosicionVoley(normalizarCoordenada(val.posicion_voley));
           setLogros(Array.isArray(val.logros) ? val.logros : []);
           setGaleria(Array.isArray(val.galeria) ? val.galeria : []);
         } else {
@@ -64,7 +66,7 @@ export default function AdminNosotros() {
         }
       } catch (err) {
         console.error("Error al cargar datos de Nosotros:", err);
-      setErrorCarga('No se pudo cargar la información. Recarga para reintentar.');
+        setErrorCarga('No se pudo cargar la información. Recarga para reintentar.');
       } finally {
         setCargando(false);
       }
@@ -75,12 +77,14 @@ export default function AdminNosotros() {
   const persistirEnSupabase = async (objetoActualizado) => {
     setGuardando(true);
     try {
-      return await guardar(supabase.from('configuracion_web').upsert({
+      const ok = await guardar(supabase.from('configuracion_web').upsert({
         clave: 'nosotros_contenido',
         valor: objetoActualizado
       }));
+      return Boolean(ok);
     } catch (err) {
       alert("Error al guardar en Supabase: " + err.message);
+      return false;
     } finally {
       setGuardando(false);
     }
@@ -103,24 +107,26 @@ export default function AdminNosotros() {
     const urlFinal = data.publicUrl;
 
     if (tipo === 'basquet') {
-      if (!await persistirEnSupabase({
+      const guardado = await persistirEnSupabase({
         foto_basquet: urlFinal,
         foto_voley: fotoVoley,
         posicion_basquet: posicionBasquet,
         posicion_voley: posicionVoley,
         logros,
         galeria
-      })) return;
+      });
+      if (!guardado) return;
       setFotoBasquet(urlFinal);
     } else {
-      if (!await persistirEnSupabase({
+      const guardado = await persistirEnSupabase({
         foto_basquet: fotoBasquet,
         foto_voley: urlFinal,
         posicion_basquet: posicionBasquet,
         posicion_voley: posicionVoley,
         logros,
         galeria
-      })) return;
+      });
+      if (!guardado) return;
       setFotoVoley(urlFinal);
     }
     alert("✓ Foto subida y guardada exitosamente.");
@@ -166,14 +172,15 @@ export default function AdminNosotros() {
     };
 
     const nuevosLogros = [nuevoLogro, ...logros];
-    if (!await persistirEnSupabase({
+    const guardado = await persistirEnSupabase({
       foto_basquet: fotoBasquet,
       foto_voley: fotoVoley,
       posicion_basquet: posicionBasquet,
       posicion_voley: posicionVoley,
       logros: nuevosLogros,
       galeria
-    })) return;
+    });
+    if (!guardado) return;
     setLogros(nuevosLogros);
 
     setNuevoTitulo('');
@@ -187,14 +194,15 @@ export default function AdminNosotros() {
     if (!confirm("¿Deseas eliminar este trofeo?")) return;
 
     const nuevosLogros = logros.filter(l => l.id !== id);
-    if (!await persistirEnSupabase({
+    const guardado = await persistirEnSupabase({
       foto_basquet: fotoBasquet,
       foto_voley: fotoVoley,
       posicion_basquet: posicionBasquet,
       posicion_voley: posicionVoley,
       logros: nuevosLogros,
       galeria
-    })) return;
+    });
+    if (!guardado) return;
     setLogros(nuevosLogros);
   };
 
@@ -220,14 +228,15 @@ export default function AdminNosotros() {
     }
 
     const galeriaActualizada = [...galeria, ...nuevasUrls];
-    if (!await persistirEnSupabase({
+    const guardado = await persistirEnSupabase({
       foto_basquet: fotoBasquet,
       foto_voley: fotoVoley,
       posicion_basquet: posicionBasquet,
       posicion_voley: posicionVoley,
       logros,
       galeria: galeriaActualizada
-    })) return;
+    });
+    if (!guardado) return;
     setGaleria(galeriaActualizada);
 
     alert(`✓ Se subieron ${nuevasUrls.length} fotos a la galería.`);
@@ -235,19 +244,24 @@ export default function AdminNosotros() {
 
   const handleEliminarFotoGaleria = async (idx) => {
     const galeriaActualizada = galeria.filter((_, i) => i !== idx);
-    if (!await persistirEnSupabase({
+    const guardado = await persistirEnSupabase({
       foto_basquet: fotoBasquet,
       foto_voley: fotoVoley,
       posicion_basquet: posicionBasquet,
       posicion_voley: posicionVoley,
       logros,
       galeria: galeriaActualizada
-    })) return;
+    });
+    if (!guardado) return;
     setGaleria(galeriaActualizada);
   };
 
-  const handleGuardarEncuadre = async (posY, posX = 50, nuevaUrl = null) => {
-    if (!itemAEncuadrar) return;
+  // Guardar encuadre: recibe exclusivamente el objeto de coordenadas
+  const handleGuardarEncuadre = async (posicion) => {
+    if (!itemAEncuadrar) return false;
+
+    const posX = typeof posicion === 'object' && posicion !== null ? normalizarCoordenada(posicion.x) : 50;
+    const posY = typeof posicion === 'object' && posicion !== null ? normalizarCoordenada(posicion.y) : 50;
 
     let objFinal = {
       foto_basquet: fotoBasquet,
@@ -259,39 +273,51 @@ export default function AdminNosotros() {
     };
 
     if (itemAEncuadrar.tipo === 'basquet') {
-      const urlFinal = nuevaUrl || fotoBasquet;
-      setPosicionBasquet(posY);
-      setFotoBasquet(urlFinal);
       objFinal.posicion_basquet = posY;
-      objFinal.foto_basquet = urlFinal;
     } else if (itemAEncuadrar.tipo === 'voley') {
-      const urlFinal = nuevaUrl || fotoVoley;
-      setPosicionVoley(posY);
-      setFotoVoley(urlFinal);
       objFinal.posicion_voley = posY;
-      objFinal.foto_voley = urlFinal;
     } else if (itemAEncuadrar.tipo === 'logro') {
       const nuevosLogros = logros.map(l => {
         if (l.id === itemAEncuadrar.id) {
           return {
             ...l,
-            posicionY: posY,
             posicionX: posX,
-            foto: nuevaUrl || l.foto
+            posicionY: posY
+            // l.foto no se modifica bajo ninguna circunstancia
           };
         }
         return l;
       });
-      setLogros(nuevosLogros);
       objFinal.logros = nuevosLogros;
     }
 
-    if (!await persistirEnSupabase(objFinal)) return;
+    const exito = await persistirEnSupabase(objFinal);
+    if (!exito) return false;
+
+    // Actualizar estado local únicamente después de confirmar el guardado en base de datos
+    if (itemAEncuadrar.tipo === 'basquet') {
+      setPosicionBasquet(posY);
+    } else if (itemAEncuadrar.tipo === 'voley') {
+      setPosicionVoley(posY);
+    } else if (itemAEncuadrar.tipo === 'logro') {
+      setLogros(objFinal.logros);
+    }
+
     setModalEncuadreAbierto(false);
     setItemAEncuadrar(null);
+    return true;
   };
 
-  if (errorCarga) return <div role="alert" className="p-6 text-red-300 space-y-3"><p>{errorCarga}</p><button type="button" onClick={() => window.location.reload()} className="underline">Reintentar carga</button></div>;
+  if (errorCarga) {
+    return (
+      <div role="alert" className="p-6 text-red-300 space-y-3">
+        <p>{errorCarga}</p>
+        <button type="button" onClick={() => window.location.reload()} className="underline">
+          Reintentar carga
+        </button>
+      </div>
+    );
+  }
 
   if (cargando) {
     return (
@@ -307,14 +333,17 @@ export default function AdminNosotros() {
       
       {modalEncuadreAbierto && itemAEncuadrar && (
         <ModalEncuadre
+          key={`${itemAEncuadrar.tipo}_${itemAEncuadrar.id || 'disciplina'}_${itemAEncuadrar.url}`}
           abierto={modalEncuadreAbierto}
           alCerrar={() => {
             setModalEncuadreAbierto(false);
             setItemAEncuadrar(null);
           }}
           imagenUrl={itemAEncuadrar.url}
-          posicionInicial={itemAEncuadrar.posY || 50}
-          posicionInicialX={itemAEncuadrar.posX || 50}
+          posicionInicial={{
+            x: itemAEncuadrar.posX ?? 50,
+            y: itemAEncuadrar.posY ?? 50
+          }}
           alGuardar={handleGuardarEncuadre}
         />
       )}
@@ -363,7 +392,7 @@ export default function AdminNosotros() {
                   src={fotoBasquet}
                   alt="Básquetbol"
                   className="w-full h-full object-cover"
-                  style={{ objectPosition: `center ${posicionBasquet}%` }}
+                  style={{ objectPosition: `center ${normalizarCoordenada(posicionBasquet)}%` }}
                 />
               ) : (
                 <span className="text-xs text-slate-500 font-bold">Sin foto asignada</span>
@@ -402,7 +431,7 @@ export default function AdminNosotros() {
                   src={fotoVoley}
                   alt="Voleibol"
                   className="w-full h-full object-cover"
-                  style={{ objectPosition: `center ${posicionVoley}%` }}
+                  style={{ objectPosition: `center ${normalizarCoordenada(posicionVoley)}%` }}
                 />
               ) : (
                 <span className="text-xs text-slate-500 font-bold">Sin foto asignada</span>
@@ -510,7 +539,7 @@ export default function AdminNosotros() {
                         src={logro.foto}
                         alt={logro.titulo}
                         className="w-full h-full object-cover"
-                        style={{ objectPosition: `${logro.posicionX || 50}% ${logro.posicionY || 50}%` }}
+                        style={{ objectPosition: `${normalizarCoordenada(logro.posicionX)}% ${normalizarCoordenada(logro.posicionY)}%` }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-xs text-slate-500 font-bold">
@@ -534,8 +563,8 @@ export default function AdminNosotros() {
                         tipo: 'logro', 
                         id: logro.id, 
                         url: logro.foto, 
-                        posY: logro.posicionY || 50,
-                        posX: logro.posicionX || 50 
+                        posY: normalizarCoordenada(logro.posicionY),
+                        posX: normalizarCoordenada(logro.posicionX)
                       });
                       setModalEncuadreAbierto(true);
                     }}
