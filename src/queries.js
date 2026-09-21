@@ -177,7 +177,7 @@ export function useConvocatorias() {
       const { data, error } = await supabase
         .from('convocatorias')
         .select('*')
-        .eq('visible', true)
+        .eq('activa', true)
         .order('id', { ascending: false })
         .throwOnError();
 
