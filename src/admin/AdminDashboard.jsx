@@ -14,10 +14,14 @@ import {
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import { promocionVigente } from '../domain';
+import { useToast } from '../toast';
+import ModalConfirmacion from './ModalConfirmacion';
 
 export default function AdminDashboard({ alCambiarPestaña }) {
+  const { mostrarToast } = useToast();
   const [cargando, setCargando] = useState(true);
   const [actualizandoSede, setActualizandoSede] = useState(null);
+  const [confirmacion, setConfirmacion] = useState(null);
 
   const [sedes, setSedes] = useState([]);
   const [promociones, setPromociones] = useState([]);
@@ -63,35 +67,41 @@ export default function AdminDashboard({ alCambiarPestaña }) {
 
   const handleToggleSuspensionRapida = async (sede) => {
     const nuevoEstado = !sede.clases_suspendidas;
-    let motivo = sede.motivo_suspension || '';
+
+    const ejecutarActualizacion = async (estado, motivo_suspension) => {
+      setActualizandoSede(sede.id);
+      try {
+        const { error } = await supabase.from('sedes').update({
+          clases_suspendidas: estado,
+          motivo_suspension: estado ? motivo_suspension : ''
+        }).eq('id', sede.id);
+
+        if (error) throw error;
+        setSedes(sedes.map(s => s.id === sede.id ? { ...s, clases_suspendidas: estado, motivo_suspension: estado ? motivo_suspension : '' } : s));
+      } catch (err) {
+        mostrarToast("No se pudo actualizar la suspensión: " + (err.message || 'Error en el servidor.'), "error");
+      } finally {
+        setActualizandoSede(null);
+      }
+    };
 
     if (nuevoEstado) {
-      const motivoIngresado = prompt(
-        `Motivo de suspensión para ${sede.nombre} (ej. Lluvia, cancha mojada o falta de profesor):`,
-        "Por lluvia y cancha mojada"
-      );
-
-      if (motivoIngresado === null) {
-        return;
-      }
-
-      motivo = motivoIngresado.trim() || "Por lluvia y cancha mojada";
+      setConfirmacion({
+        mensaje: `Motivo de suspensión para ${sede.nombre} (ej. Lluvia, cancha mojada o falta de profesor):`,
+        conInput: true,
+        valorInicial: "Por lluvia y cancha mojada",
+        placeholderInput: "Motivo de suspensión...",
+        onConfirmar: (motivoIngresado) => {
+          setConfirmacion(null);
+          if (motivoIngresado === null) return;
+          const finalMotivo = motivoIngresado?.trim() || "Por lluvia y cancha mojada";
+          ejecutarActualizacion(nuevoEstado, finalMotivo);
+        }
+      });
+      return;
     }
-
-    setActualizandoSede(sede.id);
-    try {
-      const { error } = await supabase.from('sedes').update({
-        clases_suspendidas: nuevoEstado,
-        motivo_suspension: nuevoEstado ? motivo : ''
-      }).eq('id', sede.id);
-
-      if (error) throw error;
-      setSedes(sedes.map(s => s.id === sede.id ? { ...s, clases_suspendidas: nuevoEstado, motivo_suspension: nuevoEstado ? motivo : '' } : s));
-    } catch (err) {
-      alert("No se pudo actualizar la suspensión: " + (err.message || 'Error en el servidor.'));
-    } finally {
-      setActualizandoSede(null);
-    }
+    
+    ejecutarActualizacion(nuevoEstado, '');
   };
 
   const sedesSuspendidas = sedes.filter(s => s.clases_suspendidas);
@@ -314,6 +324,17 @@ export default function AdminDashboard({ alCambiarPestaña }) {
         </div>
       </div>
 
+      <ModalConfirmacion
+        abierto={!!confirmacion}
+        mensaje={confirmacion?.mensaje || ''}
+        textoConfirmar={confirmacion?.textoConfirmar || 'Confirmar'}
+        peligroso={confirmacion?.peligroso || false}
+        conInput={confirmacion?.conInput || false}
+        valorInicial={confirmacion?.valorInicial || ''}
+        placeholderInput={confirmacion?.placeholderInput || ''}
+        onConfirmar={confirmacion?.onConfirmar || (() => setConfirmacion(null))}
+        onCancelar={() => setConfirmacion(null)}
+      />
     </div>
   );
 }

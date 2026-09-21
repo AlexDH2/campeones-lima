@@ -20,107 +20,54 @@ import {
 import Navbar from './Navbar';
 import Footer from './Footer';
 import ModalPago from './ModalPago';
-import { supabase } from './supabase';
 import { normalizarPagos, precioValido, mostrarPrecio, whatsappNumero, estaSuspendida } from './domain';
+import { useSedeDetalle } from './queries';
 
 export default function SedeDetalle() {
   const { id } = useParams();
+  const { data, isLoading: cargando, isError } = useSedeDetalle(id);
 
-  const [errorConsulta, setErrorConsulta] = useState('');
-  const [sede, setSede] = useState(null);
-  const [cargando, setCargando] = useState(true);
+  const sede = data?.sede || null;
+  const precioClaseConfig = data?.preciosClaseModelo;
+  const metodosPagoConfig = data?.metodosPago;
+  const todasLasPromociones = data?.promociones || [];
+  const bannerPromocionesSedes = data?.banners;
+
   const [indiceActual, setIndiceActual] = useState(0);
   const [filtroDeporte, setFiltroDeporte] = useState('TODOS');
-  const [precioClaseModelo, setPrecioClaseModelo] = useState(null);
-
   const [modalPagoAbierto, setModalPagoAbierto] = useState(false);
-  const [datosPagoSede, setDatosPagoSede] = useState(null);
-
-  const [bannerPromocionalSede, setBannerPromocionalSede] = useState(null);
-  const [todasLasPromociones, setTodasLasPromociones] = useState([]);
   const [modalPromosAbierto, setModalPromosAbierto] = useState(false);
 
-  useEffect(() => {
-    let activo = true;
-    async function cargarDetalleSede() {
-      setCargando(true);
-      setSede(null);
-      setErrorConsulta('');
-      setDatosPagoSede(null);
-      setPrecioClaseModelo(null);
-      setIndiceActual(0);
-      setFiltroDeporte('TODOS');
-      setBannerPromocionalSede(null);
-      try {
-        const [resSede, resConfig, resPagos, resPromos, resBanners] = await Promise.all([
-          supabase.from('sedes').select('*').eq('id', id).maybeSingle(),
-          supabase.from('configuracion_web').select('valor').eq('clave', 'precios_clase_modelo').maybeSingle(),
-          supabase.from('configuracion_web').select('valor').eq('clave', 'metodos_pago_sedes').maybeSingle(),
-          supabase.from('configuracion_web').select('valor').eq('clave', 'promociones_vigentes').maybeSingle(),
-          supabase.from('configuracion_web').select('valor').eq('clave', 'banners_promociones_sedes').maybeSingle()
-        ]);
+  const precioClaseModelo = useMemo(() => {
+    if (!sede || !precioClaseConfig || typeof precioClaseConfig !== 'object') return null;
+    return precioValido(precioClaseConfig[sede.nombre]);
+  }, [sede, precioClaseConfig]);
 
-        if (!activo) return;
-        if (resSede.error) throw resSede.error;
-        
-        if (resSede.data) {
-          const s = resSede.data;
-          setSede(s);
+  const datosPagoSede = useMemo(() => {
+    if (!sede || !metodosPagoConfig || typeof metodosPagoConfig !== 'object') return null;
+    const infoSede = metodosPagoConfig[sede.nombre];
+    return infoSede ? normalizarPagos(infoSede) : null;
+  }, [sede, metodosPagoConfig]);
 
-          if (resConfig.data?.valor && typeof resConfig.data.valor === 'object') {
-            const precio = precioValido(resConfig.data.valor[s.nombre]);
-            setPrecioClaseModelo(precio);
-          }
-
-          if (resPagos.data?.valor && typeof resPagos.data.valor === 'object') {
-            const infoSede = resPagos.data.valor[s.nombre];
-            if (infoSede) {
-              setDatosPagoSede(normalizarPagos(infoSede));
-            }
-          }
-
-          if (resBanners.data?.valor && typeof resBanners.data.valor === 'object') {
-            const b = resBanners.data.valor[s.nombre];
-            if (b && b.activo !== false && b.flyer_url) {
-              setBannerPromocionalSede(b.flyer_url);
-            }
-          }
-
-          if (resPromos.data?.valor && Array.isArray(resPromos.data.valor)) {
-            setTodasLasPromociones(resPromos.data.valor.filter(p => p.visible_en_web !== false));
-          }
-        }
-
-      } catch (err) {
-        console.error("Error al cargar sede:", err);
-        if (activo) setErrorConsulta("No se pudo cargar la sede. Recarga para reintentar.");
-      } finally {
-        if (activo) setCargando(false);
-      }
-    }
-    cargarDetalleSede();
-    return () => { activo = false; };
-  }, [id]);
+  const bannerPromocionalSede = useMemo(() => {
+    if (!sede || !bannerPromocionesSedes || typeof bannerPromocionesSedes !== 'object') return null;
+    const b = bannerPromocionesSedes[sede.nombre];
+    return (b && b.activo !== false && b.flyer_url) ? b.flyer_url : null;
+  }, [sede, bannerPromocionesSedes]);
 
   const promocionesDeEstaSede = useMemo(() => {
     if (!sede?.nombre || !Array.isArray(todasLasPromociones)) return [];
-
     const nombreLimpio = sede.nombre.toLowerCase().replace(/sede\s*/gi, '').trim();
 
     return todasLasPromociones.filter((p) => {
+      if (p.visible_en_web === false) return false;
       const campoSede = (p.sede || p.sedes || '').toLowerCase().trim();
       const titulo = (p.titulo || '').toLowerCase();
       const descripcion = (p.descripcion || '').toLowerCase();
 
-      if (campoSede && (campoSede.includes(nombreLimpio) || nombreLimpio.includes(campoSede))) {
-        return true;
-      }
-      if (titulo.includes(nombreLimpio)) {
-        return true;
-      }
-      if (descripcion.includes(nombreLimpio)) {
-        return true;
-      }
+      if (campoSede && (campoSede.includes(nombreLimpio) || nombreLimpio.includes(campoSede))) return true;
+      if (titulo.includes(nombreLimpio)) return true;
+      if (descripcion.includes(nombreLimpio)) return true;
       if (campoSede.includes('todas') || campoSede === 'general') {
         const tieneOtraSede = titulo.includes(' - ') && !titulo.includes(nombreLimpio);
         return !tieneOtraSede;
@@ -132,7 +79,6 @@ export default function SedeDetalle() {
   const fotos = useMemo(() => {
     if (!sede) return [];
     let list = [];
-
     if (Array.isArray(sede.imagenes) && sede.imagenes.length > 0) {
       list = sede.imagenes;
     } else if (typeof sede.imagenes === 'string') {
@@ -141,21 +87,17 @@ export default function SedeDetalle() {
         if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
       } catch { /* fallback */ }
     }
-
     if (list.length === 0 && sede.foto_principal) {
       list = [sede.foto_principal];
     }
-
     return list;
   }, [sede]);
 
   useEffect(() => {
     if (fotos.length <= 1) return;
-
     const temporizador = setInterval(() => {
       setIndiceActual((prev) => (prev + 1) % fotos.length);
     }, 3500);
-
     return () => clearInterval(temporizador);
   }, [fotos]);
 
@@ -167,10 +109,10 @@ export default function SedeDetalle() {
     );
   }
 
-  if (!sede) {
+  if (!sede || isError) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#040914] text-white space-y-4 p-4">
-        <h2 className="text-2xl font-black">{errorConsulta || 'Sede no encontrada'}</h2>
+        <h2 className="text-2xl font-black">Sede no encontrada o no disponible</h2>
         <Link to="/sedes" className="text-xs text-[#00B4A7] font-bold underline">
           Volver al listado de sedes
         </Link>
@@ -180,10 +122,8 @@ export default function SedeDetalle() {
 
   const numeroWhatsappSede = whatsappNumero(sede.telefono_contacto);
   const suspendida = estaSuspendida(sede);
-
   const horariosTodos = Array.isArray(sede.horarios) ? sede.horarios : [];
   const deportesDisponibles = Array.from(new Set(horariosTodos.map(h => h.deporte).filter(Boolean)));
-
   const horariosFiltrados = filtroDeporte === 'TODOS'
     ? horariosTodos
     : horariosTodos.filter(h => h.deporte === filtroDeporte);
@@ -204,7 +144,6 @@ export default function SedeDetalle() {
     `¡Hola Campeones Lima! Deseo reservar una *Clase de Prueba* (${esGratis ? 'Gratis' : mostrarPrecio(precioClaseModelo)}) en la sede *${sede.nombre}*. ¿Cuáles son los horarios disponibles para empezar?`
   )}`;
 
-  // Se incorpora el parámetro monto en el cuerpo del mensaje
   const crearLinkWsPromo = (turno, promoNombre, monto) => {
     const texto = `¡Hola Campeones Lima! Deseo inscribirme en el *${promoNombre}* para la sede *${sede.nombre}*:%0A%0A` +
       `🏆 *Deporte:* ${encodeURIComponent(turno.deporte)} (${encodeURIComponent(turno.categoria)})%0A` +
@@ -245,7 +184,6 @@ export default function SedeDetalle() {
           onClick={(e) => { if (e.target === e.currentTarget) setModalPromosAbierto(false); }}
         >
           <div className="bg-[#071527] border-2 border-[#F7B52C] w-full max-w-5xl rounded-3xl p-5 sm:p-7 space-y-4 shadow-2xl max-h-[94vh] flex flex-col">
-            
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-[#F7B52C]/15 text-[#F7B52C]">
@@ -270,7 +208,6 @@ export default function SedeDetalle() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-hidden flex-1 min-h-0">
-              
               <div className="lg:col-span-5 flex flex-col items-center justify-center rounded-2xl bg-black/70 border-2 border-[#F7B52C]/40 p-2 overflow-hidden shadow-inner">
                 {flyerDeLaSede ? (
                   <img
@@ -290,7 +227,6 @@ export default function SedeDetalle() {
               </div>
 
               <div className="lg:col-span-7 flex flex-col overflow-y-auto space-y-3 pr-1">
-                
                 {promocionesDeEstaSede.length === 0 ? (
                   <div className="p-8 text-center bg-[#040914] rounded-2xl border border-dashed border-slate-800 text-slate-400 text-xs space-y-2 my-auto">
                     <Tag className="w-8 h-8 text-slate-600 mx-auto" />
@@ -343,9 +279,7 @@ export default function SedeDetalle() {
                     </div>
                   ))
                 )}
-
               </div>
-
             </div>
 
             <div className="pt-2 border-t border-slate-800 flex justify-end">
@@ -357,7 +291,6 @@ export default function SedeDetalle() {
                 Cerrar
               </button>
             </div>
-
           </div>
         </div>
       )}
@@ -371,7 +304,6 @@ export default function SedeDetalle() {
       </div>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pb-20 space-y-12 relative z-10">
-        
         {suspendida && (
           <p role="status" className="p-4 rounded-xl bg-amber-950 text-amber-200 border border-amber-800 font-bold">
             ⚠️ Clases suspendidas temporalmente en esta sede. {sede.motivo_suspension || 'Consulta con nosotros antes de reservar.'}
@@ -380,9 +312,7 @@ export default function SedeDetalle() {
 
         {/* CABECERA Y CARRUSEL */}
         <section className="border-2 rounded-3xl overflow-hidden shadow-2xl p-6 sm:p-8 space-y-6 bg-gradient-to-b from-[#071527] to-[#050e1c] border-slate-800">
-          
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b pb-6 border-slate-800/80">
-            
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-black uppercase tracking-wider text-[#00B4A7] bg-[#00B4A7]/10 px-3 py-1 rounded-full border border-[#00B4A7]/30 flex items-center gap-1.5 shadow-sm">
@@ -456,7 +386,6 @@ export default function SedeDetalle() {
                 <span>{suspendida ? 'Clases suspendidas' : 'Reservar Clase'}</span>
               </a>
             </div>
-
           </div>
 
           {/* CARRUSEL DE FOTOS */}
@@ -527,7 +456,6 @@ export default function SedeDetalle() {
 
         {/* HORARIOS Y TARIFAS */}
         <section className="border-2 border-[#F7B52C]/50 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl bg-[#071527]">
-          
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F7B52C]/15 border border-[#F7B52C]/30 text-[#F7B52C] text-xs font-black uppercase tracking-wider mb-2">
@@ -629,7 +557,6 @@ export default function SedeDetalle() {
 
                   {/* MATRIZ REGULAR */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    
                     {/* 1 MES REGULAR */}
                     <div className="p-3.5 rounded-xl border text-center flex flex-col justify-between bg-[#071527] border-slate-800">
                       <div>
@@ -684,14 +611,12 @@ export default function SedeDetalle() {
                         </a>
                       </div>
                     )}
-
                   </div>
                 </div>
               );
             })}
           </div>
         </section>
-
       </main>
 
       <Footer />

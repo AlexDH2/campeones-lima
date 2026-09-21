@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../toast';
+import ModalConfirmacion from './ModalConfirmacion';
 import { 
   Tag, 
   Save, 
@@ -26,6 +28,8 @@ import {
 import { supabase } from '../supabase';
 
 export default function AdminPreciosPromos() {
+  const { mostrarToast } = useToast();
+  const [confirmacion, setConfirmacion] = useState(null);
   const [sedes, setSedes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -172,9 +176,9 @@ export default function AdminPreciosPromos() {
       if (errUpsert) throw errUpsert;
 
       setBannersSedes(nuevoMapa);
-      alert(`✓ Banner oficial de ${nombreSede} subido exitosamente.`);
+      mostrarToast(`Banner oficial de ${nombreSede} subido exitosamente.`, "exito");
     } catch (err) {
-      alert("Error al subir banner: " + (err.message || err));
+      mostrarToast("Error al subir banner: " + (err.message || err), "error");
     } finally {
       setSubiendoSede(null);
     }
@@ -197,31 +201,37 @@ export default function AdminPreciosPromos() {
       if (error) throw error;
       setBannersSedes(nuevoMapa);
     } catch (err) {
-      alert("Error: " + err.message);
+      mostrarToast("Error: " + err.message, "error");
     }
   };
 
   const handleEliminarBannerSede = async (nombreSede) => {
-    if (!confirm(`¿Eliminar el banner de ${nombreSede}?`)) return;
-    const copia = { ...bannersSedes };
-    delete copia[nombreSede];
+    setConfirmacion({
+      mensaje: `¿Eliminar el banner de ${nombreSede}?`,
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        const copia = { ...bannersSedes };
+        delete copia[nombreSede];
 
-    try {
-      const { error } = await supabase.from('configuracion_web').upsert({
-        clave: 'banners_promociones_sedes',
-        valor: copia
-      });
-      if (error) throw error;
-      setBannersSedes(copia);
-    } catch (err) {
-      alert("Error: " + err.message);
-    }
+        try {
+          const { error } = await supabase.from('configuracion_web').upsert({
+            clave: 'banners_promociones_sedes',
+            valor: copia
+          });
+          if (error) throw error;
+          setBannersSedes(copia);
+        } catch (err) {
+          mostrarToast("Error: " + err.message, "error");
+        }
+      }
+    });
   };
 
   // --- GESTIÓN DE TEXTOS Y PRECIOS DE LAS TARJETAS ---
   const handleGuardarTarjetaPromo = async (e) => {
     e.preventDefault();
-    if (!formPromo.titulo.trim()) return alert("Ingresa el título de la promoción.");
+    if (!formPromo.titulo.trim()) return mostrarToast("Ingresa el título de la promoción.", "error");
 
     const itemDatos = {
       titulo: formPromo.titulo.trim(),
@@ -253,9 +263,9 @@ export default function AdminPreciosPromos() {
 
       setPromociones(listaActualizada);
       handleCancelarEdicionPromo();
-      alert(promoEnEdicionId ? "✓ Tarjeta actualizada exitosamente." : "✓ Tarjeta creada exitosamente.");
+      mostrarToast(promoEnEdicionId ? "Tarjeta actualizada exitosamente." : "Tarjeta creada exitosamente.", "exito");
     } catch (err) {
-      alert("Error al guardar: " + err.message);
+      mostrarToast("Error al guardar: " + err.message, "error");
     }
   };
 
@@ -303,24 +313,30 @@ export default function AdminPreciosPromos() {
       if (error) throw error;
       setPromociones(listaActualizada);
     } catch (err) {
-      alert("Error: " + err.message);
+      mostrarToast("Error: " + err.message, "error");
     }
   };
 
   const handleEliminarTarjetaPromo = async (id) => {
-    if (!confirm("¿Deseas eliminar esta tarjeta de promoción?")) return;
-    const listaActualizada = promociones.filter(p => p.id !== id);
-    try {
-      const { error } = await supabase.from('configuracion_web').upsert({
-        clave: 'promociones_vigentes',
-        valor: listaActualizada
-      });
-      if (error) throw error;
-      setPromociones(listaActualizada);
-      if (promoEnEdicionId === id) handleCancelarEdicionPromo();
-    } catch (err) {
-      alert("Error: " + err.message);
-    }
+    setConfirmacion({
+      mensaje: "¿Deseas eliminar esta tarjeta de promoción?",
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        const listaActualizada = promociones.filter(p => p.id !== id);
+        try {
+          const { error } = await supabase.from('configuracion_web').upsert({
+            clave: 'promociones_vigentes',
+            valor: listaActualizada
+          });
+          if (error) throw error;
+          setPromociones(listaActualizada);
+          if (promoEnEdicionId === id) handleCancelarEdicionPromo();
+        } catch (err) {
+          mostrarToast("Error: " + err.message, "error");
+        }
+      }
+    });
   };
 
   // Filtrado de tarjetas para la vista del Admin según la sede seleccionada
@@ -328,6 +344,53 @@ export default function AdminPreciosPromos() {
     if (filtroSedeAdmin === 'TODAS') return true;
     return coincideConSede(p, filtroSedeAdmin);
   });
+
+  // --- GESTIÓN DE CATEGORÍAS DE EDAD ---
+  const handleAgregarCategoria = async (e) => {
+    e.preventDefault();
+    if (!nuevaCategoriaTexto.trim()) return;
+    
+    const nuevaCategoria = {
+      id: crypto.randomUUID(),
+      nombre: nuevaCategoriaTexto.trim()
+    };
+    
+    const listaActualizada = [...categoriasEdades, nuevaCategoria];
+    try {
+      const { error } = await supabase.from('configuracion_web').upsert({
+        clave: 'categorias_edades',
+        valor: listaActualizada
+      });
+      if (error) throw error;
+      setCategoriasEdades(listaActualizada);
+      setNuevaCategoriaTexto('');
+      mostrarToast("Categoría agregada exitosamente", "exito");
+    } catch (err) {
+      mostrarToast("Error al guardar categoría: " + err.message, "error");
+    }
+  };
+
+  const handleEliminarCategoria = async (id) => {
+    setConfirmacion({
+      mensaje: "¿Deseas eliminar esta categoría de edad?",
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        const listaActualizada = categoriasEdades.filter(c => c.id !== id);
+        try {
+          const { error } = await supabase.from('configuracion_web').upsert({
+            clave: 'categorias_edades',
+            valor: listaActualizada
+          });
+          if (error) throw error;
+          setCategoriasEdades(listaActualizada);
+          mostrarToast("Categoría eliminada", "exito");
+        } catch (err) {
+          mostrarToast("Error al eliminar categoría: " + err.message, "error");
+        }
+      }
+    });
+  };
 
   return (
     <div className="space-y-6 max-w-5xl animate-in fade-in duration-300">
@@ -776,6 +839,74 @@ export default function AdminPreciosPromos() {
         )}
       </div>
 
+      {/* =========================================================================
+          🎯 GESTIÓN DE CATEGORÍAS DE EDAD
+         ========================================================================= */}
+      <div className="p-4 sm:p-6 rounded-3xl bg-[#071527] border border-slate-800 shadow-2xl space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Tag className="w-5 h-5 text-[#00B4A7]" />
+          <h2 className="text-lg font-black text-white">Categorías de Edad</h2>
+        </div>
+        <p className="text-xs text-slate-400">
+          Estas categorías aparecerán en el formulario de inscripción de la página principal.
+        </p>
+
+        <form onSubmit={handleAgregarCategoria} className="flex gap-2 items-end">
+          <div className="flex-1">
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">
+              Nueva Categoría
+            </label>
+            <input
+              type="text"
+              value={nuevaCategoriaTexto}
+              onChange={e => setNuevaCategoriaTexto(e.target.value)}
+              placeholder="Ej: Mini (8 - 10 años)"
+              className="w-full bg-[#040914] border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:border-[#00B4A7] focus:outline-none transition-colors"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={!nuevaCategoriaTexto.trim()}
+            className="px-4 py-2.5 rounded-xl font-bold bg-[#00B4A7] text-slate-950 hover:bg-[#00c9ba] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Agregar
+          </button>
+        </form>
+
+        {categoriasEdades.length > 0 ? (
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2 mt-4">
+            {categoriasEdades.map(cat => (
+              <div key={cat.id} className="flex items-center justify-between p-3 rounded-xl bg-[#040914] border border-slate-800">
+                <span className="text-sm font-bold text-slate-200">{cat.nombre}</span>
+                <button
+                  type="button"
+                  onClick={() => handleEliminarCategoria(cat.id)}
+                  className="p-1.5 rounded-lg text-red-400 hover:bg-red-950/40 hover:text-red-300 cursor-pointer transition-colors"
+                  title="Eliminar categoría"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-4 rounded-xl bg-[#040914] border border-slate-800 border-dashed text-center">
+            <p className="text-sm text-slate-500">No hay categorías registradas.</p>
+          </div>
+        )}
+      </div>
+
+      <ModalConfirmacion
+        abierto={!!confirmacion}
+        mensaje={confirmacion?.mensaje || ''}
+        textoConfirmar={confirmacion?.textoConfirmar || 'Confirmar'}
+        peligroso={confirmacion?.peligroso || false}
+        conInput={confirmacion?.conInput || false}
+        valorInicial={confirmacion?.valorInicial || ''}
+        placeholderInput={confirmacion?.placeholderInput || ''}
+        onConfirmar={confirmacion?.onConfirmar || (() => setConfirmacion(null))}
+        onCancelar={() => setConfirmacion(null)}
+      />
     </div>
   );
 }

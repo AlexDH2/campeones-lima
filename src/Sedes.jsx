@@ -10,17 +10,15 @@ import {
 } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import { supabase } from './supabase';
 import { estaSuspendida } from './domain';
+import { useSedes, useConfiguracionClaves } from './queries';
 
-// Función para normalizar coordenadas numéricas preservando el 0 %
 const normalizarCoordenada = (val, defecto = 50) => {
   if (val === null || val === undefined || val === '') return defecto;
   const num = Number(val);
   return Number.isFinite(num) && num >= 0 && num <= 100 ? num : defecto;
 };
 
-// Función para comparar: solo letras en minúsculas (omite espacios, números, tildes y símbolos)
 const limpiarClave = (str) => {
   if (!str) return '';
   return str
@@ -30,7 +28,6 @@ const limpiarClave = (str) => {
     .replace(/[^a-z]/g, '');
 };
 
-// Función para mostrar en pantalla: todo en minúsculas, sin números ni símbolos
 const aMinusculasLimpio = (str) => {
   if (!str) return '';
   return str
@@ -42,60 +39,41 @@ const aMinusculasLimpio = (str) => {
 };
 
 export default function Sedes() {
-  const [sedes, setSedes] = useState([]);
-  const [cargando, setCargando] = useState(true);
+  const { data: sedes = [], isLoading: cargandoSedes } = useSedes();
+  const { data: configMap = {}, isLoading: cargandoConfig } = useConfiguracionClaves(['banner_canchas_sedes']);
+
+  const cargando = cargandoSedes || cargandoConfig;
   const [busqueda, setBusqueda] = useState('');
   const [distritoFiltro, setDistritoFiltro] = useState('TODOS');
-
-  const [canchasFondo, setCanchasFondo] = useState([]);
   const [canchaActivaIdx, setCanchaActivaIdx] = useState(0);
 
-  useEffect(() => {
-    async function cargarSedesYFondo() {
-      try {
-        const [resSedes, resConfig] = await Promise.all([
-          supabase.from('sedes').select('*').order('created_at', { ascending: true }),
-          supabase.from('configuracion_web').select('valor').eq('clave', 'banner_canchas_sedes').maybeSingle()
-        ]);
+  // Derivación de fondos
+  const canchasFondo = useMemo(() => {
+    const banner = configMap.banner_canchas_sedes;
+    if (Array.isArray(banner) && banner.length > 0) return banner;
 
-        if (resSedes.data && resSedes.data.length > 0) {
-          setSedes(resSedes.data);
-        }
+    const lista = [];
+    sedes.forEach(s => {
+      const fotosSede = Array.isArray(s.imagenes) && s.imagenes.length > 0 
+        ? s.imagenes 
+        : [s.foto_principal].filter(Boolean);
 
-        if (resConfig.data?.valor && Array.isArray(resConfig.data.valor) && resConfig.data.valor.length > 0) {
-          setCanchasFondo(resConfig.data.valor);
-        } else if (resSedes.data && resSedes.data.length > 0) {
-          const listaCanchas = [];
-          resSedes.data.forEach(s => {
-            const fotosSede = Array.isArray(s.imagenes) && s.imagenes.length > 0 
-              ? s.imagenes 
-              : [s.foto_principal].filter(Boolean);
+      fotosSede.forEach(itemFoto => {
+        const urlFoto = typeof itemFoto === 'string' ? itemFoto : (itemFoto?.url || itemFoto?.imagen || '');
+        if (!urlFoto) return;
 
-            fotosSede.forEach(itemFoto => {
-              const urlFoto = typeof itemFoto === 'string' ? itemFoto : (itemFoto?.url || itemFoto?.imagen || '');
-              if (!urlFoto) return;
-
-              const pos = s.posiciones_fotos?.[urlFoto];
-              listaCanchas.push({
-                url: urlFoto,
-                sedeNombre: s.nombre,
-                distrito: aMinusculasLimpio(s.distrito),
-                posX: typeof pos === 'object' && pos !== null ? normalizarCoordenada(pos.x) : 50,
-                posY: typeof pos === 'object' && pos !== null ? normalizarCoordenada(pos.y) : normalizarCoordenada(pos)
-              });
-            });
-          });
-
-          setCanchasFondo(listaCanchas);
-        }
-      } catch (err) {
-        console.error('Error al cargar sedes y fondo:', err);
-      } finally {
-        setCargando(false);
-      }
-    }
-    cargarSedesYFondo();
-  }, []);
+        const pos = s.posiciones_fotos?.[urlFoto];
+        lista.push({
+          url: urlFoto,
+          sedeNombre: s.nombre,
+          distrito: aMinusculasLimpio(s.distrito),
+          posX: typeof pos === 'object' && pos !== null ? normalizarCoordenada(pos.x) : 50,
+          posY: typeof pos === 'object' && pos !== null ? normalizarCoordenada(pos.y) : normalizarCoordenada(pos)
+        });
+      });
+    });
+    return lista;
+  }, [configMap.banner_canchas_sedes, sedes]);
 
   useEffect(() => {
     if (canchasFondo.length <= 1) return;
@@ -139,7 +117,6 @@ export default function Sedes() {
 
       {/* CABECERA PANORÁMICA DE CANCHAS */}
       <header className="relative min-h-[65vh] sm:min-h-[75vh] flex items-center overflow-hidden z-10 border-b border-slate-800 pt-28 pb-16">
-        
         {canchasFondo.length > 0 && (
           <div className="absolute inset-0 z-0 overflow-hidden select-none pointer-events-none">
             {canchasFondo.map((cancha, idx) => (
@@ -165,7 +142,6 @@ export default function Sedes() {
 
         <div className="w-full px-5 sm:px-8 lg:px-12 xl:px-16 2xl:px-20 relative z-10">
           <div className="max-w-xl sm:max-w-2xl lg:max-w-3xl space-y-5 text-left">
-            
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#071527]/95 border border-slate-700 shadow-xl backdrop-blur-md">
               <Sparkles className="w-3.5 h-3.5 text-[#F7B52C]" />
               <span className="text-[11px] font-black uppercase tracking-wider text-[#00B4A7]">
@@ -194,7 +170,6 @@ export default function Sedes() {
                 </div>
               </div>
             )}
-
           </div>
         </div>
       </header>

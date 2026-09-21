@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../toast';
 import { FileText, Save, Loader2, Plus, Trash2, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../supabase';
 
 export default function AdminTerminos() {
+  const { mostrarToast } = useToast();
   const [terminos, setTerminos] = useState({
     titulo: 'Términos, Condiciones & Reglamento Oficial',
     actualizado: 'Septiembre 2026',
@@ -51,9 +53,9 @@ export default function AdminTerminos() {
         valor: terminos
       });
       if (error) throw error;
-      alert("✓ Reglamento y términos actualizados exitosamente en Supabase.");
+      mostrarToast("Reglamento y términos actualizados exitosamente en Supabase.", "exito");
     } catch (err) {
-      alert("No se pudieron guardar los términos: " + (err.message || 'Error en el servidor.'));
+      mostrarToast("No se pudieron guardar los términos: " + (err.message || 'Error en el servidor.'), "error");
     } finally {
       setGuardando(false);
     }

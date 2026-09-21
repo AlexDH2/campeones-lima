@@ -13,14 +13,17 @@ import Footer from './Footer';
 import { useTheme } from './ThemeContext';
 import { supabase } from './supabase';
 import { validarCv } from './domain';
+import { useToast } from './toast';
+import { useConvocatorias } from './queries';
 
 export default function TrabajaConNosotros() {
   const { esOscuro = true } = useTheme();
   const cvSubido = useRef(null);
   const [errorFormulario, setErrorFormulario] = useState('');
-  const [errorConsulta, setErrorConsulta] = useState('');
-  const [convocatorias, setConvocatorias] = useState([]);
-  const [cargando, setCargando] = useState(true);
+  const { mostrarToast } = useToast();
+  const { data: convocatoriasData, isLoading: cargando, isError } = useConvocatorias();
+  const convocatorias = convocatoriasData || [];
+  const errorConsulta = isError ? "No pudimos cargar las convocatorias. Recarga la página para reintentar." : '';
 
   const [puestoElegido, setPuestoElegido] = useState('');
   const [nombre, setNombre] = useState('');
@@ -32,32 +35,15 @@ export default function TrabajaConNosotros() {
   const [enviadoExito, setEnviadoExito] = useState(false);
 
   useEffect(() => {
-    async function cargarConvocatorias() {
-      try {
-        const { data } = await supabase
-          .from('convocatorias')
-          .select('*')
-          .eq('activa', true)
-          .order('created_at', { ascending: false }).throwOnError();
-
-        if (data) {
-          setConvocatorias(data);
-          if (data.length > 0) setPuestoElegido(data[0].puesto);
-        }
-      } catch (err) {
-        console.error("Error al cargar vacantes:", err);
-        setErrorConsulta("No pudimos cargar las convocatorias. Recarga la página para reintentar.");
-      } finally {
-        setCargando(false);
-      }
+    if (convocatorias.length > 0 && !puestoElegido) {
+      setPuestoElegido(convocatorias[0].puesto);
     }
-    cargarConvocatorias();
-  }, []);
+  }, [convocatorias, puestoElegido]);
 
   const handlePostular = async (e) => {
     e.preventDefault();
     if (!nombre.trim() || !telefono.trim()) {
-      return alert("Por favor ingresa tu nombre y teléfono de contacto.");
+      return mostrarToast("Por favor ingresa tu nombre y teléfono de contacto.", "error");
     }
 
     setEnviando(true);

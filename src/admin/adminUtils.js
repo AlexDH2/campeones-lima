@@ -30,8 +30,8 @@ export const procesarArchivoImagen = (file) => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 1200;
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
         let width = img.width;
         let height = img.height;
         if (width > height) {
@@ -43,7 +43,10 @@ export const procesarArchivoImagen = (file) => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.85));
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+        const sizeKB = Math.round(dataUrl.length / 1024);
+        console.warn(`⚠️ Imagen almacenada como base64 (${sizeKB} KB). Esto incrementa el tamaño de la base de datos. Verifica que Supabase Storage esté operativo.`);
+        resolve(dataUrl);
       };
       img.src = e.target.result;
     };

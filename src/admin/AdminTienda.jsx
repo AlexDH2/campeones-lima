@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../toast';
+import ModalConfirmacion from './ModalConfirmacion';
 import { 
   ShoppingBag, 
   Plus, 
@@ -21,6 +23,8 @@ const normalizarCoordenada = (val, defecto = 50) => {
 };
 
 export default function AdminTienda() {
+  const { mostrarToast } = useToast();
+  const [confirmacion, setConfirmacion] = useState(null);
   const [productos, setProductos] = useState([]);
   const [errorCarga, setErrorCarga] = useState('');
   const [cargando, setCargando] = useState(true);
@@ -85,7 +89,7 @@ export default function AdminTienda() {
     const { error } = await supabase.storage.from('imagenes_web').upload(`tienda/${nombreLimpio}`, file);
 
     if (error) {
-      alert("Error al subir imagen: " + error.message);
+      mostrarToast("Error al subir imagen: " + error.message, "error");
       return;
     }
 
@@ -96,12 +100,12 @@ export default function AdminTienda() {
   const handleCrearProducto = async (e) => {
     e.preventDefault();
     if (errorCarga) {
-      alert("No se pueden guardar productos porque la carga inicial falló. Recarga la página.");
+      mostrarToast("No se pueden guardar productos porque la carga inicial falló. Recarga la página.", "error");
       return;
     }
 
     if (!nombre.trim() || !precio) {
-      return alert("Por favor, ingresa el nombre y el precio del producto.");
+      return mostrarToast("Por favor, ingresa el nombre y el precio del producto.", "error");
     }
 
     const nuevoItem = {
@@ -132,9 +136,9 @@ export default function AdminTienda() {
       setDescripcion('');
       setFotoUrl('');
       setTallasSeleccionadas([]);
-      alert("✓ Producto agregado a la tienda exitosamente.");
+      mostrarToast("Producto agregado a la tienda exitosamente.", "exito");
     } catch (err) {
-      alert("No se pudo guardar el producto: " + err.message);
+      mostrarToast("No se pudo guardar el producto: " + err.message, "error");
     } finally {
       setGuardando(false);
     }
@@ -142,45 +146,56 @@ export default function AdminTienda() {
 
   const handleEliminarProducto = async (id) => {
     if (errorCarga) {
-      alert("Operación bloqueada por error de carga previa.");
+      mostrarToast("Operación bloqueada por error de carga previa.", "error");
       return;
     }
 
-    if (!confirm("¿Deseas eliminar definitivamente este producto?")) return;
+    setConfirmacion({
+      mensaje: "¿Deseas eliminar definitivamente este producto?",
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        const listaActualizada = productos.filter(p => p.id !== id);
 
-    const listaActualizada = productos.filter(p => p.id !== id);
-
-    try {
-      const { error } = await supabase.from('configuracion_web').upsert({
-        clave: 'tienda_productos',
-        valor: listaActualizada
-      });
-      if (error) throw error;
-      setProductos(listaActualizada);
-    } catch (err) {
-      alert("No se pudo eliminar el producto: " + err.message);
-    }
+        try {
+          const { error } = await supabase.from('configuracion_web').upsert({
+            clave: 'tienda_productos',
+            valor: listaActualizada
+          });
+          if (error) throw error;
+          setProductos(listaActualizada);
+          mostrarToast("Producto eliminado.", "exito");
+        } catch (err) {
+          mostrarToast("No se pudo eliminar el producto: " + err.message, "error");
+        }
+      }
+    });
   };
 
   const handleVaciarTiendaCompleta = async () => {
     if (errorCarga) {
-      alert("Operación bloqueada por error de carga previa.");
+      mostrarToast("Operación bloqueada por error de carga previa.", "error");
       return;
     }
 
-    if (!confirm("¿Deseas BORRAR TODOS los productos existentes para dejar la tienda vacía?")) return;
-
-    try {
-      const { error } = await supabase.from('configuracion_web').upsert({
-        clave: 'tienda_productos',
-        valor: []
-      });
-      if (error) throw error;
-      setProductos([]);
-      alert("✓ La tienda ha quedado totalmente limpia.");
-    } catch (err) {
-      alert("No se pudo vaciar la tienda: " + err.message);
-    }
+    setConfirmacion({
+      mensaje: "¿Deseas BORRAR TODOS los productos existentes para dejar la tienda vacía?",
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        try {
+          const { error } = await supabase.from('configuracion_web').upsert({
+            clave: 'tienda_productos',
+            valor: []
+          });
+          if (error) throw error;
+          setProductos([]);
+          mostrarToast("La tienda ha quedado totalmente limpia.", "exito");
+        } catch (err) {
+          mostrarToast("No se pudo vaciar la tienda: " + err.message, "error");
+        }
+      }
+    });
   };
 
   // Guardar ambas coordenadas x e y
@@ -205,7 +220,7 @@ export default function AdminTienda() {
       setProductoAEncuadrar(null);
       return true;
     } catch (err) {
-      alert("No se pudo guardar el encuadre: " + err.message);
+      mostrarToast("No se pudo guardar el encuadre: " + err.message, "error");
       return false;
     }
   };
@@ -486,6 +501,17 @@ export default function AdminTienda() {
         )}
       </div>
 
+      <ModalConfirmacion
+        abierto={!!confirmacion}
+        mensaje={confirmacion?.mensaje || ''}
+        textoConfirmar={confirmacion?.textoConfirmar || 'Confirmar'}
+        peligroso={confirmacion?.peligroso || false}
+        conInput={confirmacion?.conInput || false}
+        valorInicial={confirmacion?.valorInicial || ''}
+        placeholderInput={confirmacion?.placeholderInput || ''}
+        onConfirmar={confirmacion?.onConfirmar || (() => setConfirmacion(null))}
+        onCancelar={() => setConfirmacion(null)}
+      />
     </div>
   );
 }

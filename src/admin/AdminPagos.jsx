@@ -12,8 +12,10 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { supabase } from '../supabase';
+import { useToast } from '../toast';
 
 export default function AdminPagos() {
+  const { mostrarToast } = useToast();
   const [sedes, setSedes] = useState([]);
   const [datosPagos, setDatosPagos] = useState({});
   const [errorCarga, setErrorCarga] = useState('');
@@ -89,10 +91,10 @@ export default function AdminPagos() {
         });
 
       if (error) throw error;
-      alert('✓ Métodos de pago guardados exitosamente en Supabase.');
+      mostrarToast('Métodos de pago guardados exitosamente en Supabase.', 'exito');
     } catch (err) {
       console.error(err);
-      alert('Error al guardar: ' + err.message);
+      mostrarToast('Error al guardar: ' + err.message, 'error');
     } finally {
       setGuardando(false);
     }

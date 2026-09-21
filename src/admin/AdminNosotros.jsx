@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import ModalEncuadre from './ModalEncuadre';
+import { useToast } from '../toast';
+import ModalConfirmacion from './ModalConfirmacion';
 
 const normalizarCoordenada = (val, defecto = 50) => {
   if (val === null || val === undefined || val === '') return defecto;
@@ -21,6 +23,9 @@ const normalizarCoordenada = (val, defecto = 50) => {
 };
 
 export default function AdminNosotros() {
+  const { mostrarToast } = useToast();
+  const [confirmacion, setConfirmacion] = useState(null);
+
   const [errorCarga, setErrorCarga] = useState('');
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -83,7 +88,7 @@ export default function AdminNosotros() {
       }));
       return Boolean(ok);
     } catch (err) {
-      alert("Error al guardar en Supabase: " + err.message);
+      mostrarToast("Error al guardar en Supabase: " + err.message, "error");
       return false;
     } finally {
       setGuardando(false);
@@ -101,7 +106,7 @@ export default function AdminNosotros() {
       { upsert: true, contentType: file.type || 'image/png' }
     );
 
-    if (error) return alert("Error al subir foto: " + error.message);
+    if (error) return mostrarToast("Error al subir foto: " + error.message, "error");
 
     const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`nosotros/${nombreLimpio}`);
     const urlFinal = data.publicUrl;
@@ -129,7 +134,7 @@ export default function AdminNosotros() {
       if (!guardado) return;
       setFotoVoley(urlFinal);
     }
-    alert("✓ Foto subida y guardada exitosamente.");
+    mostrarToast("Foto subida y guardada exitosamente.", "exito");
   };
 
   const handleSubirFotoLogro = async (e) => {
@@ -146,7 +151,7 @@ export default function AdminNosotros() {
       );
 
       if (error) {
-        alert("Error al subir foto: " + error.message);
+        mostrarToast("Error al subir foto: " + error.message, "error");
         return;
       }
 
@@ -159,7 +164,7 @@ export default function AdminNosotros() {
 
   const handleAgregarLogro = async (e) => {
     e.preventDefault();
-    if (!nuevoTitulo.trim()) return alert("Ingresa el título del trofeo o logro.");
+    if (!nuevoTitulo.trim()) return mostrarToast("Ingresa el título del trofeo o logro.", "error");
 
     const nuevoLogro = {
       id: Date.now(),
@@ -187,23 +192,28 @@ export default function AdminNosotros() {
     setNuevaCategoria('');
     setNuevaDesc('');
     setNuevaFotoLogro('');
-    alert("✓ ¡Trofeo registrado y publicado en Supabase!");
+    mostrarToast("¡Trofeo registrado y publicado en Supabase!", "exito");
   };
 
   const handleEliminarLogro = async (id) => {
-    if (!confirm("¿Deseas eliminar este trofeo?")) return;
-
-    const nuevosLogros = logros.filter(l => l.id !== id);
-    const guardado = await persistirEnSupabase({
-      foto_basquet: fotoBasquet,
-      foto_voley: fotoVoley,
-      posicion_basquet: posicionBasquet,
-      posicion_voley: posicionVoley,
-      logros: nuevosLogros,
-      galeria
+    setConfirmacion({
+      mensaje: "¿Deseas eliminar este trofeo?",
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        const nuevosLogros = logros.filter(l => l.id !== id);
+        const guardado = await persistirEnSupabase({
+          foto_basquet: fotoBasquet,
+          foto_voley: fotoVoley,
+          posicion_basquet: posicionBasquet,
+          posicion_voley: posicionVoley,
+          logros: nuevosLogros,
+          galeria
+        });
+        if (!guardado) return;
+        setLogros(nuevosLogros);
+      }
     });
-    if (!guardado) return;
-    setLogros(nuevosLogros);
   };
 
   const handleSubirGaleria = async (e) => {
@@ -212,6 +222,8 @@ export default function AdminNosotros() {
 
     setGuardando(true);
     const nuevasUrls = [];
+    let exitos = 0;
+    let fallos = 0;
 
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
@@ -224,6 +236,9 @@ export default function AdminNosotros() {
       if (!error) {
         const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`galeria/${nombreLimpio}`);
         nuevasUrls.push(data.publicUrl);
+        exitos++;
+      } else {
+        fallos++;
       }
     }
 
@@ -236,10 +251,15 @@ export default function AdminNosotros() {
       logros,
       galeria: galeriaActualizada
     });
-    if (!guardado) return;
-    setGaleria(galeriaActualizada);
-
-    alert(`✓ Se subieron ${nuevasUrls.length} fotos a la galería.`);
+    
+    if (guardado) {
+      setGaleria(galeriaActualizada);
+      if (fallos === 0) {
+        mostrarToast(`Se subieron ${exitos} fotos a la galería exitosamente.`, "exito");
+      } else {
+        mostrarToast(`Se subieron ${exitos} fotos, pero ${fallos} fallaron.`, "exito");
+      }
+    }
   };
 
   const handleEliminarFotoGaleria = async (idx) => {

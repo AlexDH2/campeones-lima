@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, MapPin, Mail, ShieldCheck } from 'lucide-react';
-import { supabase } from './supabase';
+import { useRedesSociales } from './queries';
 
 const REDES_DEFECTO = {
   instagram: "https://instagram.com/campeoneslima_",
@@ -12,19 +12,8 @@ const REDES_DEFECTO = {
 };
 
 export default function Footer() {
-  const [redes, setRedes] = useState(REDES_DEFECTO);
-
-  useEffect(() => {
-    async function cargarRedes() {
-      try {
-        const { data } = await supabase.from('configuracion_web').select('valor').eq('clave', 'redes_sociales').maybeSingle();
-        if (data?.valor) setRedes({ ...REDES_DEFECTO, ...data.valor });
-      } catch (err) {
-        console.error(err);
-      }
-    }
-    cargarRedes();
-  }, []);
+  const { data: redesData } = useRedesSociales();
+  const redes = { ...REDES_DEFECTO, ...(redesData || {}) };
 
   return (
     <footer className="bg-[#03060c] text-slate-400 border-t border-slate-800/80 font-sans text-xs">

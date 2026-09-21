@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Trophy, 
@@ -22,8 +22,8 @@ import {
 } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import { useTheme } from './theme';
-import { supabase } from './supabase';
+import { useTheme } from './ThemeContext';
+import { useNosotrosContenido } from './queries';
 
 const CONTENIDO_BASE = {
   foto_basquet: "",
@@ -35,31 +35,20 @@ const CONTENIDO_BASE = {
 export default function Nosotros() {
   const { esOscuro = true } = useTheme();
   const [seccionActiva, setSeccionActiva] = useState('historia');
-  const [datosClub, setDatosClub] = useState(CONTENIDO_BASE);
 
   // Visor Lightbox
   const [fotoLightboxIdx, setFotoLightboxIdx] = useState(null);
 
-  useEffect(() => {
-    async function cargarDatosReales() {
-      try {
-        const { data } = await supabase.from('configuracion_web').select('valor').eq('clave', 'nosotros_contenido').maybeSingle();
-        if (data?.valor) {
-          setDatosClub({
-            foto_basquet: data.valor.foto_basquet || "",
-            posicion_basquet: data.valor.posicion_basquet ?? 50,
-            posicion_voley: data.valor.posicion_voley ?? 50,
-            foto_voley: data.valor.foto_voley || "",
-            logros: Array.isArray(data.valor.logros) ? data.valor.logros : [],
-            galeria: Array.isArray(data.valor.galeria) ? data.valor.galeria : []
-          });
-        }
-      } catch (err) {
-        console.error("Error al cargar datos de Nosotros:", err);
-      }
-    }
-    cargarDatosReales();
-  }, []);
+  const { data: datosQuery } = useNosotrosContenido();
+
+  const datosClub = {
+    foto_basquet: datosQuery?.foto_basquet || "",
+    posicion_basquet: datosQuery?.posicion_basquet ?? 50,
+    posicion_voley: datosQuery?.posicion_voley ?? 50,
+    foto_voley: datosQuery?.foto_voley || "",
+    logros: Array.isArray(datosQuery?.logros) ? datosQuery.logros : [],
+    galeria: Array.isArray(datosQuery?.galeria) ? datosQuery.galeria : []
+  };
 
   const tabs = [
     { id: 'historia', label: 'Nuestra Historia', icon: Calendar },

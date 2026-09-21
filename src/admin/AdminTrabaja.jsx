@@ -1,5 +1,7 @@
 import Postulaciones from './Postulaciones';
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../toast';
+import ModalConfirmacion from './ModalConfirmacion';
 import { 
   Briefcase, 
   Plus, 
@@ -18,6 +20,8 @@ import {
 import { supabase } from '../supabase';
 
 export default function AdminTrabaja() {
+  const { mostrarToast } = useToast();
+  const [confirmacion, setConfirmacion] = useState(null);
   const [convocatorias, setConvocatorias] = useState([]);
   const [sedes, setSedes] = useState([]);
   const [errorCarga, setErrorCarga] = useState('');
@@ -66,7 +70,7 @@ export default function AdminTrabaja() {
     const nombreLimpio = `vacante_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
     const { error } = await supabase.storage.from('imagenes_web').upload(`trabaja/${nombreLimpio}`, file, { upsert: true, contentType: file.type || 'image/png' });
 
-    if (error) return alert("Error al subir foto: " + error.message);
+    if (error) return mostrarToast("Error al subir foto: " + error.message, "error");
 
     const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`trabaja/${nombreLimpio}`);
     setFotoUrl(data.publicUrl);
@@ -74,7 +78,7 @@ export default function AdminTrabaja() {
 
   const handleCrearConvocatoria = async (e) => {
     e.preventDefault();
-    if (!nuevoPuesto.trim()) return alert("Ingresa el título del puesto.");
+    if (!nuevoPuesto.trim()) return mostrarToast("Ingresa el título del puesto.", "error");
 
     setGuardando(true);
     try {
@@ -96,7 +100,7 @@ export default function AdminTrabaja() {
 
       const { data, error } = await supabase.from('convocatorias').insert([payload]).select();
 
-      if (error) alert('No se pudo guardar el registro: ' + error.message);
+      if (error) mostrarToast('No se pudo guardar el registro: ' + error.message, "error");
       if (!error && data && data[0]) {
         setConvocatorias([data[0], ...convocatorias]);
         setNuevoPuesto('');
@@ -104,7 +108,7 @@ export default function AdminTrabaja() {
         setRequisitosTexto('');
         setFotoUrl('');
         setFotoVisible(true);
-        alert("✓ Convocatoria publicada exitosamente en Supabase.");
+        mostrarToast("Convocatoria publicada exitosamente en Supabase.", "exito");
       }
     } finally {
       setGuardando(false);
@@ -115,7 +119,7 @@ export default function AdminTrabaja() {
   const handleToggleVisibilidadFoto = async (id, estadoActual) => {
     const nuevoEstado = !estadoActual;
     const { error } = await supabase.from('convocatorias').update({ foto_visible: nuevoEstado }).eq('id', id);
-    if (error) alert('No se pudo guardar el cambio: ' + error.message);
+    if (error) mostrarToast('No se pudo guardar el cambio: ' + error.message, "error");
     if (!error) {
       setConvocatorias(convocatorias.map(c => c.id === id ? { ...c, foto_visible: nuevoEstado } : c));
     }
@@ -123,23 +127,35 @@ export default function AdminTrabaja() {
 
   // Quitar foto de una convocatoria
   const handleQuitarFoto = async (id) => {
-    if (!confirm("¿Deseas quitar la foto de esta convocatoria?")) return;
-    const { error } = await supabase.from('convocatorias').update({ foto: null, foto_visible: false }).eq('id', id);
-    if (error) alert('No se pudo guardar el cambio: ' + error.message);
-    if (!error) {
-      setConvocatorias(convocatorias.map(c => c.id === id ? { ...c, foto: null, foto_visible: false } : c));
-    }
+    setConfirmacion({
+      mensaje: "¿Deseas quitar la foto de esta convocatoria?",
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        const { error } = await supabase.from('convocatorias').update({ foto: null, foto_visible: false }).eq('id', id);
+        if (error) mostrarToast('No se pudo guardar el cambio: ' + error.message, "error");
+        if (!error) {
+          setConvocatorias(convocatorias.map(c => c.id === id ? { ...c, foto: null, foto_visible: false } : c));
+        }
+      }
+    });
   };
 
   // Eliminar convocatoria de inmediato en Supabase (no vuelve a aparecer al recargar)
   const handleEliminarConvocatoria = async (id) => {
-    if (!confirm("¿Deseas eliminar definitivamente esta convocatoria de la base de datos?")) return;
-    const { error } = await supabase.from('convocatorias').delete().eq('id', id);
-    if (error) alert('No se pudo guardar el cambio: ' + error.message);
-    if (!error) {
-      setConvocatorias(convocatorias.filter(c => c.id !== id));
-      alert("✓ Convocatoria eliminada definitivamente.");
-    }
+    setConfirmacion({
+      mensaje: "¿Deseas eliminar definitivamente esta convocatoria de la base de datos?",
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        const { error } = await supabase.from('convocatorias').delete().eq('id', id);
+        if (error) mostrarToast('No se pudo guardar el cambio: ' + error.message, "error");
+        if (!error) {
+          setConvocatorias(convocatorias.filter(c => c.id !== id));
+          mostrarToast("Convocatoria eliminada definitivamente.", "exito");
+        }
+      }
+    });
   };
 
   if (errorCarga) return <div role="alert" className="p-6 text-red-300 space-y-3"><p>{errorCarga}</p><button type="button" onClick={() => window.location.reload()} className="underline">Reintentar carga</button></div>;
@@ -361,6 +377,18 @@ export default function AdminTrabaja() {
       </div>
 
       <Postulaciones />
+
+      <ModalConfirmacion
+        abierto={!!confirmacion}
+        mensaje={confirmacion?.mensaje || ''}
+        textoConfirmar={confirmacion?.textoConfirmar || 'Confirmar'}
+        peligroso={confirmacion?.peligroso || false}
+        conInput={confirmacion?.conInput || false}
+        valorInicial={confirmacion?.valorInicial || ''}
+        placeholderInput={confirmacion?.placeholderInput || ''}
+        onConfirmar={confirmacion?.onConfirmar || (() => setConfirmacion(null))}
+        onCancelar={() => setConfirmacion(null)}
+      />
     </div>
   );
 }

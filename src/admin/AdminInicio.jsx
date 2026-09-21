@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import ModalEncuadre from './ModalEncuadre';
+import { useToast } from '../toast';
+import ModalConfirmacion from './ModalConfirmacion';
 
 function obtenerIdYouTube(url) {
   if (!url || typeof url !== 'string') return '';
@@ -44,6 +46,9 @@ const normalizarCoordenada = (val, defecto = 50) => {
 };
 
 export default function AdminInicio() {
+  const { mostrarToast } = useToast();
+  const [confirmacion, setConfirmacion] = useState(null);
+
   const [errorCarga, setErrorCarga] = useState('');
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -121,7 +126,7 @@ export default function AdminInicio() {
       contentType: file.type || 'image/png'
     });
 
-    if (error) return alert("Error al subir banner: " + error.message);
+    if (error) return mostrarToast("Error al subir banner: " + error.message, "error");
 
     const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`banners/${nombreLimpio}`);
     const nuevosBanners = [...banners, { url: data.publicUrl }];
@@ -131,24 +136,29 @@ export default function AdminInicio() {
   };
 
   const handleEliminarBanner = async (urlAEliminar, idxEliminar) => {
-    if (!confirm("¿Deseas eliminar definitivamente este banner?")) return;
+    setConfirmacion({
+      mensaje: "¿Deseas eliminar definitivamente este banner?",
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        const nuevosBanners = banners.filter((b, i) => {
+          const u = typeof b === 'string' ? b : (b?.url || b?.imagen || '');
+          return u !== urlAEliminar && i !== idxEliminar;
+        });
 
-    const nuevosBanners = banners.filter((b, i) => {
-      const u = typeof b === 'string' ? b : (b?.url || b?.imagen || '');
-      return u !== urlAEliminar && i !== idxEliminar;
+        const copiaPos = { ...bannerPosiciones };
+        delete copiaPos[idxEliminar];
+        delete copiaPos[urlAEliminar];
+
+        if (!await guardar(supabase.from('configuracion_web').upsert([
+          { clave: 'banner_hero_inicio', valor: nuevosBanners },
+          { clave: 'banner_posiciones', valor: copiaPos }
+        ]))) return;
+
+        setBanners(nuevosBanners);
+        setBannerPosiciones(copiaPos);
+      }
     });
-
-    const copiaPos = { ...bannerPosiciones };
-    delete copiaPos[idxEliminar];
-    delete copiaPos[urlAEliminar];
-
-    if (!await guardar(supabase.from('configuracion_web').upsert([
-      { clave: 'banner_hero_inicio', valor: nuevosBanners },
-      { clave: 'banner_posiciones', valor: copiaPos }
-    ]))) return;
-
-    setBanners(nuevosBanners);
-    setBannerPosiciones(copiaPos);
   };
 
   // Guardar encuadre: devuelve explícitamente true o false
@@ -177,7 +187,7 @@ export default function AdminInicio() {
   };
 
   const handleAgregarVideo = async () => {
-    if (!nuevoVideoUrl.trim()) return alert("Ingresa el enlace de YouTube.");
+    if (!nuevoVideoUrl.trim()) return mostrarToast("Ingresa el enlace de YouTube.", "error");
     
     const enlaceLimpio = nuevoVideoUrl.trim();
     const tituloFinal = nuevoVideoTitulo.trim() || 'Video Oficial Campeones Lima';
@@ -199,10 +209,16 @@ export default function AdminInicio() {
   };
 
   const handleEliminarVideo = async (id) => {
-    if (!confirm("¿Deseas eliminar este video?")) return;
-    const nuevaLista = videos.filter(v => v.id !== id);
-    if (!await guardar(supabase.from('configuracion_web').upsert({ clave: 'inicio_videos', valor: nuevaLista }))) return;
-    setVideos(nuevaLista);
+    setConfirmacion({
+      mensaje: "¿Deseas eliminar este video?",
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        const nuevaLista = videos.filter(v => v.id !== id);
+        if (!await guardar(supabase.from('configuracion_web').upsert({ clave: 'inicio_videos', valor: nuevaLista }))) return;
+        setVideos(nuevaLista);
+      }
+    });
   };
 
   const handleGuardarCambios = async () => {
@@ -214,9 +230,9 @@ export default function AdminInicio() {
         { clave: 'inicio_videos', valor: videos },
         { clave: 'redes_sociales', valor: redes }
       ]))) return;
-      alert('✓ Configuración de Portada, Videos y Redes guardada exitosamente.');
+      mostrarToast('Configuración de Portada, Videos y Redes guardada exitosamente.', 'exito');
     } catch (err) {
-      alert('Error al guardar: ' + err.message);
+      mostrarToast('Error al guardar: ' + err.message, 'error');
     } finally {
       setGuardando(false);
     }
@@ -503,6 +519,17 @@ export default function AdminInicio() {
         </div>
       </div>
 
+      <ModalConfirmacion
+        abierto={!!confirmacion}
+        mensaje={confirmacion?.mensaje || ''}
+        textoConfirmar={confirmacion?.textoConfirmar || 'Confirmar'}
+        peligroso={confirmacion?.peligroso || false}
+        conInput={confirmacion?.conInput || false}
+        valorInicial={confirmacion?.valorInicial || ''}
+        placeholderInput={confirmacion?.placeholderInput || ''}
+        onConfirmar={confirmacion?.onConfirmar || (() => setConfirmacion(null))}
+        onCancelar={() => setConfirmacion(null)}
+      />
     </div>
   );
 }

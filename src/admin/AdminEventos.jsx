@@ -7,8 +7,13 @@ import {
   MapPin 
 } from 'lucide-react';
 import { supabase } from '../supabase';
+import { useToast } from '../toast';
+import ModalConfirmacion from './ModalConfirmacion';
 
 export default function AdminEventos() {
+  const { mostrarToast } = useToast();
+  const [confirmacion, setConfirmacion] = useState(null);
+
   const [eventos, setEventos] = useState([]);
   const [sedes, setSedes] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -49,7 +54,7 @@ export default function AdminEventos() {
   const handleCrearEvento = async (e) => {
     e.preventDefault();
     if (!titulo.trim() || !fechaEmergente) {
-      return alert("Ingresa el título del evento y la fecha usando el calendario.");
+      return mostrarToast("Ingresa el título del evento y la fecha usando el calendario.", "error");
     }
 
     setGuardando(true);
@@ -72,24 +77,31 @@ export default function AdminEventos() {
         setTitulo('');
         setFechaEmergente('');
         setDescripcion('');
-        alert("✓ Evento publicado exitosamente en el calendario.");
+        mostrarToast("Evento publicado exitosamente en el calendario.", "exito");
       }
     } catch (err) {
-      alert("No se pudo publicar el evento: " + (err.message || 'Error en el servidor.'));
+      mostrarToast("No se pudo publicar el evento: " + (err.message || 'Error en el servidor.'), "error");
     } finally {
       setGuardando(false);
     }
   };
 
   const handleEliminarEvento = async (id) => {
-    if (!confirm("¿Deseas eliminar definitivamente este evento?")) return;
-    try {
-      const { error } = await supabase.from('eventos').delete().eq('id', id);
-      if (error) throw error;
-      setEventos(eventos.filter(e => e.id !== id));
-    } catch (err) {
-      alert("No se pudo eliminar el evento: " + (err.message || 'Error en el servidor.'));
-    }
+    setConfirmacion({
+      mensaje: "¿Deseas eliminar definitivamente este evento?",
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        try {
+          const { error } = await supabase.from('eventos').delete().eq('id', id);
+          if (error) throw error;
+          setEventos(eventos.filter(e => e.id !== id));
+          mostrarToast("Evento eliminado exitosamente.", "exito");
+        } catch (err) {
+          mostrarToast("No se pudo eliminar el evento: " + (err.message || 'Error en el servidor.'), "error");
+        }
+      }
+    });
   };
 
   if (cargando) {
@@ -253,6 +265,17 @@ export default function AdminEventos() {
         </div>
       </div>
 
+      <ModalConfirmacion
+        abierto={!!confirmacion}
+        mensaje={confirmacion?.mensaje || ''}
+        textoConfirmar={confirmacion?.textoConfirmar || 'Confirmar'}
+        peligroso={confirmacion?.peligroso || false}
+        conInput={confirmacion?.conInput || false}
+        valorInicial={confirmacion?.valorInicial || ''}
+        placeholderInput={confirmacion?.placeholderInput || ''}
+        onConfirmar={confirmacion?.onConfirmar || (() => setConfirmacion(null))}
+        onCancelar={() => setConfirmacion(null)}
+      />
     </div>
   );
 }

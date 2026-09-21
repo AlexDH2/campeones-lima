@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../toast';
+import ModalConfirmacion from './ModalConfirmacion';
 import { 
   Users2, 
   Search, 
@@ -21,6 +23,8 @@ function extraerDatosProspecto(p) {
 }
 
 export default function AdminProspectos() {
+  const { mostrarToast } = useToast();
+  const [confirmacion, setConfirmacion] = useState(null);
   const [prospectos, setProspectos] = useState([]);
   const [sedes, setSedes] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -72,8 +76,9 @@ export default function AdminProspectos() {
       const { error } = await supabase.from('prospectos').update({ estado: nuevoEstado }).eq('id', id);
       if (error) throw error;
       setProspectos(prospectos.map(p => p.id === id ? { ...p, estado: nuevoEstado } : p));
+      mostrarToast("Estado actualizado correctamente.", "exito");
     } catch (err) {
-      alert("No se pudo actualizar el estado: " + (err.message || 'Error en el servidor.'));
+      mostrarToast("No se pudo actualizar el estado: " + (err.message || 'Error en el servidor.'), "error");
     }
   };
 
@@ -82,26 +87,34 @@ export default function AdminProspectos() {
       const { error } = await supabase.from('prospectos').update({ notas }).eq('id', id);
       if (error) throw error;
       setProspectos(prospectos.map(p => p.id === id ? { ...p, notas } : p));
+      mostrarToast("Notas actualizadas exitosamente.", "exito");
     } catch (err) {
-      alert("No se pudieron guardar las notas: " + (err.message || 'Error en el servidor.'));
+      mostrarToast("No se pudieron guardar las notas: " + (err.message || 'Error en el servidor.'), "error");
     }
   };
 
   const handleEliminarProspecto = async (id) => {
-    if (!confirm("¿Deseas eliminar definitivamente este registro de alumno?")) return;
-    try {
-      const { error } = await supabase.from('prospectos').delete().eq('id', id);
-      if (error) throw error;
-      setProspectos(prospectos.filter(p => p.id !== id));
-    } catch (err) {
-      alert("No se pudo eliminar el prospecto: " + (err.message || 'Error en el servidor.'));
-    }
+    setConfirmacion({
+      mensaje: "¿Deseas eliminar definitivamente este registro de alumno?",
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        try {
+          const { error } = await supabase.from('prospectos').delete().eq('id', id);
+          if (error) throw error;
+          setProspectos(prospectos.filter(p => p.id !== id));
+          mostrarToast("Registro eliminado.", "exito");
+        } catch (err) {
+          mostrarToast("No se pudo eliminar el prospecto: " + (err.message || 'Error en el servidor.'), "error");
+        }
+      }
+    });
   };
 
   const handleCrearProspectoManual = async (e) => {
     e.preventDefault();
     if (!nuevoProspecto.nombre.trim() || !nuevoProspecto.telefono.trim()) {
-      return alert("Ingresa al menos el nombre y el teléfono de contacto.");
+      return mostrarToast("Ingresa al menos el nombre y el teléfono de contacto.", "error");
     }
 
     setGuardandoNuevo(true);
@@ -131,10 +144,10 @@ export default function AdminProspectos() {
           estado: 'Pendiente',
           notas: ''
         });
-        alert("✓ Alumno registrado exitosamente en el sistema.");
+        mostrarToast("Alumno registrado exitosamente en el sistema.", "exito");
       }
     } catch (err) {
-      alert("No se pudo registrar el alumno: " + (err.message || 'Error en el servidor.'));
+      mostrarToast("No se pudo registrar el alumno: " + (err.message || 'Error en el servidor.'), "error");
     } finally {
       setGuardandoNuevo(false);
     }
@@ -476,13 +489,31 @@ export default function AdminProspectos() {
                   </div>
 
                   <div className="mt-3 pt-2.5 border-t border-slate-800">
-                    <input
-                      type="text"
-                      placeholder="Notas del alumno (ej. Asiste a prueba el sábado)..."
-                      defaultValue={p.notas || ''}
-                      onBlur={e => handleActualizarNotas(p.id, e.target.value)}
-                      className="w-full bg-[#040914] border border-slate-800/80 p-2 rounded-xl text-white text-[11px] focus:border-[#00B4A7] focus:outline-none"
-                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Notas del alumno (ej. Asiste a prueba el sábado)..."
+                        defaultValue={p.notas || ''}
+                        onBlur={e => handleActualizarNotas(p.id, e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        className="flex-1 w-full bg-[#040914] border border-slate-800/80 p-2 rounded-xl text-white text-[11px] focus:border-[#00B4A7] focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          const input = e.currentTarget.previousElementSibling;
+                          handleActualizarNotas(p.id, input.value);
+                        }}
+                        className="p-1.5 bg-[#00B4A7]/15 text-[#00B4A7] hover:bg-[#00B4A7]/25 rounded-xl cursor-pointer"
+                        title="Guardar notas"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -516,6 +547,17 @@ export default function AdminProspectos() {
         </div>
       )}
 
+      <ModalConfirmacion
+        abierto={!!confirmacion}
+        mensaje={confirmacion?.mensaje || ''}
+        textoConfirmar={confirmacion?.textoConfirmar || 'Confirmar'}
+        peligroso={confirmacion?.peligroso || false}
+        conInput={confirmacion?.conInput || false}
+        valorInicial={confirmacion?.valorInicial || ''}
+        placeholderInput={confirmacion?.placeholderInput || ''}
+        onConfirmar={confirmacion?.onConfirmar || (() => setConfirmacion(null))}
+        onCancelar={() => setConfirmacion(null)}
+      />
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { precioValido } from '../domain';
 import { guardar } from './operaciones';
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../toast';
+import ModalConfirmacion from './ModalConfirmacion';
 import { 
   MapPin, 
   Plus, 
@@ -55,6 +57,8 @@ const sanitizarDistrito = (str) => {
 };
 
 export default function AdminSedes() {
+  const { mostrarToast } = useToast();
+  const [confirmacion, setConfirmacion] = useState(null);
   const [sedes, setSedes] = useState([]);
   const [errorCarga, setErrorCarga] = useState('');
   const [cargando, setCargando] = useState(true);
@@ -108,7 +112,7 @@ export default function AdminSedes() {
     async function cargarDatosIniciales() {
       try {
         const [resSedes, resConfig] = await Promise.all([
-          supabase.from('sedes').select('*').order('created_at', { ascending: true }),
+          supabase.from('sedes').select('*').order('nombre', { ascending: true }),
           supabase.from('configuracion_web').select('clave, valor').in('clave', [
             'categorias_edades',
             'inicio_disciplinas',
@@ -156,7 +160,7 @@ export default function AdminSedes() {
       contentType: file.type || 'image/png'
     });
 
-    if (error) return alert("Error al subir foto panorámica: " + error.message);
+    if (error) return mostrarToast("Error al subir foto panorámica: " + error.message, "error");
 
     const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`sedes/${nombreLimpio}`);
     const nuevoItem = {
@@ -169,10 +173,14 @@ export default function AdminSedes() {
     };
 
     const nuevaLista = [...canchasPanoramicas, nuevoItem];
-    if (!await guardar(supabase.from('configuracion_web').upsert({
+    const res = await guardar(supabase.from('configuracion_web').upsert({
       clave: 'banner_canchas_sedes',
       valor: nuevaLista
-    }))) return;
+    }));
+    if (!res.ok) {
+      mostrarToast(res.error, "error");
+      return;
+    }
     setCanchasPanoramicas(nuevaLista);
   };
 
@@ -186,23 +194,37 @@ export default function AdminSedes() {
   };
 
   const handleEliminarFotoPanoramica = async (idx) => {
-    if (!confirm("¿Deseas quitar esta foto del fondo panorámico?")) return;
-    const nuevaLista = canchasPanoramicas.filter((_, i) => i !== idx);
-    if (!await guardar(supabase.from('configuracion_web').upsert({
-      clave: 'banner_canchas_sedes',
-      valor: nuevaLista
-    }))) return;
-    setCanchasPanoramicas(nuevaLista);
+    setConfirmacion({
+      mensaje: "¿Deseas quitar esta foto del fondo panorámico?",
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        const nuevaLista = canchasPanoramicas.filter((_, i) => i !== idx);
+        const res = await guardar(supabase.from('configuracion_web').upsert({
+          clave: 'banner_canchas_sedes',
+          valor: nuevaLista
+        }));
+        if (!res.ok) {
+          mostrarToast(res.error, "error");
+          return;
+        }
+        setCanchasPanoramicas(nuevaLista);
+      }
+    });
   };
 
   const handleGuardarTodasPanoramicas = async () => {
     setGuardandoPanoramicas(true);
     try {
-      if (!await guardar(supabase.from('configuracion_web').upsert({
+      const res = await guardar(supabase.from('configuracion_web').upsert({
         clave: 'banner_canchas_sedes',
         valor: canchasPanoramicas
-      }))) return;
-      alert("✓ Fondo panorámico guardado exitosamente.");
+      }));
+      if (!res.ok) {
+        mostrarToast(res.error, "error");
+        return;
+      }
+      mostrarToast("Fondo panorámico guardado exitosamente.", "exito");
     } finally {
       setGuardandoPanoramicas(false);
     }
@@ -262,7 +284,7 @@ export default function AdminSedes() {
       contentType: file.type || 'image/png'
     });
 
-    if (error) return alert("Error al subir foto: " + error.message);
+    if (error) return mostrarToast("Error al subir foto: " + error.message, "error");
 
     const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`sedes/${nombreLimpio}`);
     const nuevasFotos = [...formSede.imagenes, data.publicUrl];
@@ -313,10 +335,14 @@ export default function AdminSedes() {
       const idx = fotoParaEncuadrar.idx;
       const nuevaLista = [...canchasPanoramicas];
       nuevaLista[idx] = { ...nuevaLista[idx], posX, posY };
-      if (!await guardar(supabase.from('configuracion_web').upsert({
+      const res = await guardar(supabase.from('configuracion_web').upsert({
         clave: 'banner_canchas_sedes',
         valor: nuevaLista
-      }))) return;
+      }));
+      if (!res.ok) {
+        mostrarToast(res.error, "error");
+        return;
+      }
       setCanchasPanoramicas(nuevaLista);
     } else {
       const urlTarget = fotoParaEncuadrar.url;
@@ -434,7 +460,7 @@ export default function AdminSedes() {
 
   const handleGuardarSede = async (e) => {
     e.preventDefault();
-    if (!formSede.nombre.trim()) return alert("Ingresa el nombre de la sede.");
+    if (!formSede.nombre.trim()) return mostrarToast("Ingresa el nombre de la sede.", "error");
 
     const distritoLimpio = sanitizarDistrito(formSede.distrito);
 
@@ -465,21 +491,27 @@ export default function AdminSedes() {
       }
 
       setModalAbierto(false);
-      alert("✓ ¡Sede, tarifas y horarios guardados exitosamente!");
+      mostrarToast("¡Sede, tarifas y horarios guardados exitosamente!", "exito");
     } catch (err) {
-      alert("Error al guardar: " + err.message);
+      mostrarToast("Error al guardar: " + err.message, "error");
     } finally {
       setGuardando(false);
     }
   };
 
   const handleEliminarSede = async (id, nombre) => {
-    if (!confirm(`¿Eliminar definitivamente la ${nombre}?`)) return;
-    const { error } = await supabase.from('sedes').delete().eq('id', id);
-    if (!error) {
-      setSedes(sedes.filter(s => s.id !== id));
-      alert("✓ Sede eliminada.");
-    }
+    setConfirmacion({
+      mensaje: `¿Eliminar definitivamente la ${nombre}?`,
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        const { error } = await supabase.from('sedes').delete().eq('id', id);
+        if (!error) {
+          setSedes(sedes.filter(s => s.id !== id));
+          mostrarToast("Sede eliminada.", "exito");
+        }
+      }
+    });
   };
 
   if (errorCarga) return <div role="alert" className="p-6 text-red-300 space-y-3"><p>{errorCarga}</p><button type="button" onClick={() => window.location.reload()} className="underline">Reintentar carga</button></div>;
@@ -1164,6 +1196,17 @@ export default function AdminSedes() {
         </div>
       )}
 
+      <ModalConfirmacion
+        abierto={!!confirmacion}
+        mensaje={confirmacion?.mensaje || ''}
+        textoConfirmar={confirmacion?.textoConfirmar || 'Confirmar'}
+        peligroso={confirmacion?.peligroso || false}
+        conInput={confirmacion?.conInput || false}
+        valorInicial={confirmacion?.valorInicial || ''}
+        placeholderInput={confirmacion?.placeholderInput || ''}
+        onConfirmar={confirmacion?.onConfirmar || (() => setConfirmacion(null))}
+        onCancelar={() => setConfirmacion(null)}
+      />
     </div>
   );
 }

@@ -87,6 +87,8 @@ export default function AdminSidebar({ pestañaActiva, setPestañaActiva }) {
     }
 
     cargarContadoresEnVivo();
+    const interval = setInterval(cargarContadoresEnVivo, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   const esSuperAdmin = usuario?.rol === 'Principal';

@@ -1,4 +1,3 @@
-import NotificacionPromo from './NotificacionPromo';
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { 
@@ -17,9 +16,11 @@ import {
   ExternalLink, 
   RotateCcw, 
   X, 
-  AlertTriangle 
+  AlertTriangle,
+  ChevronDown 
 } from 'lucide-react';
 
+import NotificacionPromo from './NotificacionPromo';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import Sedes from './Sedes';
@@ -33,7 +34,30 @@ import Terminos from './Terminos';
 import NoEncontrado from './NoEncontrado';
 import { precioValido, mostrarPrecio, promocionVigente, estaSuspendida } from './domain';
 import { ThemeProvider, useTheme } from './ThemeContext';
+import { ToastProvider } from './ToastContext';
+import { useToast } from './toast';
 import { supabase } from './supabase';
+import { useConfiguracionClaves, useSedes, useWhatsAppGlobal } from './queries';
+
+const CLAVES_INICIO = [
+  'banner_hero_inicio',
+  'banner_sedes',
+  'banner_inicio',
+  'banner_posiciones',
+  'inicio_disciplinas',
+  'tarjetas_disciplina',
+  'disciplinas_inicio',
+  'disciplinas',
+  'redes_sociales',
+  'inicio_videos',
+  'videos_testimonios',
+  'videos_inicio',
+  'videos_shorts',
+  'videos',
+  'precios_clase_modelo',
+  'categorias_edades',
+  'promociones_vigentes'
+];
 
 function obtenerIdYouTube(url) {
   if (!url || typeof url !== 'string') return '';
@@ -80,135 +104,60 @@ function obtenerEmbedVideo(url) {
 
 function PaginaInicio() {
   const { esOscuro = true } = useTheme();
-  const WHATSAPP_PHONE = "51963896985";
+  const { mostrarToast } = useToast();
+  const WHATSAPP_PHONE = useWhatsAppGlobal();
 
-  const [cargandoDatos, setCargandoDatos] = useState(true);
-  const [errorConsulta, setErrorConsulta] = useState('');
-  const [errorFormulario, setErrorFormulario] = useState('');
-  const [heroFotos, setHeroFotos] = useState([]);
-  const [bannerPosiciones, setBannerPosiciones] = useState({});
+  const { data: sedes = [], isLoading: cargandoSedes, isError: errorSedes } = useSedes();
+  const { data: configMap = {}, isLoading: cargandoConfig, isError: errorConfig } = useConfiguracionClaves(CLAVES_INICIO);
+
+  const cargandoDatos = cargandoSedes || cargandoConfig;
+  const errorConsulta = (errorSedes || errorConfig) ? "No pudimos cargar las sedes y tarifas. Recarga la página para intentar nuevamente." : '';
+
   const [fotoActivaIdx, setFotoActivaIdx] = useState(0);
-  const [sedes, setSedes] = useState([]);
-  const [disciplinas, setDisciplinas] = useState([]);
-  const [videosAdmin, setVideosAdmin] = useState([]);
-  const [preciosClaseModelo, setPreciosClaseModelo] = useState({});
-  const [categoriasEdades, setCategoriasEdades] = useState([]);
-
-  const [promocionActiva, setPromocionActiva] = useState(null);
   const [mostrarModalFlyer, setMostrarModalFlyer] = useState(false);
 
+  // Estados del formulario
+  const [errorFormulario, setErrorFormulario] = useState('');
   const [formNombre, setFormNombre] = useState('');
   const [formTelefono, setFormTelefono] = useState('');
   const [formSede, setFormSede] = useState('');
-  const [formDeporte, setFormDeporte] = useState('Básquetbol');
+  const [formDeporte, setFormDeporte] = useState('');
   const [formEdad, setFormEdad] = useState('');
   const [enviandoForm, setEnviandoForm] = useState(false);
   const [formEnviadoExito, setFormEnviadoExito] = useState(false);
 
-  useEffect(() => {
-    async function cargarDatosReales() {
-      try {
-        const [resConfig, resSedes] = await Promise.all([
-          supabase.from('configuracion_web').select('clave, valor').in('clave', [
-            'banner_hero_inicio',
-            'banner_sedes',
-            'banner_inicio',
-            'banner_posiciones',
-            'inicio_disciplinas',
-            'tarjetas_disciplina',
-            'disciplinas_inicio',
-            'disciplinas',
-            'redes_sociales',
-            'inicio_videos',
-            'videos_testimonios',
-            'videos_inicio',
-            'videos_shorts',
-            'videos',
-            'precios_clase_modelo',
-            'categorias_edades',
-            'promociones_vigentes'
-          ]).throwOnError(),
-          supabase.from('sedes').select('*').order('created_at', { ascending: true }).throwOnError()
-        ]);
+  // Derivación de datos desde la caché
+  const bannerPosiciones = configMap.banner_posiciones || {};
+  let heroFotos = [];
+  const bannerGuardado = configMap.banner_hero_inicio || configMap.banner_sedes || configMap.banner_inicio;
+  if (Array.isArray(bannerGuardado) && bannerGuardado.length > 0) {
+    heroFotos = bannerGuardado;
+  } else if (sedes.length > 0) {
+    const todasLasCanchas = [];
+    sedes.forEach(s => {
+      const fotos = Array.isArray(s.imagenes) && s.imagenes.length > 0 ? s.imagenes : [s.foto_principal].filter(Boolean);
+      fotos.forEach(f => todasLasCanchas.push(f));
+    });
+    if (todasLasCanchas.length > 0) heroFotos = todasLasCanchas;
+  }
 
-        if (resSedes.data && resSedes.data.length > 0) {
-          setSedes(resSedes.data);
-          setFormSede(resSedes.data[0].nombre);
-        }
+  const disciplinas = configMap.inicio_disciplinas || configMap.tarjetas_disciplina || configMap.disciplinas_inicio || configMap.disciplinas || [];
+  
+  let videosAdmin = [];
+  const videosGuardados = configMap.inicio_videos || configMap.videos_testimonios || configMap.videos_inicio || configMap.videos_shorts || configMap.videos;
+  if (videosGuardados) {
+    if (Array.isArray(videosGuardados)) videosAdmin = videosGuardados;
+    else if (typeof videosGuardados === 'string') videosAdmin = [{ id: 1, enlace: videosGuardados, url: videosGuardados, titulo: 'Video Oficial' }];
+    else if (typeof videosGuardados === 'object') videosAdmin = [videosGuardados];
+  }
 
-        if (resConfig.data) {
-          const configMap = {};
-          resConfig.data.forEach(item => { configMap[item.clave] = item.valor; });
-
-          let bannerGuardado = null;
-          if (configMap.banner_hero_inicio !== undefined) {
-            bannerGuardado = configMap.banner_hero_inicio;
-          } else if (configMap.banner_sedes !== undefined) {
-            bannerGuardado = configMap.banner_sedes;
-          } else if (configMap.banner_inicio !== undefined) {
-            bannerGuardado = configMap.banner_inicio;
-          }
-
-          if (Array.isArray(bannerGuardado) && bannerGuardado.length > 0) {
-            setHeroFotos(bannerGuardado);
-          } else if (resSedes.data && resSedes.data.length > 0) {
-            const todasLasCanchas = [];
-            resSedes.data.forEach(s => {
-              const fotos = Array.isArray(s.imagenes) && s.imagenes.length > 0 ? s.imagenes : [s.foto_principal].filter(Boolean);
-              fotos.forEach(f => todasLasCanchas.push(f));
-            });
-            if (todasLasCanchas.length > 0) {
-              setHeroFotos(todasLasCanchas);
-            }
-          }
-
-          if (configMap.banner_posiciones) setBannerPosiciones(configMap.banner_posiciones);
-
-          const discGuardadas = configMap.inicio_disciplinas || 
-                                configMap.tarjetas_disciplina || 
-                                configMap.disciplinas_inicio || 
-                                configMap.disciplinas;
-
-          if (discGuardadas && Array.isArray(discGuardadas) && discGuardadas.length > 0) {
-            setDisciplinas(discGuardadas);
-          }
-
-          const videosGuardados = configMap.inicio_videos || 
-                                  configMap.videos_testimonios || 
-                                  configMap.videos_inicio || 
-                                  configMap.videos_shorts || 
-                                  configMap.videos;
-
-          if (videosGuardados) {
-            if (Array.isArray(videosGuardados)) setVideosAdmin(videosGuardados);
-            else if (typeof videosGuardados === 'string') setVideosAdmin([{ id: 1, enlace: videosGuardados, url: videosGuardados, titulo: 'Video Oficial' }]);
-            else if (typeof videosGuardados === 'object') setVideosAdmin([videosGuardados]);
-          }
-
-          if (configMap.precios_clase_modelo && typeof configMap.precios_clase_modelo === 'object') {
-            setPreciosClaseModelo(configMap.precios_clase_modelo);
-          }
-
-          if (configMap.categorias_edades && Array.isArray(configMap.categorias_edades)) {
-            setCategoriasEdades(configMap.categorias_edades);
-            if (configMap.categorias_edades[0]?.nombre) setFormEdad(configMap.categorias_edades[0].nombre);
-          }
-
-          const promosGuardadas = configMap.promociones_vigentes;
-          if (Array.isArray(promosGuardadas) && promosGuardadas.length > 0) {
-            const activa = promosGuardadas.find(p => promocionVigente(p));
-            if (activa) setPromocionActiva(activa);
-          }
-        }
-      } catch (err) {
-        console.error("Error al cargar datos:", err);
-        setErrorConsulta("No pudimos cargar las sedes y tarifas. Recarga la página para intentar nuevamente.");
-      } finally {
-        setCargandoDatos(false);
-      }
-    }
-    cargarDatosReales();
-  }, []);
+  const preciosClaseModelo = (configMap.precios_clase_modelo && typeof configMap.precios_clase_modelo === 'object') ? configMap.precios_clase_modelo : {};
+  const categoriasEdades = Array.isArray(configMap.categorias_edades) ? configMap.categorias_edades : [];
+  
+  let promocionActiva = null;
+  if (Array.isArray(configMap.promociones_vigentes) && configMap.promociones_vigentes.length > 0) {
+    promocionActiva = configMap.promociones_vigentes.find(p => promocionVigente(p)) || null;
+  }
 
   useEffect(() => {
     if (heroFotos.length <= 1) return;
@@ -220,22 +169,32 @@ function PaginaInicio() {
 
   const sedeSeleccionada = sedes.find(s => s.nombre === formSede);
   const sedeSuspendida = estaSuspendida(sedeSeleccionada);
-  const precioClaseSede = precioValido(preciosClaseModelo[formSede]);
-  const tarifaClase = precioClaseSede === null ? 'Por consultar' : precioClaseSede === 0 ? 'Gratis' : mostrarPrecio(precioClaseSede);
+  
+  const precioClaseSede = formSede ? precioValido(preciosClaseModelo[formSede]) : null;
+  const tarifaClase = !formSede 
+    ? null
+    : precioClaseSede === null 
+      ? 'Por consultar' 
+      : precioClaseSede === 0 
+        ? 'Gratis' 
+        : mostrarPrecio(precioClaseSede);
   const esClaseGratis = precioClaseSede === 0;
 
   const mensajeWsPase = `¡Hola Campeones Lima! Deseo coordinar mi *Clase Modelo* desde la web oficial:%0A%0A` +
     `👤 *Alumno:* ${encodeURIComponent(formNombre)}%0A` +
-    `🏆 *Deporte:* ${encodeURIComponent(formDeporte)}%0A` +
-    `📍 *Sede:* ${encodeURIComponent(formSede)}%0A` +
-    `🎂 *Categoría:* ${encodeURIComponent(formEdad)}%0A` +
-    `💰 *Tarifa:* ${tarifaClase}%0A` +
+    `🏆 *Deporte:* ${encodeURIComponent(formDeporte || 'Por definir')}%0A` +
+    `📍 *Sede / Horario:* ${encodeURIComponent(formSede || 'Por coordinar')}%0A` +
+    `🎂 *Categoría:* ${encodeURIComponent(formEdad || 'Por definir')}%0A` +
+    (tarifaClase ? `💰 *Tarifa:* ${tarifaClase}%0A` : '') +
     `📱 *WhatsApp:* ${encodeURIComponent(formTelefono)}%0A%0A` +
-    `¿Cuáles son las fechas disponibles?`;
+    `¿Cuáles son las fechas y horarios disponibles?`;
 
   const handleEnviarPaseCancha = async (e) => {
     e.preventDefault();
-    if (!formNombre.trim() || !formTelefono.trim()) return alert("Ingresa tu nombre y WhatsApp.");
+    if (!formNombre.trim() || !formTelefono.trim()) return mostrarToast("Ingresa tu nombre y WhatsApp.", "error");
+    if (!formDeporte) return mostrarToast("Por favor, escoge tu deporte.", "error");
+    if (!formSede) return mostrarToast("Por favor, escoge tu horario y sede.", "error");
+    if (!formEdad) return mostrarToast("Por favor, escoge tu categoría.", "error");
 
     if (cargandoDatos || errorConsulta || sedeSuspendida) return;
     if (!/^\+?[0-9 ()-]{9,20}$/.test(formTelefono.trim())) return setErrorFormulario('Ingresa un teléfono válido.');
@@ -250,7 +209,7 @@ function PaginaInicio() {
         disciplina: formDeporte,
         edad: formEdad || '',
         estado: 'Pendiente',
-        notas: 'Clase Modelo: ' + tarifaClase,
+        notas: 'Clase Modelo' + (tarifaClase ? ': ' + tarifaClase : ''),
       }]);
       if (error) throw error;
       setFormEnviadoExito(true);
@@ -265,6 +224,9 @@ function PaginaInicio() {
   const handleOtraReserva = () => {
     setFormNombre('');
     setFormTelefono('');
+    setFormDeporte('');
+    setFormSede('');
+    setFormEdad('');
     setFormEnviadoExito(false);
   };
 
@@ -339,14 +301,11 @@ function PaginaInicio() {
         </div>
       )}
 
-{/* =========================================================================
-          HERO (INICIA EXACTAMENTE DEBAJO DE LA CABECERA, NO DETRÁS)
-         ========================================================================= */}
+      {/* HERO */}
       <header className={`relative min-h-[calc(100vh-5rem)] flex items-center overflow-hidden z-10 ${
         promocionActiva ? 'mt-0' : 'mt-20'
       } pt-8 sm:pt-12 pb-16`}>
         
-        {/* FONDOS CON NITIDEZ Y MÁSCARA HORIZONTAL */}
         {heroFotos.length > 0 && (
           <div className="absolute inset-0 z-0 overflow-hidden select-none pointer-events-none">
             {heroFotos.map((fotoItem, idx) => {
@@ -378,17 +337,14 @@ function PaginaInicio() {
               );
             })}
 
-            {/* Máscara concentrada únicamente a la izquierda para dejar 100% visible a los chicos y el trofeo */}
             <div className="absolute inset-0 bg-gradient-to-r from-[#040813] via-[#040813]/90 lg:via-[#040813]/60 to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#040813] via-transparent to-black/40" />
           </div>
         )}
 
-        {/* CONTENIDO DESPLAZADO AL BORDE IZQUIERDO */}
         <div className="w-full px-5 sm:px-8 lg:px-12 xl:px-16 2xl:px-20 relative z-10">
           <div className="max-w-xl sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl space-y-5 text-left">
 
-            {/* TIPOGRAFÍA DEPORTIVA EN BLOQUE */}
             <div className="space-y-1">
               <span className="block text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tight text-slate-200 drop-shadow-md">
                 FORMAMOS
@@ -401,12 +357,10 @@ function PaginaInicio() {
               </span>
             </div>
 
-            {/* SUBTÍTULO */}
             <p className="text-xs sm:text-base text-slate-200 font-medium max-w-lg lg:max-w-xl leading-relaxed drop-shadow-md border-l-2 border-slate-700/80 pl-3">
               Academia deportiva de <strong className="text-[#F7B52C]">básquetbol</strong> y <strong className="text-[#00B4A7]">voleibol</strong> en coliseos techados de Lima. Formación física, técnica y valores competitivos desde los 6 años.
             </p>
 
-            {/* BADGES DEL CLUB */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pt-1">
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#071527]/95 border border-slate-700 text-[11px] font-bold text-white shadow">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#00B4A7]" /> Coliseos 100% Techados
@@ -419,7 +373,6 @@ function PaginaInicio() {
               </span>
             </div>
 
-            {/* BOTONES DE ACCIÓN */}
             <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <a
                 href="#ticket-cancha"
@@ -438,7 +391,6 @@ function PaginaInicio() {
               </Link>
             </div>
 
-            {/* SELECTOR DE FOTOS */}
             {heroFotos.length > 1 && (
               <div className="pt-2 flex items-center gap-1.5">
                 {heroFotos.map((_, i) => (
@@ -459,9 +411,7 @@ function PaginaInicio() {
         </div>
       </header>
 
-      {/* =========================================================================
-          MARCADOR LED SCOREBOARD (INSPIRADO EN LA TABLA DE CHALLENGERS)
-         ========================================================================= */}
+      {/* SCOREBOARD */}
       <section className="border-y border-slate-800 bg-[#070d1a] py-5 relative z-10 shadow-2xl">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-center">
@@ -485,7 +435,7 @@ function PaginaInicio() {
         </div>
       </section>
 
-      {/* DISCIPLINAS FORMATIVAS (TARJETAS DEPORTIVAS) */}
+      {/* DISCIPLINAS FORMATIVAS */}
       {disciplinas.length > 0 && (
         <section className="py-16 sm:py-24 max-w-6xl mx-auto px-4 sm:px-6 space-y-12 relative z-10">
           <div className="text-center max-w-2xl mx-auto space-y-2">
@@ -568,7 +518,7 @@ function PaginaInicio() {
         </section>
       )}
 
-      {/* VIDEOS Y HIGHLIGHTS EN CANCHA */}
+      {/* VIDEOS Y HIGHLIGHTS */}
       {videosAdmin.length > 0 && (
         <section className="py-16 sm:py-24 max-w-6xl mx-auto px-4 sm:px-6 space-y-10 relative z-10 border-t border-slate-800/80">
           <div className="text-center max-w-2xl mx-auto space-y-2">
@@ -669,17 +619,19 @@ function PaginaInicio() {
                 <Ticket className="w-3.5 h-3.5" /> Pase Oficial de Cancha
               </div>
               <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white italic">
-                Reserva tu Clase Modelo {`· ${tarifaClase}`}
+                Reserva tu Clase Modelo{formSede && tarifaClase ? ` · ${tarifaClase}` : ''}
               </h2>
             </div>
 
-            <span className={`text-[10px] sm:text-xs font-mono font-black px-3.5 py-1.5 rounded-xl border self-start sm:self-auto ${
-              esClaseGratis 
-                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' 
-                : 'bg-[#F7B52C]/15 text-[#F7B52C] border-[#F7B52C]/40'
-            }`}>
-              VALOR: {tarifaClase}
-            </span>
+            {formSede && tarifaClase && (
+              <span className={`text-[10px] sm:text-xs font-mono font-black px-3.5 py-1.5 rounded-xl border self-start sm:self-auto animate-in fade-in ${
+                esClaseGratis 
+                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' 
+                  : 'bg-[#F7B52C]/15 text-[#F7B52C] border-[#F7B52C]/40'
+              }`}>
+                VALOR: {tarifaClase}
+              </span>
+            )}
           </div>
 
           {formEnviadoExito ? (
@@ -690,7 +642,7 @@ function PaginaInicio() {
               <div className="space-y-1">
                 <h3 className="text-xl font-black text-white">¡Solicitud recibida!</h3>
                 <p className="text-xs text-slate-300 max-w-md mx-auto">
-                  Coordinaremos el horario para <strong>{formNombre}</strong> en <strong>{formSede}</strong> ({tarifaClase}).
+                  Coordinaremos el horario para <strong>{formNombre}</strong> en <strong>{formSede}</strong>{tarifaClase ? ` (${tarifaClase})` : ''}.
                 </p>
               </div>
 
@@ -747,53 +699,76 @@ function PaginaInicio() {
                 </div>
               </div>
 
+              {/* SELECTS */}
               <div className="grid sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-slate-300 font-bold mb-1">Deporte de Interés:</label>
-                  <select
-                    value={formDeporte}
-                    onChange={e => setFormDeporte(e.target.value)}
-                    className="w-full bg-[#040914] border border-slate-800 p-3 rounded-xl text-white font-bold cursor-pointer"
-                  >
-                    <option value="Básquetbol">🏀 Básquetbol</option>
-                    <option value="Voleibol">🏐 Voleibol</option>
-                  </select>
+                  <label className="block text-slate-300 font-bold mb-1">Escoge tu deporte:</label>
+                  <div className="relative">
+                    <select
+                      value={formDeporte}
+                      onChange={e => setFormDeporte(e.target.value)}
+                      required
+                      className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 pr-10 rounded-xl text-white font-bold appearance-none cursor-pointer focus:outline-none transition-colors"
+                    >
+                      <option value="" disabled>Escoge tu deporte</option>
+                      <option value="Básquetbol">🏀 Básquetbol</option>
+                      <option value="Voleibol">🏐 Voleibol</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-[#F7B52C]">
+                      <ChevronDown className="w-5 h-5 stroke-[2.5]" />
+                    </div>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-bold mb-1">Sede:</label>
-                  <select
-                    value={formSede}
-                    onChange={e => setFormSede(e.target.value)}
-                    className="w-full bg-[#040914] border border-slate-800 p-3 rounded-xl text-white font-bold cursor-pointer text-xs"
-                  >
-                    {sedes.map(s => {
-                      const p = precioValido(preciosClaseModelo[s.nombre]);
-                      const estaSusp = estaSuspendida(s);
-                      return (
-                        <option key={s.id} value={s.nombre} disabled={estaSusp}>
-                          {s.nombre} ({p === 0 ? 'Gratis' : mostrarPrecio(p)}) {estaSusp ? ' - [SUSPENDIDA]' : ''}
-                        </option>
-                      );
-                    })}
-                    <option value="Por Coordinar">Quiero que me recomienden sede</option>
-                  </select>
+                  <label className="block text-slate-300 font-bold mb-1">Escoge tu horario:</label>
+                  <div className="relative">
+                    <select
+                      value={formSede}
+                      onChange={e => setFormSede(e.target.value)}
+                      required
+                      className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 pr-10 rounded-xl text-white font-bold appearance-none cursor-pointer text-xs focus:outline-none transition-colors"
+                    >
+                      <option value="" disabled>Escoge tu horario (Sede)</option>
+                      {sedes.map(s => {
+                        const p = precioValido(preciosClaseModelo[s.nombre]);
+                        const estaSusp = estaSuspendida(s);
+                        return (
+                          <option key={s.id} value={s.nombre} disabled={estaSusp}>
+                            {s.nombre} ({p === 0 ? 'Gratis' : mostrarPrecio(p)}) {estaSusp ? ' - [SUSPENDIDA]' : ''}
+                          </option>
+                        );
+                      })}
+                      <option value="Por Coordinar">Quiero que me recomienden sede y horario</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-[#F7B52C]">
+                      <ChevronDown className="w-5 h-5 stroke-[2.5]" />
+                    </div>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-bold mb-1">Categoría / Edad:</label>
-                  <select
-                    value={formEdad}
-                    onChange={e => setFormEdad(e.target.value)}
-                    className="w-full bg-[#040914] border border-slate-800 p-3 rounded-xl text-white font-bold cursor-pointer"
-                  >
-                    {categoriasEdades.map(c => (
-                      <option key={c.id} value={c.nombre}>{c.nombre}</option>
-                    ))}
-                  </select>
+                  <label className="block text-slate-300 font-bold mb-1">Escoge tu categoría:</label>
+                  <div className="relative">
+                    <select
+                      value={formEdad}
+                      onChange={e => setFormEdad(e.target.value)}
+                      required
+                      className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 pr-10 rounded-xl text-white font-bold appearance-none cursor-pointer focus:outline-none transition-colors"
+                    >
+                      <option value="" disabled>Escoge tu categoría</option>
+                      {categoriasEdades.map(c => (
+                        <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-[#F7B52C]">
+                      <ChevronDown className="w-5 h-5 stroke-[2.5]" />
+                    </div>
+                  </div>
                 </div>
               </div>
 
+              {/* BOTÓN DE ENVÍO */}
               <div className="pt-3">
                 <button
                   type="submit"
@@ -808,9 +783,11 @@ function PaginaInicio() {
                       <span className="text-center leading-snug">
                         {sedeSuspendida 
                           ? 'Sede Suspendida Temporalmente' 
-                          : esClaseGratis 
-                            ? 'Reclama tu clase de prueba' 
-                            : `Solicitar clase de prueba · ${tarifaClase}`}
+                          : !formSede
+                            ? 'Solicitar clase de prueba'
+                            : esClaseGratis 
+                              ? 'Reclama tu clase de prueba gratis' 
+                              : `Solicitar clase de prueba · ${tarifaClase}`}
                       </span>
                     </div>
                   )}
@@ -821,7 +798,7 @@ function PaginaInicio() {
         </div>
       </section>
 
-      {/* CATÁLOGO DE SEDES (ESTILO ARENAS DEL CLUB) */}
+      {/* CATÁLOGO DE SEDES */}
       <section className="py-16 max-w-6xl mx-auto px-4 sm:px-6 space-y-8 relative z-10 border-t border-slate-800/80">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -843,7 +820,18 @@ function PaginaInicio() {
             <div key={s.id} className="bg-[#071527] border border-slate-800 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group">
               <div>
                 <div className="relative aspect-video bg-slate-950 overflow-hidden">
-                  <img src={s.foto_principal || (s.imagenes && s.imagenes[0]) || ""} alt={s.nombre} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  {(() => {
+                    const imgSrc = s.foto_principal || (s.imagenes && s.imagenes.length > 0 ? s.imagenes[0] : null);
+                    const safeSrc = typeof imgSrc === 'string' && imgSrc.trim() !== '' ? imgSrc : null;
+                    
+                    return safeSrc ? (
+                      <img src={safeSrc} alt={s.nombre} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center opacity-20 transition-transform duration-500 group-hover:scale-105">
+                        <img src="/logo.png" alt="Campeones Lima" className="w-20 h-20 object-contain grayscale" />
+                      </div>
+                    );
+                  })()}
                   
                   <span className="absolute top-3 left-3 bg-[#00B4A7] text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded shadow">
                     📍 {s.distrito}
@@ -905,9 +893,11 @@ function EnrutadorConScroll() {
 export default function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
-        <EnrutadorConScroll />
-      </BrowserRouter>
+      <ToastProvider>
+        <BrowserRouter>
+          <EnrutadorConScroll />
+        </BrowserRouter>
+      </ToastProvider>
     </ThemeProvider>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   ShoppingBag, 
   MessageCircle, 
@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import { useTheme } from './theme';
-import { supabase } from './supabase';
+import { useTheme } from './ThemeContext';
+import { useTiendaProductos, useWhatsAppGlobal } from './queries';
 
 const normalizarCoordenada = (val, defecto = 50) => {
   if (val === null || val === undefined || val === '') return defecto;
@@ -18,38 +18,11 @@ const normalizarCoordenada = (val, defecto = 50) => {
 
 export default function Tienda() {
   const { esOscuro = true } = useTheme() || {};
-  const WHATSAPP_PHONE = "51963896985";
+  const WHATSAPP_PHONE = useWhatsAppGlobal();
 
-  const [productos, setProductos] = useState([]);
-  const [cargando, setCargando] = useState(true);
+  const { data: productos = [], isLoading: cargando } = useTiendaProductos();
   const [categoriaActiva, setCategoriaActiva] = useState('Todas');
   const [tallaSeleccionadaPorProducto, setTallaSeleccionadaPorProducto] = useState({});
-
-  useEffect(() => {
-    async function cargarTiendaReal() {
-      try {
-        const { data } = await supabase
-          .from('configuracion_web')
-          .select('valor')
-          .eq('clave', 'tienda_productos')
-          .maybeSingle();
-
-        if (data?.valor && Array.isArray(data.valor)) {
-          const productosReales = data.valor.filter(
-            p => p && p.nombre && true
-          );
-          setProductos(productosReales);
-        } else {
-          setProductos([]);
-        }
-      } catch (err) {
-        console.error("Error al cargar la tienda:", err);
-      } finally {
-        setCargando(false);
-      }
-    }
-    cargarTiendaReal();
-  }, []);
 
   const categorias = ['Todas', 'Uniformes & Ropa', 'Balones & Accesorios', 'Protección & Rodilleras'];
 
@@ -97,7 +70,6 @@ export default function Tienda() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-8 relative z-10">
-        
         {/* FILTRO DE CATEGORÍAS */}
         <div className="flex flex-wrap items-center justify-center gap-2">
           {categorias.map(cat => (
@@ -222,7 +194,6 @@ export default function Tienda() {
             })}
           </div>
         )}
-
       </main>
 
       <Footer />

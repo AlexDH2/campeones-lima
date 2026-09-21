@@ -1,39 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { 
   Calendar as CalendarIcon, 
-  Clock, 
   MapPin, 
   FileText, 
   MessageCircle
 } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import { useTheme } from './theme';
-import { supabase } from './supabase';
+import { useTheme } from './ThemeContext';
+import { useEventos, useWhatsAppGlobal } from './queries';
 
 export default function EventosPage() {
   const { esOscuro } = useTheme();
-  const WHATSAPP_PHONE = "51963896985";
+  const WHATSAPP_PHONE = useWhatsAppGlobal();
 
-  const [eventos, setEventos] = useState([]);
-  const [detallesEventos, setDetallesEventos] = useState({});
-  const [cargando, setCargando] = useState(true);
-
-  useEffect(() => {
-    async function cargar() {
-      try {
-        const [resEv, resDet] = await Promise.all([
-          supabase.from('eventos').select('*').eq('visible', true).order('created_at', { ascending: false }),
-          supabase.from('configuracion_web').select('valor').eq('clave', 'eventos_detalles').maybeSingle()
-        ]);
-        if (resEv.data) setEventos(resEv.data);
-        if (resDet.data?.valor) setDetallesEventos(resDet.data.valor);
-      } finally {
-        setCargando(false);
-      }
-    }
-    cargar();
-  }, []);
+  const { data, isLoading: cargando } = useEventos();
+  const eventos = data?.eventos || [];
+  const detallesEventos = data?.detallesEventos || {};
 
   return (
     <div className={`min-h-screen font-sans transition-colors duration-300 ${esOscuro ? 'bg-[#040914] text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
@@ -47,7 +30,6 @@ export default function EventosPage() {
       </header>
 
       <main className="py-12 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* SKELETON LOADERS */}
         {cargando ? (
           <div className="grid sm:grid-cols-2 gap-8">
             {Array.from({ length: 4 }).map((_, n) => (

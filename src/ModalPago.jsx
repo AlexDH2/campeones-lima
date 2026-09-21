@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { X, Copy, Check, QrCode, CreditCard, MapPin, MessageCircle } from 'lucide-react';
-import { useTheme } from './theme';
+import { useTheme } from './ThemeContext';
 import { normalizarPagos, whatsappNumero } from './domain';
 import ModalFrame from './ModalFrame';
+import { useToast } from './toast';
 
 export default function ModalPago({ abierto, alCerrar, datosPago, nombreSede, telefonoContacto }) {
   const { esOscuro } = useTheme();
   const [copiado, setCopiado] = useState(null);
+  const { mostrarToast } = useToast();
 
   if (!abierto) return null;
 
@@ -18,7 +20,7 @@ export default function ModalPago({ abierto, alCerrar, datosPago, nombreSede, te
       setCopiado(clave);
       setTimeout(() => setCopiado(null), 2000);
     } catch {
-      window.alert('No se pudo copiar. Puedes seleccionar y copiar el dato manualmente.');
+      mostrarToast('No se pudo copiar. Selecciona y copia el dato manualmente.', 'error');
     }
   };
   const numeroLimpio = whatsappNumero(telefonoContacto, '');
