@@ -135,22 +135,24 @@ export default function AdminInicio() {
       peligroso: true,
       onConfirmar: async () => {
         setConfirmacion(null);
-        const nuevosBanners = banners.filter((b, i) => {
-          const u = typeof b === 'string' ? b : (b?.url || b?.imagen || '');
-          return u !== urlAEliminar && i !== idxEliminar;
+        const nuevosBanners = banners.filter((_, i) => i !== idxEliminar);
+        
+        // Re-mapear posiciones para evitar descuadres al cambiar los índices
+        const nuevasPosiciones = {};
+        nuevosBanners.forEach((_, nuevoIdx) => {
+          const oldIdx = nuevoIdx < idxEliminar ? nuevoIdx : nuevoIdx + 1;
+          if (bannerPosiciones[oldIdx]) {
+            nuevasPosiciones[nuevoIdx] = bannerPosiciones[oldIdx];
+          }
         });
-
-        const copiaPos = { ...bannerPosiciones };
-        delete copiaPos[idxEliminar];
-        delete copiaPos[urlAEliminar];
 
         if (!await guardar(supabase.from('configuracion_web').upsert([
           { clave: 'banner_hero_inicio', valor: nuevosBanners },
-          { clave: 'banner_posiciones', valor: copiaPos }
+          { clave: 'banner_posiciones', valor: nuevasPosiciones }
         ]))) return;
 
         setBanners(nuevosBanners);
-        setBannerPosiciones(copiaPos);
+        setBannerPosiciones(nuevasPosiciones);
       }
     });
   };

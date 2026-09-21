@@ -303,7 +303,7 @@ export default function AdminSedes() {
   };
 
   const handleGuardarEncuadreFoto = async (posOValorY, posObjeto) => {
-    if (!fotoParaEncuadrar) return;
+    if (!fotoParaEncuadrar) return false;
 
     let posX = 50;
     let posY = 50;
@@ -329,22 +329,37 @@ export default function AdminSedes() {
       }));
       if (!res.ok) {
         mostrarToast(res.error, "error");
-        return;
+        return false;
       }
       setCanchasPanoramicas(nuevaLista);
     } else {
       const urlTarget = fotoParaEncuadrar.url;
+      const nuevasPosiciones = {
+        ...(formSede.posiciones_fotos || {}),
+        [urlTarget]: { x: posX, y: posY }
+      };
+
       setFormSede(prev => ({
         ...prev,
-        posiciones_fotos: {
-          ...(prev.posiciones_fotos || {}),
-          [urlTarget]: { x: posX, y: posY }
-        }
+        posiciones_fotos: nuevasPosiciones
       }));
+
+      // Si la sede ya existe, guardar directamente para no perder el encuadre
+      if (sedeEnEdicion) {
+        const { error } = await supabase.from('sedes').update({ posiciones_fotos: nuevasPosiciones }).eq('id', sedeEnEdicion.id);
+        if (error) {
+           mostrarToast("No se pudo guardar el encuadre en la BD", "error");
+           return false;
+        }
+        setSedes(sedes.map(s => s.id === sedeEnEdicion.id ? { ...s, posiciones_fotos: nuevasPosiciones } : s));
+      } else {
+        mostrarToast("Encuadre guardado temporalmente. Guarda la sede para confirmar.", "info");
+      }
     }
 
     setModalEncuadreAbierto(false);
     setFotoParaEncuadrar(null);
+    return true;
   };
 
   // --- GESTIÓN DE TURNOS ---
