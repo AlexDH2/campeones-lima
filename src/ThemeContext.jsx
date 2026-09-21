@@ -24,7 +24,7 @@ export function ThemeProvider({ children }) {
   };
 
   return (
-    <ThemeContext.Provider value={{ tema, alternarTema }}>
+    <ThemeContext.Provider value={{ tema, alternarTema, esOscuro: tema === 'oscuro' }}>
       {children}
     </ThemeContext.Provider>
   );

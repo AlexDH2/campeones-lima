@@ -91,9 +91,9 @@ export function useEventos() {
       const [resEv, resDet] = await Promise.all([
         supabase
           .from('eventos')
-          .select('id, titulo, fecha, hora, sede, categorias, imagenes, tipo, visible')
+          .select('*')
           .eq('visible', true)
-          .order('created_at', { ascending: false }),
+          .order('id', { ascending: false }),
         supabase
           .from('configuracion_web')
           .select('valor')
@@ -178,7 +178,7 @@ export function useConvocatorias() {
         .from('convocatorias')
         .select('*')
         .eq('visible', true)
-        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
         .throwOnError();
 
       if (error) throw error;
