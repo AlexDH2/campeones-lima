@@ -1,4 +1,5 @@
 import { guardar } from './operaciones';
+import { subirArchivoStorage } from './adminUtils';
 import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
@@ -120,16 +121,9 @@ export default function AdminInicio() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const nombreLimpio = `banner_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
-    const { error } = await supabase.storage.from('imagenes_web').upload(`banners/${nombreLimpio}`, file, {
-      upsert: true,
-      contentType: file.type || 'image/png'
-    });
-
-    if (error) return mostrarToast("Error al subir banner: " + error.message, "error");
-
-    const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`banners/${nombreLimpio}`);
-    const nuevosBanners = [...banners, { url: data.publicUrl }];
+    const publicUrl = await subirArchivoStorage(file, 'banners');
+    if (!publicUrl) return mostrarToast("Error al subir banner", "error");
+    const nuevosBanners = [...banners, { url: publicUrl }];
     
     if (!await guardar(supabase.from('configuracion_web').upsert({ clave: 'banner_hero_inicio', valor: nuevosBanners }))) return;
     setBanners(nuevosBanners);
@@ -323,8 +317,7 @@ export default function AdminInicio() {
                   className="bg-[#071527] border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col justify-between group transition-all"
                 >
                   <div className="relative aspect-video bg-slate-950 overflow-hidden">
-                    <img 
-                      src={url} 
+                    <img loading="lazy" src={url} 
                       alt={`Banner ${idx + 1}`} 
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
                       style={{ objectPosition: `${posX}% ${posY}%` }}

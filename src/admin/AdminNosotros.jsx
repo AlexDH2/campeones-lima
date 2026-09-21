@@ -1,4 +1,5 @@
 import { guardar } from './operaciones';
+import { subirArchivoStorage } from './adminUtils';
 import React, { useState, useEffect } from 'react';
 import { 
   Trophy, 
@@ -99,17 +100,9 @@ export default function AdminNosotros() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const nombreLimpio = `disc_${tipo}_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
-    const { error } = await supabase.storage.from('imagenes_web').upload(
-      `nosotros/${nombreLimpio}`, 
-      file, 
-      { upsert: true, contentType: file.type || 'image/png' }
-    );
-
-    if (error) return mostrarToast("Error al subir foto: " + error.message, "error");
-
-    const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`nosotros/${nombreLimpio}`);
-    const urlFinal = data.publicUrl;
+    const publicUrl = await subirArchivoStorage(file, 'nosotros');
+    if (!publicUrl) return mostrarToast("Error al subir foto", "error");
+    const urlFinal = publicUrl;
 
     if (tipo === 'basquet') {
       const guardado = await persistirEnSupabase({
@@ -143,20 +136,9 @@ export default function AdminNosotros() {
 
     setSubiendoFotoLogro(true);
     try {
-      const nombreLimpio = `trofeo_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
-      const { error } = await supabase.storage.from('imagenes_web').upload(
-        `nosotros/${nombreLimpio}`, 
-        file, 
-        { upsert: true, contentType: file.type || 'image/png' }
-      );
-
-      if (error) {
-        mostrarToast("Error al subir foto: " + error.message, "error");
-        return;
-      }
-
-      const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`nosotros/${nombreLimpio}`);
-      setNuevaFotoLogro(data.publicUrl);
+      const publicUrl = await subirArchivoStorage(file, 'nosotros');
+      if (!publicUrl) return mostrarToast("Error al subir foto", "error");
+      setNuevaFotoLogro(publicUrl);
     } finally {
       setSubiendoFotoLogro(false);
     }
@@ -227,15 +209,9 @@ export default function AdminNosotros() {
 
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
-      const nombreLimpio = `gal_${Date.now()}_${i}_${f.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
-      const { error } = await supabase.storage.from('imagenes_web').upload(
-        `galeria/${nombreLimpio}`, 
-        f, 
-        { upsert: true, contentType: f.type || 'image/png' }
-      );
-      if (!error) {
-        const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`galeria/${nombreLimpio}`);
-        nuevasUrls.push(data.publicUrl);
+      const publicUrl = await subirArchivoStorage(f, 'galeria');
+      if (publicUrl) {
+        nuevasUrls.push(publicUrl);
         exitos++;
       } else {
         fallos++;
@@ -408,8 +384,7 @@ export default function AdminNosotros() {
 
             <div className="relative aspect-[16/10] rounded-xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center">
               {fotoBasquet ? (
-                <img
-                  src={fotoBasquet}
+                <img loading="lazy" src={fotoBasquet}
                   alt="Básquetbol"
                   className="w-full h-full object-cover"
                   style={{ objectPosition: `center ${normalizarCoordenada(posicionBasquet)}%` }}
@@ -447,8 +422,7 @@ export default function AdminNosotros() {
 
             <div className="relative aspect-[16/10] rounded-xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center">
               {fotoVoley ? (
-                <img
-                  src={fotoVoley}
+                <img loading="lazy" src={fotoVoley}
                   alt="Voleibol"
                   className="w-full h-full object-cover"
                   style={{ objectPosition: `center ${normalizarCoordenada(posicionVoley)}%` }}
@@ -555,8 +529,7 @@ export default function AdminNosotros() {
                 <div>
                   <div className="relative aspect-[16/10] rounded-xl overflow-hidden bg-slate-950 border border-slate-800 mb-2.5">
                     {logro.foto ? (
-                      <img
-                        src={logro.foto}
+                      <img loading="lazy" src={logro.foto}
                         alt={logro.titulo}
                         className="w-full h-full object-cover"
                         style={{ objectPosition: `${normalizarCoordenada(logro.posicionX)}% ${normalizarCoordenada(logro.posicionY)}%` }}
@@ -623,7 +596,7 @@ export default function AdminNosotros() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {galeria.map((foto, idx) => (
               <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-800 bg-slate-950 group">
-                <img src={foto} alt={`Galería ${idx + 1}`} className="w-full h-full object-cover" />
+                <img loading="lazy" src={foto} alt={`Galería ${idx + 1}`} className="w-full h-full object-cover" />
                 <button
                   type="button"
                   onClick={() => handleEliminarFotoGaleria(idx)}

@@ -210,8 +210,7 @@ export default function SedeDetalle() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-hidden flex-1 min-h-0">
               <div className="lg:col-span-5 flex flex-col items-center justify-center rounded-2xl bg-black/70 border-2 border-[#F7B52C]/40 p-2 overflow-hidden shadow-inner">
                 {flyerDeLaSede ? (
-                  <img
-                    src={flyerDeLaSede}
+                  <img loading="lazy" src={flyerDeLaSede}
                     alt={`Flyer Promocional ${sede.nombre}`}
                     className="w-full h-auto max-h-[45vh] lg:max-h-[65vh] object-contain rounded-xl shadow-2xl"
                   />
@@ -408,8 +407,7 @@ export default function SedeDetalle() {
                     key={i}
                     className={`absolute inset-0 w-full h-full transition-all duration-700 ease-in-out transform ${estiloTransformacion}`}
                   >
-                    <img
-                      src={url}
+                    <img loading="lazy" src={url}
                       alt={`Instalación ${i + 1} de ${sede.nombre}`}
                       className="w-full h-full object-cover"
                       style={{ objectPosition: `${pX}% ${pY}%` }}

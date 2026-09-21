@@ -120,8 +120,7 @@ export default function Tienda() {
                     {/* FOTO 1:1 */}
                     <div className="relative aspect-square bg-slate-950 overflow-hidden">
                       {p.foto ? (
-                        <img
-                          src={p.foto}
+                        <img loading="lazy" src={p.foto}
                           alt={p.nombre}
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                           style={{ objectPosition: `${posX}% ${posY}%` }}

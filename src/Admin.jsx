@@ -34,7 +34,7 @@ function PanelAdmin() {
     <header className="border-b border-slate-800 bg-[#071527] sticky top-0 z-40 px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
       <div className="flex items-center gap-3">
         <button className="lg:hidden" aria-label="Abrir menú administrativo" aria-expanded={menuAbierto} onClick={() => setMenuAbierto(!menuAbierto)}>{menuAbierto ? <X /> : <Menu />}</button>
-        <img src="/logo.png" alt="Campeones Lima" className="w-8 h-8 object-contain" />
+        <img loading="lazy" src="/logo.png" alt="Campeones Lima" className="w-8 h-8 object-contain" />
         <h1 className="text-sm font-black">CAMPEONES LIMA <span className="text-[#F7B52C]">ADMIN</span></h1>
       </div>
       <a href="/" target="_blank" rel="noreferrer" className="text-xs flex items-center gap-1">Ver Web Pública <ExternalLink className="w-4 h-4" /></a>

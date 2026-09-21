@@ -23,7 +23,7 @@ export default function Footer() {
           {/* IDENTIDAD */}
           <div className="space-y-3 md:col-span-1">
             <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="Campeones Lima" className="w-9 h-9 object-contain" onError={(e) => e.currentTarget.style.display = 'none'} />
+              <img loading="lazy" src="/logo.png" alt="Campeones Lima" className="w-9 h-9 object-contain" onError={(e) => e.currentTarget.style.display = 'none'} />
               <div>
                 <span className="font-black text-white text-base tracking-tight block">CAMPEONES LIMA</span>
                 <span className="text-[9px] text-[#00B4A7] font-bold uppercase tracking-wider block">Club & Academia Deportiva</span>

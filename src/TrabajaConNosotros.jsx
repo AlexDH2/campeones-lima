@@ -140,7 +140,7 @@ export default function TrabajaConNosotros() {
                   <div className="space-y-3">
                     {c.foto && c.foto_visible !== false && (
                       <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 mb-3 border border-slate-800">
-                        <img src={c.foto} alt={c.puesto} className="w-full h-full object-cover" />
+                        <img loading="lazy" src={c.foto} alt={c.puesto} className="w-full h-full object-cover" />
                       </div>
                     )}
 

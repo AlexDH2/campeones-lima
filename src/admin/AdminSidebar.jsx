@@ -100,8 +100,7 @@ export default function AdminSidebar({ pestañaActiva, setPestañaActiva }) {
         
         {/* CABECERA LIMPIA */}
         <div className="p-4 border-b border-[#0D2E4E] flex items-center gap-3">
-          <img 
-            src="/logo.png" 
+          <img loading="lazy" src="/logo.png" 
             alt="Logo Campeones Lima" 
             className="w-9 h-9 object-contain drop-shadow-[0_2px_10px_rgba(0,180,167,0.3)] shrink-0"
             onError={(e) => {

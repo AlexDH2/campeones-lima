@@ -87,8 +87,7 @@ export default function Nosotros() {
           </button>
 
           <div className="relative max-w-4xl max-h-[85vh] flex items-center justify-center">
-            <img 
-              src={datosClub.galeria[fotoLightboxIdx]} 
+            <img loading="lazy" src={datosClub.galeria[fotoLightboxIdx]} 
               alt="Foto ampliada" 
               className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-slate-800" 
             />
@@ -355,7 +354,7 @@ export default function Nosotros() {
                       <div>
                         {logro.foto && (
                           <div className="relative w-full aspect-[16/10] bg-slate-950 overflow-hidden">
-                            <img src={logro.foto} alt={logro.titulo} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                            <img loading="lazy" src={logro.foto} alt={logro.titulo} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                           </div>
                         )}
                         <div className="p-5 space-y-1.5">
@@ -402,7 +401,7 @@ export default function Nosotros() {
                       onClick={() => setFotoLightboxIdx(idx)}
                       className="relative aspect-square rounded-2xl overflow-hidden border border-slate-800 shadow bg-slate-950 cursor-pointer group"
                     >
-                      <img src={foto} alt="Galería" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                      <img loading="lazy" src={foto} alt="Galería" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
                         <span>🔍 Ver en grande</span>
                       </div>

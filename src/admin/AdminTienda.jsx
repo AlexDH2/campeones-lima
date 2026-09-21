@@ -1,3 +1,5 @@
+import { guardar } from './operaciones';
+import { subirArchivoStorage } from './adminUtils';
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../toast';
 import ModalConfirmacion from './ModalConfirmacion';
@@ -85,16 +87,9 @@ export default function AdminTienda() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const nombreLimpio = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
-    const { error } = await supabase.storage.from('imagenes_web').upload(`tienda/${nombreLimpio}`, file);
-
-    if (error) {
-      mostrarToast("Error al subir imagen: " + error.message, "error");
-      return;
-    }
-
-    const { data: publicUrlData } = supabase.storage.from('imagenes_web').getPublicUrl(`tienda/${nombreLimpio}`);
-    setFotoUrl(publicUrlData.publicUrl);
+    const publicUrl = await subirArchivoStorage(file, 'tienda');
+    if (!publicUrl) return mostrarToast("Error al subir imagen", "error");
+    setFotoUrl(publicUrl);
   };
 
   const handleCrearProducto = async (e) => {
@@ -427,8 +422,7 @@ export default function AdminTienda() {
                   <div>
                     <div className="relative aspect-square bg-slate-950 overflow-hidden">
                       {p.foto ? (
-                        <img
-                          src={p.foto}
+                        <img loading="lazy" src={p.foto}
                           alt={p.nombre}
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                           style={{ objectPosition: `${posX}% ${posY}%` }}

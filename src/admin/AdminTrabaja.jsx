@@ -1,4 +1,5 @@
 import Postulaciones from './Postulaciones';
+import { subirArchivoStorage } from './adminUtils';
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../toast';
 import ModalConfirmacion from './ModalConfirmacion';
@@ -67,13 +68,9 @@ export default function AdminTrabaja() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const nombreLimpio = `vacante_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
-    const { error } = await supabase.storage.from('imagenes_web').upload(`trabaja/${nombreLimpio}`, file, { upsert: true, contentType: file.type || 'image/png' });
-
-    if (error) return mostrarToast("Error al subir foto: " + error.message, "error");
-
-    const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`trabaja/${nombreLimpio}`);
-    setFotoUrl(data.publicUrl);
+    const publicUrl = await subirArchivoStorage(file, 'trabaja');
+    if (!publicUrl) return mostrarToast("Error al subir foto", "error");
+    setFotoUrl(publicUrl);
   };
 
   const handleCrearConvocatoria = async (e) => {
@@ -315,7 +312,7 @@ export default function AdminTrabaja() {
                 <div>
                   {c.foto && c.foto_visible !== false && (
                     <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 mb-3 border border-slate-800">
-                      <img src={c.foto} alt={c.puesto} className="w-full h-full object-cover" />
+                      <img loading="lazy" src={c.foto} alt={c.puesto} className="w-full h-full object-cover" />
                     </div>
                   )}
 

@@ -126,8 +126,7 @@ export default function Navbar() {
           {/* LOGO MÓVIL */}
           <div className="lg:hidden flex items-center gap-2.5">
             <Link to="/" className="flex items-center gap-2.5">
-              <img
-                src="/logo.png"
+              <img src="/logo.png"
                 alt="Logo Campeones Lima"
                 className="w-10 h-10 object-contain drop-shadow"
                 onError={(e) => {

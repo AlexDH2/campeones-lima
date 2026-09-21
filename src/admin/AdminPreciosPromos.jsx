@@ -1,3 +1,5 @@
+import { guardar } from './operaciones';
+import { subirArchivoStorage } from './adminUtils';
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../toast';
 import ModalConfirmacion from './ModalConfirmacion';
@@ -148,16 +150,9 @@ export default function AdminPreciosPromos() {
 
     setSubiendoSede(nombreSede);
     try {
-      const nombreLimpio = `promo_${nombreSede.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
-      const { error } = await supabase.storage.from('imagenes_web').upload(`promociones/${nombreLimpio}`, file, {
-        upsert: true,
-        contentType: file.type || 'image/png'
-      });
-
-      if (error) throw error;
-
-      const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`promociones/${nombreLimpio}`);
-      const nuevaUrl = data.publicUrl;
+      const publicUrl = await subirArchivoStorage(file, 'promociones');
+      if (!publicUrl) throw new Error("Error en la compresión/subida");
+      const nuevaUrl = publicUrl;
 
       const nuevoMapa = {
         ...bannersSedes,
@@ -545,7 +540,7 @@ export default function AdminPreciosPromos() {
 
                         {tieneFlyer ? (
                           <div className="relative aspect-[3/4] max-h-52 rounded-xl overflow-hidden bg-black border border-slate-800 shadow group">
-                            <img src={promo.flyer_url} alt={s.nombre} className="w-full h-full object-cover" />
+                            <img loading="lazy" src={promo.flyer_url} alt={s.nombre} className="w-full h-full object-cover" />
                             <label className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white font-bold cursor-pointer text-xs">
                               <Upload className="w-5 h-5 text-[#F7B52C]" />
                               <span>Cambiar Flyer</span>

@@ -252,8 +252,7 @@ export default function Sedes() {
                   <div>
                     <div className="relative aspect-video bg-slate-950 overflow-hidden">
                       {fotoPortada ? (
-                        <img 
-                          src={fotoPortada} 
+                        <img loading="lazy" src={fotoPortada} 
                           alt={s.nombre} 
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
                           style={{ objectPosition: `${posX}% ${posY}%` }}

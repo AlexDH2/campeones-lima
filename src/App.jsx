@@ -251,8 +251,7 @@ function PaginaInicio() {
 
             {promocionActiva.flyer_url ? (
               <div className="rounded-2xl overflow-hidden max-h-[55vh] bg-black shadow-inner flex items-center justify-center">
-                <img 
-                  src={promocionActiva.flyer_url} 
+                <img loading="lazy" src={promocionActiva.flyer_url} 
                   alt={promocionActiva.titulo} 
                   className="w-full h-full object-contain max-h-[55vh]"
                 />
@@ -466,8 +465,7 @@ function PaginaInicio() {
                   <div>
                     <div className="relative aspect-[16/10] overflow-hidden bg-slate-950">
                       {fotoReal ? (
-                        <img 
-                          src={fotoReal} 
+                        <img loading="lazy" src={fotoReal} 
                           alt={tituloReal} 
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                           style={{ objectPosition: `${posX}% ${posY}%` }}
@@ -825,10 +823,10 @@ function PaginaInicio() {
                     const safeSrc = typeof imgSrc === 'string' && imgSrc.trim() !== '' ? imgSrc : null;
                     
                     return safeSrc ? (
-                      <img src={safeSrc} alt={s.nombre} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                      <img loading="lazy" src={safeSrc} alt={s.nombre} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center opacity-20 transition-transform duration-500 group-hover:scale-105">
-                        <img src="/logo.png" alt="Campeones Lima" className="w-20 h-20 object-contain grayscale" />
+                        <img loading="lazy" src="/logo.png" alt="Campeones Lima" className="w-20 h-20 object-contain grayscale" />
                       </div>
                     );
                   })()}

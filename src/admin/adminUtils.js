@@ -1,14 +1,38 @@
 import { supabase } from '../supabase';
+import imageCompression from 'browser-image-compression';
 
 export const subirArchivoStorage = async (file, carpeta = 'general') => {
   try {
-    const extension = file.name.split('.').pop();
+    // 1. Comprimir la imagen antes de subirla para ahorrar Egress y Storage
+    const options = {
+      maxSizeMB: 0.2, // Max 200KB
+      maxWidthOrHeight: 1280, // Max 1280px
+      useWebWorker: true,
+      fileType: 'image/webp', // Convertimos a WebP
+      initialQuality: 0.8
+    };
+    
+    let archivoParaSubir = file;
+    // Solo comprimimos si es imagen y no es gif o svg
+    if (file.type.startsWith('image/') && file.type !== 'image/svg+xml' && file.type !== 'image/gif') {
+       try {
+         archivoParaSubir = await imageCompression(file, options);
+       } catch (cErr) {
+         console.warn("Fallo en compresión de imagen, usando original:", cErr);
+       }
+    }
+
+    const extension = archivoParaSubir.type === 'image/webp' ? 'webp' : file.name.split('.').pop();
     const nombreLimpio = `${carpeta}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${extension}`;
 
     // Bucket homologado: 'imagenes_web'
     const { data, error } = await supabase.storage
       .from('imagenes_web')
-      .upload(nombreLimpio, file, { cacheControl: '3600', upsert: true });
+      .upload(nombreLimpio, archivoParaSubir, { 
+        cacheControl: '31536000', // Cache persistente (1 año) para CDN local o Vercel
+        upsert: true,
+        contentType: archivoParaSubir.type
+      });
 
     if (error) throw error;
 
@@ -18,7 +42,7 @@ export const subirArchivoStorage = async (file, carpeta = 'general') => {
 
     return urlData.publicUrl;
   } catch (err) {
-    console.warn("Storage no disponible, usando compresión local:", err);
+    console.warn("Storage no disponible o falló, usando compresión base64 local:", err);
     return procesarArchivoImagen(file);
   }
 };

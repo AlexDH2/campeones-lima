@@ -57,7 +57,7 @@ export default function EventosPage() {
                   <div>
                     {foto && (
                       <div className="relative w-full aspect-video bg-black">
-                        <img src={foto} alt={ev.titulo} className="w-full h-full object-cover" />
+                        <img loading="lazy" src={foto} alt={ev.titulo} className="w-full h-full object-cover" />
                         <span className={`absolute top-3 left-3 text-xs font-black px-3 py-1 rounded-full shadow ${esVoley ? 'bg-[#00B4A7] text-slate-950' : 'bg-[#F7B52C] text-slate-950'}`}>
                           {esVoley ? "🏐 VOLEIBOL" : "🏀 BÁSQUETBOL"}
                         </span>

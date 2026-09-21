@@ -1,5 +1,6 @@
 import { precioValido } from '../domain';
 import { guardar } from './operaciones';
+import { subirArchivoStorage } from './adminUtils';
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../toast';
 import ModalConfirmacion from './ModalConfirmacion';
@@ -154,18 +155,11 @@ export default function AdminSedes() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const nombreLimpio = `panoramica_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
-    const { error } = await supabase.storage.from('imagenes_web').upload(`sedes/${nombreLimpio}`, file, {
-      upsert: true,
-      contentType: file.type || 'image/png'
-    });
-
-    if (error) return mostrarToast("Error al subir foto panorámica: " + error.message, "error");
-
-    const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`sedes/${nombreLimpio}`);
+    const publicUrl = await subirArchivoStorage(file, 'sedes');
+    if (!publicUrl) return mostrarToast("Error al subir foto panorámica", "error");
     const nuevoItem = {
       id: Date.now(),
-      url: data.publicUrl,
+      url: publicUrl,
       sedeNombre: 'Nueva Cancha Techada',
       distrito: 'lima',
       posX: 50,
@@ -278,16 +272,10 @@ export default function AdminSedes() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const nombreLimpio = `sede_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
-    const { error } = await supabase.storage.from('imagenes_web').upload(`sedes/${nombreLimpio}`, file, {
-      upsert: true,
-      contentType: file.type || 'image/png'
-    });
+    const publicUrl = await subirArchivoStorage(file, 'sedes');
+    if (!publicUrl) return mostrarToast("Error al subir foto", "error");
 
-    if (error) return mostrarToast("Error al subir foto: " + error.message, "error");
-
-    const { data } = supabase.storage.from('imagenes_web').getPublicUrl(`sedes/${nombreLimpio}`);
-    const nuevasFotos = [...formSede.imagenes, data.publicUrl];
+    const nuevasFotos = [...formSede.imagenes, publicUrl];
     const esPrimera = nuevasFotos.length === 1;
 
     setFormSede(prev => ({
@@ -613,8 +601,7 @@ export default function AdminSedes() {
               <div key={cancha.id || idx} className="bg-[#040914] border border-slate-800 rounded-2xl p-3.5 space-y-3 shadow-lg flex flex-col justify-between">
                 <div>
                   <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-slate-800">
-                    <img
-                      src={cancha.url}
+                    <img loading="lazy" src={cancha.url}
                       alt={cancha.sedeNombre}
                       className="w-full h-full object-cover"
                       style={{ objectPosition: `${normalizarCoordenada(cancha.posX)}% ${normalizarCoordenada(cancha.posY)}%` }}
@@ -699,8 +686,7 @@ export default function AdminSedes() {
                 <div>
                   <div className="relative aspect-video bg-slate-950 overflow-hidden">
                     {fotoPortada ? (
-                      <img 
-                        src={fotoPortada} 
+                      <img loading="lazy" src={fotoPortada} 
                         alt={s.nombre} 
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
                         style={{ objectPosition: `${posX}% ${posY}%` }}
@@ -854,8 +840,7 @@ export default function AdminSedes() {
                           esPrincipal ? 'border-[#F7B52C]' : 'border-slate-800'
                         }`}>
                           <div className="relative aspect-video">
-                            <img
-                              src={url}
+                            <img loading="lazy" src={url}
                               alt="Cancha"
                               className="w-full h-full object-cover"
                               style={{ objectPosition: `${posX}% ${posY}%` }}
