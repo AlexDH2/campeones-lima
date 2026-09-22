@@ -12,7 +12,8 @@ import {
   Plus, 
   Share2, 
   ExternalLink, 
-  Crop 
+  Crop,
+  Trophy
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import ModalEncuadre from './ModalEncuadre';
@@ -54,9 +55,10 @@ export default function AdminInicio() {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
 
-  const [banners, setBanners] = useState([]);
+          const [banners, setBanners] = useState([]);
   const [bannerPosiciones, setBannerPosiciones] = useState({});
   const [videos, setVideos] = useState([]);
+  const [disciplinas, setDisciplinas] = useState([]); // NEW STATE
   const [redes, setRedes] = useState({
     tiktok: '',
     instagram: '',
@@ -66,6 +68,14 @@ export default function AdminInicio() {
 
   const [nuevoVideoUrl, setNuevoVideoUrl] = useState('');
   const [nuevoVideoTitulo, setNuevoVideoTitulo] = useState('');
+
+  const [nuevaDisciplina, setNuevaDisciplina] = useState({
+    nombre: '',
+    descripcion: '',
+    foto: '',
+    activa: true,
+    etiqueta: ''
+  }); // NEW STATE
 
   const [modalEncuadreAbierto, setModalEncuadreAbierto] = useState(false);
   const [bannerAEncuadrar, setBannerAEncuadrar] = useState(null);
@@ -85,7 +95,9 @@ export default function AdminInicio() {
             'videos_inicio', 
             'videos_shorts', 
             'videos', 
-            'redes_sociales'
+            'redes_sociales',
+            'inicio_disciplinas',
+            'tarjetas_disciplina'
           ]);
 
         if (error) throw error;
@@ -106,6 +118,9 @@ export default function AdminInicio() {
           if (config.redes_sociales && typeof config.redes_sociales === 'object') {
             setRedes(prev => ({ ...prev, ...config.redes_sociales }));
           }
+
+          const discArray = config.inicio_disciplinas ?? config.tarjetas_disciplina;
+          setDisciplinas(Array.isArray(discArray) ? discArray : []);
         }
       } catch (err) {
         console.error("Error al cargar configuración de inicio:", err);
@@ -161,28 +176,99 @@ export default function AdminInicio() {
   const handleGuardarEncuadreBanner = async (nuevaPosicion) => {
     if (!bannerAEncuadrar) return false;
 
-    const posFinal = {
-      x: normalizarCoordenada(nuevaPosicion?.x),
-      y: normalizarCoordenada(nuevaPosicion?.y)
-    };
+    const posX = normalizarCoordenada(nuevaPosicion?.x);
+    const posY = normalizarCoordenada(nuevaPosicion?.y);
 
-    const nuevasPosiciones = {
-      ...bannerPosiciones,
-      [bannerAEncuadrar.idx]: posFinal
-    };
+    if (bannerAEncuadrar.tipo === 'disciplina') {
+      const nuevasDisc = [...disciplinas];
+      nuevasDisc[bannerAEncuadrar.idx] = {
+        ...nuevasDisc[bannerAEncuadrar.idx],
+        posicionX: posX,
+        posicionY: posY
+      };
+      const guardado = await guardar(supabase.from('configuracion_web').upsert({ clave: 'inicio_disciplinas', valor: nuevasDisc }));
+      if (!guardado) return false;
+      setDisciplinas(nuevasDisc);
+      return true;
+    } else {
+      const posFinal = { x: posX, y: posY };
+      const nuevasPosiciones = {
+        ...bannerPosiciones,
+        [bannerAEncuadrar.idx]: posFinal
+      };
 
-    const guardadoOk = await guardar(supabase.from('configuracion_web').upsert({
-      clave: 'banner_posiciones',
-      valor: nuevasPosiciones
-    }));
+      const guardadoOk = await guardar(supabase.from('configuracion_web').upsert({
+        clave: 'banner_posiciones',
+        valor: nuevasPosiciones
+      }));
 
-    if (!guardadoOk) return false;
+      if (!guardadoOk) return false;
 
-    setBannerPosiciones(nuevasPosiciones);
-    return true;
+      setBannerPosiciones(nuevasPosiciones);
+      return true;
+    }
   };
 
-  const handleAgregarVideo = async () => {
+  const handleSubirFotoDisciplina = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const publicUrl = await subirArchivoStorage(file, 'disciplinas');
+    if (publicUrl) {
+      setNuevaDisciplina(prev => ({ ...prev, foto: publicUrl }));
+    }
+  };
+
+  const handleAgregarDisciplina = async (e) => {
+    e.preventDefault();
+    if (!nuevaDisciplina.nombre) return mostrarToast("El nombre de la disciplina es obligatorio", "error");
+    
+    const nuevoObj = {
+      ...nuevaDisciplina,
+      titulo: nuevaDisciplina.nombre // para retrocompatibilidad
+    };
+    
+    const nuevasDisc = [...disciplinas, nuevoObj];
+    const guardado = await guardar(supabase.from('configuracion_web').upsert({ clave: 'inicio_disciplinas', valor: nuevasDisc }));
+    
+    if (guardado) {
+      setDisciplinas(nuevasDisc);
+      setNuevaDisciplina({ nombre: '', descripcion: '', foto: '', activa: true, etiqueta: '' });
+      mostrarToast("Disciplina agregada", "exito");
+    }
+  };
+
+  const handleEliminarDisciplina = async (idxEliminar) => {
+    setConfirmacion({
+      mensaje: "¿Deseas eliminar esta disciplina?",
+      peligroso: true,
+      onConfirmar: async () => {
+        setConfirmacion(null);
+        const nuevasDisc = disciplinas.filter((_, i) => i !== idxEliminar);
+        const guardado = await guardar(supabase.from('configuracion_web').upsert({ clave: 'inicio_disciplinas', valor: nuevasDisc }));
+        if (guardado) {
+          setDisciplinas(nuevasDisc);
+          mostrarToast("Disciplina eliminada", "exito");
+        }
+      }
+    });
+  };
+
+  const handleToggleActiva = async (idx) => {
+    const nuevasDisc = [...disciplinas];
+    nuevasDisc[idx].activa = !nuevasDisc[idx].activa;
+    const guardado = await guardar(supabase.from('configuracion_web').upsert({ clave: 'inicio_disciplinas', valor: nuevasDisc }));
+    if (guardado) setDisciplinas(nuevasDisc);
+  };
+
+  const handleGuardarEtiqueta = async (idx, etiqueta) => {
+    const nuevasDisc = [...disciplinas];
+    nuevasDisc[idx].etiqueta = etiqueta;
+    const guardado = await guardar(supabase.from('configuracion_web').upsert({ clave: 'inicio_disciplinas', valor: nuevasDisc }));
+    if (guardado) setDisciplinas(nuevasDisc);
+  };
+
+  const handleAgregarVideo = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (!nuevoVideoUrl.trim()) return mostrarToast("Ingresa el enlace de YouTube.", "error");
     
     const enlaceLimpio = nuevoVideoUrl.trim();
@@ -361,6 +447,165 @@ export default function AdminInicio() {
         )}
       </div>
 
+      {/* DISCIPLINAS DE INICIO */}
+      <div className="p-5 sm:p-6 bg-[#040914] border border-slate-800 rounded-2xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+          <div>
+            <h3 className="text-sm font-black text-white flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-[#F7B52C]" /> Tarjetas de Disciplinas ({disciplinas.length})
+            </h3>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Las disciplinas que aparecen en la página principal.
+            </p>
+          </div>
+        </div>
+
+        {/* Formulario Nueva Disciplina */}
+        <form onSubmit={handleAgregarDisciplina} className="p-4 bg-[#071527] border border-slate-800 rounded-xl space-y-3">
+          <span className="text-xs font-black uppercase text-[#00B4A7] block mb-2">+ NUEVA DISCIPLINA</span>
+          
+          <div className="grid sm:grid-cols-2 gap-3 text-xs">
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Nombre (Obligatorio)</label>
+              <input
+                type="text"
+                required
+                placeholder="Ej. Kpop, Marinera..."
+                value={nuevaDisciplina.nombre}
+                onChange={e => setNuevaDisciplina({ ...nuevaDisciplina, nombre: e.target.value })}
+                className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-bold"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Descripción</label>
+              <input
+                type="text"
+                placeholder="Ej. Clases de baile para jóvenes..."
+                value={nuevaDisciplina.descripcion}
+                onChange={e => setNuevaDisciplina({ ...nuevaDisciplina, descripcion: e.target.value })}
+                className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Etiqueta Especial (Opcional)</label>
+              <input
+                type="text"
+                placeholder="Ej. ¡Preventa!"
+                value={nuevaDisciplina.etiqueta}
+                onChange={e => setNuevaDisciplina({ ...nuevaDisciplina, etiqueta: e.target.value })}
+                className="w-full bg-[#040914] border border-[#F7B52C]/30 p-2.5 rounded-xl text-[#F7B52C] font-bold placeholder:text-slate-600"
+              />
+            </div>
+            
+            <div className="flex flex-col justify-end">
+              <label className="bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs cursor-pointer shadow flex items-center justify-center gap-1.5 transition-all text-center">
+                <span>{nuevaDisciplina.foto ? '✅ Foto Lista (Cambiar)' : '+ Subir Foto'}</span>
+                <input type="file" accept="image/*" onChange={handleSubirFotoDisciplina} className="hidden" />
+              </label>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between pt-2">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-300 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={nuevaDisciplina.activa} 
+                onChange={e => setNuevaDisciplina({ ...nuevaDisciplina, activa: e.target.checked })} 
+                className="w-4 h-4 rounded bg-slate-800 border-slate-700 text-[#00B4A7] focus:ring-[#00B4A7]"
+              />
+              Disciplina Activa Inmediatamente
+            </label>
+            
+            <button
+              type="submit"
+              className="px-6 py-2 bg-[#F7B52C] hover:bg-[#ffc247] text-slate-950 font-black text-xs uppercase rounded-xl transition-all shadow cursor-pointer flex items-center gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" /> Agregar
+            </button>
+          </div>
+        </form>
+
+        {/* Lista de Disciplinas */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+          {disciplinas.map((disc, idx) => (
+            <div key={idx} className={`rounded-xl border flex flex-col justify-between overflow-hidden shadow-lg transition-all ${
+              disc.activa !== false ? 'bg-[#071527] border-slate-700' : 'bg-[#040914] border-slate-800 opacity-80 grayscale-[20%]'
+            }`}>
+              <div className="relative aspect-[16/10] bg-slate-950">
+                {disc.foto ? (
+                  <img src={disc.foto} alt={disc.nombre || disc.titulo} className="w-full h-full object-cover" style={{ objectPosition: `${disc.posicionX ?? 50}% ${disc.posicionY ?? 50}%` }} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-slate-500 font-bold">Sin foto</div>
+                )}
+                
+                <div className="absolute inset-0 bg-gradient-to-t from-[#040914] via-transparent to-transparent" />
+                
+                {disc.etiqueta && (
+                  <span className="absolute top-2.5 left-2.5 bg-[#F7B52C] text-slate-950 font-black text-[9px] px-2 py-0.5 rounded shadow">
+                    {disc.etiqueta}
+                  </span>
+                )}
+                
+                {disc.foto && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBannerAEncuadrar({ tipo: 'disciplina', idx, url: disc.foto, posX: disc.posicionX ?? 50, posY: disc.posicionY ?? 50 });
+                      setModalEncuadreAbierto(true);
+                    }}
+                    className="absolute top-2 right-2 bg-black/70 hover:bg-black text-white p-1.5 rounded-lg shadow transition-colors cursor-pointer"
+                  >
+                    <Crop className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              
+              <div className="p-3 space-y-2">
+                <div>
+                  <h4 className="font-black text-white text-sm">{disc.nombre || disc.titulo}</h4>
+                  {disc.descripcion && <p className="text-[10px] text-slate-400 leading-tight mt-0.5 line-clamp-2">{disc.descripcion}</p>}
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Etiqueta..."
+                    value={disc.etiqueta || ''}
+                    onChange={(e) => {
+                      const nuevasDisc = [...disciplinas];
+                      nuevasDisc[idx].etiqueta = e.target.value;
+                      setDisciplinas(nuevasDisc);
+                    }}
+                    onBlur={(e) => handleGuardarEtiqueta(idx, e.target.value)}
+                    className="flex-1 bg-[#040914] border border-slate-700 p-1.5 rounded-md text-[#F7B52C] text-[10px] font-bold"
+                  />
+                  
+                  <button
+                    type="button"
+                    onClick={() => handleToggleActiva(idx)}
+                    className={`px-2 py-1.5 rounded-md text-[10px] font-black cursor-pointer transition-colors ${
+                      disc.activa !== false ? 'bg-[#00B4A7] text-slate-950' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    {disc.activa !== false ? 'Activa' : 'Pausada'}
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => handleEliminarDisciplina(idx)}
+                    className="p-1.5 rounded-md bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* VIDEOS */}
       <div className="p-5 sm:p-6 bg-[#040914] border border-slate-800 rounded-2xl space-y-5">
         <div className="border-b border-slate-800 pb-3">
@@ -427,12 +672,12 @@ export default function AdminInicio() {
                     </div>
 
                     {idYt ? (
-                      <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-slate-800 shadow-inner">
+                      <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-black border border-slate-800 shadow-inner max-h-[320px] mx-auto w-full max-w-[180px]">
                         <iframe
-                          src={`https://www.youtube.com/embed/${idYt}?rel=0&modestbranding=1`}
+                          src={`https://www.youtube.com/embed/${idYt}?autoplay=1&mute=1&loop=1&playlist=${idYt}&playsinline=1&rel=0&modestbranding=1&enablejsapi=1`}
                           title={tituloReal}
-                          className="w-full h-full border-0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          className="w-full h-full border-0 pointer-events-none"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                           allowFullScreen
                         />
                       </div>

@@ -454,20 +454,21 @@ function PaginaInicio() {
               const posY = Number(disc.posicionY ?? 50);
               const posX = Number(disc.posicionX ?? 50);
               const esVoley = tituloReal.toLowerCase().includes('voley');
+              const inactiva = disc.activa === false;
 
               return (
                 <div 
                   key={idx} 
                   className={`rounded-3xl bg-[#071527] border-2 ${
-                    esVoley ? 'border-[#00B4A7]/40 hover:border-[#00B4A7]' : 'border-[#F7B52C]/40 hover:border-[#F7B52C]'
-                  } overflow-hidden shadow-2xl transition-all duration-300 flex flex-col justify-between group hover:-translate-y-1`}
+                    inactiva ? 'border-slate-800 opacity-90' : esVoley ? 'border-[#00B4A7]/40 hover:border-[#00B4A7]' : 'border-[#F7B52C]/40 hover:border-[#F7B52C]'
+                  } overflow-hidden shadow-2xl transition-all duration-300 flex flex-col justify-between group ${inactiva ? '' : 'hover:-translate-y-1'}`}
                 >
                   <div>
                     <div className="relative aspect-[16/10] overflow-hidden bg-slate-950">
                       {fotoReal ? (
                         <img loading="lazy" src={fotoReal} 
                           alt={tituloReal} 
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                          className={`w-full h-full object-cover transition-transform duration-700 ${inactiva ? 'grayscale opacity-60' : 'group-hover:scale-105'}`}
                           style={{ objectPosition: `${posX}% ${posY}%` }}
                         />
                       ) : (
@@ -475,39 +476,59 @@ function PaginaInicio() {
                           Foto en preparación
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#071527] via-transparent to-black/40" />
+                      <div className={`absolute inset-0 bg-gradient-to-t ${inactiva ? 'from-[#071527] via-[#071527]/80' : 'from-[#071527] via-transparent'} to-black/40`} />
                       
                       <span className={`absolute top-4 left-4 ${
-                        esVoley ? 'bg-[#00B4A7]' : 'bg-[#F7B52C]'
+                        inactiva ? 'bg-slate-800 text-slate-400' : esVoley ? 'bg-[#00B4A7]' : 'bg-[#F7B52C]'
                       } text-slate-950 font-black text-xs px-3.5 py-1 rounded-full shadow-lg uppercase`}>
                         {esVoley ? "🏐" : "🏀"} {tituloReal}
                       </span>
+
+                      {disc.etiqueta && (
+                        <span className="absolute top-4 right-4 bg-red-600 text-white font-black text-[10px] px-3 py-1 rounded-full shadow-lg uppercase animate-pulse">
+                          {disc.etiqueta}
+                        </span>
+                      )}
+
+                      {inactiva && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                          <span className="bg-slate-950/90 text-white border border-slate-700 px-6 py-2 rounded-xl font-black text-sm uppercase tracking-widest shadow-2xl rotate-[-5deg]">
+                            🔥 PRÓXIMAMENTE
+                          </span>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="p-6 sm:p-8 space-y-3">
-                      <h3 className="text-2xl sm:text-3xl font-black text-white uppercase italic tracking-tight">
+                    <div className="p-6 sm:p-8 space-y-3 relative z-10">
+                      <h3 className={`text-2xl sm:text-3xl font-black uppercase italic tracking-tight ${inactiva ? 'text-slate-400' : 'text-white'}`}>
                         {tituloReal}
                       </h3>
                       {descReal && (
-                        <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                        <p className={`text-xs sm:text-sm leading-relaxed ${inactiva ? 'text-slate-500' : 'text-slate-300'}`}>
                           {descReal}
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="p-6 sm:p-8 pt-0">
-                    <Link 
-                      to="/sedes" 
-                      className={`w-full py-4 px-4 rounded-2xl ${
-                        esVoley ? 'bg-[#00B4A7] hover:bg-[#00c9ba]' : 'bg-[#F7B52C] hover:bg-[#e6a524]'
-                      } text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center text-center gap-2 shadow-lg transition-all`}
-                    >
-                      <span className="text-center leading-tight">
-                        Ver Sedes y Horarios · {tituloReal}
-                      </span>
-                      <ArrowRight className="w-4 h-4 shrink-0" />
-                    </Link>
+                  <div className="p-6 sm:p-8 pt-0 relative z-10">
+                    {inactiva ? (
+                      <div className="w-full py-4 px-4 rounded-2xl bg-slate-800/50 border border-slate-700 text-slate-400 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center text-center shadow-inner cursor-not-allowed">
+                        Apertura Próximamente
+                      </div>
+                    ) : (
+                      <Link 
+                        to="/sedes" 
+                        className={`w-full py-4 px-4 rounded-2xl ${
+                          esVoley ? 'bg-[#00B4A7] hover:bg-[#00c9ba]' : 'bg-[#F7B52C] hover:bg-[#e6a524]'
+                        } text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center text-center gap-2 shadow-lg transition-all`}
+                      >
+                        <span className="text-center leading-tight">
+                          Ver Sedes y Horarios · {tituloReal}
+                        </span>
+                        <ArrowRight className="w-4 h-4 shrink-0" />
+                      </Link>
+                    )}
                   </div>
                 </div>
               );

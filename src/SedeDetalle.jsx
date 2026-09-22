@@ -15,7 +15,8 @@ import {
   Phone, 
   Clock, 
   Star, 
-  Image as ImageIcon 
+  Image as ImageIcon,
+  AlertTriangle
 } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
@@ -122,7 +123,7 @@ export default function SedeDetalle() {
 
   const numeroWhatsappSede = whatsappNumero(sede.telefono_contacto);
   const suspendida = estaSuspendida(sede);
-  const horariosTodos = Array.isArray(sede.horarios) ? sede.horarios : [];
+  const horariosTodos = Array.isArray(sede.horarios) ? sede.horarios.filter(h => h.activo !== false) : [];
   const deportesDisponibles = Array.from(new Set(horariosTodos.map(h => h.deporte).filter(Boolean)));
   const horariosFiltrados = filtroDeporte === 'TODOS'
     ? horariosTodos
@@ -307,6 +308,13 @@ export default function SedeDetalle() {
           <p role="status" className="p-4 rounded-xl bg-amber-950 text-amber-200 border border-amber-800 font-bold">
             ⚠️ Clases suspendidas temporalmente en esta sede. {sede.motivo_suspension || 'Consulta con nosotros antes de reservar.'}
           </p>
+        )}
+
+        {sede.aviso_especial && !suspendida && (
+          <div className="p-4 rounded-xl bg-[#040914] text-[#F7B52C] border-2 border-[#F7B52C]/40 font-bold flex items-start sm:items-center gap-3 shadow-lg shadow-[#F7B52C]/10">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 sm:mt-0" />
+            <p className="text-sm">{sede.aviso_especial}</p>
+          </div>
         )}
 
         {/* CABECERA Y CARRUSEL */}

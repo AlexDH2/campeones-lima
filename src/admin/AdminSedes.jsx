@@ -19,7 +19,8 @@ import {
   Trophy,
   Copy,
   Phone,
-  Sparkles
+  Sparkles,
+  AlertTriangle
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import ModalEncuadre from './ModalEncuadre';
@@ -84,7 +85,8 @@ export default function AdminSedes() {
     imagenes: [],
     posiciones_fotos: {},
     disciplinas: ['Básquetbol', 'Voleibol'],
-    horarios: []
+    horarios: [],
+    aviso_especial: ''
   });
 
   const [turnoEnEdicionIdx, setTurnoEnEdicionIdx] = useState(null);
@@ -261,7 +263,8 @@ export default function AdminSedes() {
       disciplinas: Array.isArray(sede.disciplinas) && sede.disciplinas.length > 0
         ? sede.disciplinas
         : (Array.isArray(sede.disciplinas_disponibles) && sede.disciplinas_disponibles.length > 0 ? sede.disciplinas_disponibles : ['Básquetbol', 'Voleibol']),
-      horarios: Array.isArray(sede.horarios) ? sede.horarios : []
+      horarios: Array.isArray(sede.horarios) ? sede.horarios : [],
+      aviso_especial: sede.aviso_especial || ''
     });
 
     setTurnoEnEdicionIdx(null);
@@ -362,7 +365,6 @@ export default function AdminSedes() {
     return true;
   };
 
-  // --- GESTIÓN DE TURNOS ---
   const handleAgregarOActualizarTurno = () => {
     const deporteFinal = formTurno.deporte === 'OTRA' 
       ? (formTurno.otraDisciplina.trim() || 'Deporte General')
@@ -385,7 +387,8 @@ export default function AdminSedes() {
       precio_x2_u: precioValido(formTurno.precio_x2_u),
       precio_x3: null,
       precio_x3_u: null,
-      precio_clase: precioValido(formTurno.precio_clase)
+      precio_clase: precioValido(formTurno.precio_clase),
+      activo: turnoEnEdicionIdx !== null ? (formSede.horarios[turnoEnEdicionIdx].activo !== false) : true
     };
 
     let nuevosHorarios = [...formSede.horarios];
@@ -461,6 +464,14 @@ export default function AdminSedes() {
     }));
   };
 
+  const handleToggleActivoTurno = (idx) => {
+    setFormSede(prev => {
+      const nuevos = [...prev.horarios];
+      nuevos[idx] = { ...nuevos[idx], activo: nuevos[idx].activo === false ? true : false };
+      return { ...prev, horarios: nuevos };
+    });
+  };
+
   const handleGuardarSede = async (e) => {
     e.preventDefault();
     if (!formSede.nombre.trim()) return mostrarToast("Ingresa el nombre de la sede.", "error");
@@ -480,7 +491,8 @@ export default function AdminSedes() {
         foto_principal: formSede.foto_principal || formSede.imagenes.slice(0).shift() || '',
         imagenes: formSede.imagenes,
         posiciones_fotos: formSede.posiciones_fotos,
-        horarios: formSede.horarios
+        horarios: formSede.horarios,
+        aviso_especial: formSede.aviso_especial
       };
 
       if (sedeEnEdicion) {
@@ -820,6 +832,20 @@ export default function AdminSedes() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-[#F7B52C] font-bold mb-1 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Aviso Especial de la Sede (Opcional):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej. Inscripciones solo los días 15, 20 y 25 de cada mes."
+                  value={formSede.aviso_especial}
+                  onChange={e => setFormSede({ ...formSede, aviso_especial: e.target.value })}
+                  className="w-full bg-[#040914] border border-[#F7B52C]/40 p-2.5 rounded-xl text-[#F7B52C] font-bold"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Este mensaje aparecerá resaltado al ver los detalles de la sede (útil para reglas únicas de inscripción).</p>
+              </div>
+
               {/* GALERÍA DE FOTOS */}
               <div className="p-4 sm:p-5 rounded-2xl bg-[#040914] border border-slate-800 space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
@@ -1109,7 +1135,9 @@ export default function AdminSedes() {
                       : (t.horario || t.hora || 'Horario por definir');
 
                     return (
-                      <div key={idx} className="p-3 bg-[#071527] rounded-xl border border-slate-800 space-y-2 text-xs">
+                      <div key={idx} className={`p-3 rounded-xl border space-y-2 text-xs transition-colors ${
+                        t.activo !== false ? 'bg-[#071527] border-slate-800' : 'bg-[#040914] border-slate-800 opacity-60 grayscale-[50%]'
+                      }`}>
                         <div className="flex justify-between items-start">
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-2">
@@ -1126,6 +1154,16 @@ export default function AdminSedes() {
                           </div>
 
                           <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleActivoTurno(idx)}
+                              className={`px-2 py-1 rounded text-[10px] font-black cursor-pointer transition-colors ${
+                                t.activo !== false ? 'bg-[#00B4A7] text-slate-950' : 'bg-slate-800 text-slate-400'
+                              }`}
+                            >
+                              {t.activo !== false ? 'Activo' : 'Pausado'}
+                            </button>
+
                             <button
                               type="button"
                               onClick={() => handleDuplicarTurno(idx)}
