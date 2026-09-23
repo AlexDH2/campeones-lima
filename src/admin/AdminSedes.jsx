@@ -110,6 +110,7 @@ export default function AdminSedes() {
 
   const [modalEncuadreAbierto, setModalEncuadreAbierto] = useState(false);
   const [fotoParaEncuadrar, setFotoParaEncuadrar] = useState(null);
+  const [filtroDeporteTurnos, setFiltroDeporteTurnos] = useState('TODOS');
 
   useEffect(() => {
     async function cargarDatosIniciales() {
@@ -228,6 +229,7 @@ export default function AdminSedes() {
 
   const abrirModalNuevaSede = () => {
     setSedeEnEdicion(null);
+    setFiltroDeporteTurnos('TODOS');
     setFormSede({
       nombre: '',
       distrito: 'san miguel',
@@ -247,6 +249,7 @@ export default function AdminSedes() {
 
   const abrirModalEditarSede = (sede) => {
     setSedeEnEdicion(sede);
+    setFiltroDeporteTurnos('TODOS');
     let fotosArray = Array.isArray(sede.imagenes) ? [...sede.imagenes] : [];
     if (fotosArray.length === 0 && sede.foto_principal) fotosArray = [sede.foto_principal];
 
@@ -1126,9 +1129,43 @@ export default function AdminSedes() {
                 </div>
 
                 {/* LISTA DE TURNOS */}
-                <div className="space-y-2 pt-1">
-                  {formSede.horarios.map((t, idx) => {
-                    const esVoley = t.deporte?.toLowerCase().includes('voley');
+                <div className="space-y-3 pt-3">
+                  {formSede.horarios.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-2">
+                      <span className="text-xs text-slate-400 font-bold uppercase mr-1">Filtrar por Deporte:</span>
+                      <button
+                        type="button"
+                        onClick={() => setFiltroDeporteTurnos('TODOS')}
+                        className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border cursor-pointer ${
+                          filtroDeporteTurnos === 'TODOS'
+                            ? 'bg-[#00B4A7] text-slate-950 border-[#00B4A7]'
+                            : 'bg-[#040914] text-slate-400 border-slate-700'
+                        }`}
+                      >
+                        Todos ({formSede.horarios.length})
+                      </button>
+                      {Array.from(new Set(formSede.horarios.map(h => h.deporte).filter(Boolean))).map(dep => (
+                        <button
+                          key={dep}
+                          type="button"
+                          onClick={() => setFiltroDeporteTurnos(dep)}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border cursor-pointer ${
+                            filtroDeporteTurnos === dep
+                              ? 'bg-[#F7B52C] text-slate-950 border-[#F7B52C]'
+                              : 'bg-[#040914] text-slate-400 border-slate-700'
+                          }`}
+                        >
+                          {dep} ({formSede.horarios.filter(h => h.deporte === dep).length})
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    {formSede.horarios.map((t, originalIdx) => ({ t, idx: originalIdx }))
+                      .filter(({ t }) => filtroDeporteTurnos === 'TODOS' || t.deporte === filtroDeporteTurnos)
+                      .map(({ t, idx }) => {
+                        const esVoley = t.deporte?.toLowerCase().includes('voley');
                     const esPre = t.deporte?.toLowerCase().includes('pre-selección');
                     const textoHoras = (t.horaInicio && t.horaFin) 
                       ? `${t.horaInicio} - ${t.horaFin}` 
@@ -1207,6 +1244,7 @@ export default function AdminSedes() {
                       </div>
                     );
                   })}
+                  </div>
                 </div>
               </div>
 

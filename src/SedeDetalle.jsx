@@ -36,6 +36,7 @@ export default function SedeDetalle() {
 
   const [indiceActual, setIndiceActual] = useState(0);
   const [filtroDeporte, setFiltroDeporte] = useState('TODOS');
+  const [filtroTurno, setFiltroTurno] = useState('TODOS');
   const [modalPagoAbierto, setModalPagoAbierto] = useState(false);
   const [modalPromosAbierto, setModalPromosAbierto] = useState(false);
 
@@ -125,9 +126,22 @@ export default function SedeDetalle() {
   const suspendida = estaSuspendida(sede);
   const horariosTodos = Array.isArray(sede.horarios) ? sede.horarios.filter(h => h.activo !== false) : [];
   const deportesDisponibles = Array.from(new Set(horariosTodos.map(h => h.deporte).filter(Boolean)));
-  const horariosFiltrados = filtroDeporte === 'TODOS'
+  
+  const determinarTurno = (horaStr) => {
+    if (!horaStr) return 'Tarde/Noche';
+    const up = horaStr.toUpperCase();
+    if (up.includes('AM')) return 'Mañana';
+    if (up.includes('12:') && up.includes('PM')) return 'Mañana';
+    return 'Tarde/Noche';
+  };
+
+  const horariosPorDeporte = filtroDeporte === 'TODOS'
     ? horariosTodos
     : horariosTodos.filter(h => h.deporte === filtroDeporte);
+
+  const horariosFiltrados = filtroTurno === 'TODOS'
+    ? horariosPorDeporte
+    : horariosPorDeporte.filter(h => determinarTurno(h.horaInicio) === filtroTurno);
 
   const esGratis = precioClaseModelo === 0;
 
@@ -472,33 +486,55 @@ export default function SedeDetalle() {
               </h2>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setFiltroDeporte('TODOS')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider border transition-colors cursor-pointer ${
-                  filtroDeporte === 'TODOS'
-                    ? 'bg-[#00B4A7] text-slate-950 border-[#00B4A7] shadow'
-                    : 'bg-[#040914] text-slate-400 border-slate-800 hover:text-white'
-                }`}
-              >
-                Todos ({horariosTodos.length})
-              </button>
-
-              {deportesDisponibles.map((dep, i) => (
+            <div className="flex flex-col items-end gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  key={i}
                   type="button"
-                  onClick={() => setFiltroDeporte(dep)}
+                  onClick={() => setFiltroDeporte('TODOS')}
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider border transition-colors cursor-pointer ${
-                    filtroDeporte === dep
-                      ? 'bg-[#F7B52C] text-slate-950 border-[#F7B52C] shadow'
+                    filtroDeporte === 'TODOS'
+                      ? 'bg-[#00B4A7] text-slate-950 border-[#00B4A7] shadow'
                       : 'bg-[#040914] text-slate-400 border-slate-800 hover:text-white'
                   }`}
                 >
-                  {dep}
+                  Todos ({horariosTodos.length})
                 </button>
-              ))}
+
+                {deportesDisponibles.map((dep, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setFiltroDeporte(dep)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider border transition-colors cursor-pointer ${
+                      filtroDeporte === dep
+                        ? 'bg-[#F7B52C] text-slate-950 border-[#F7B52C] shadow'
+                        : 'bg-[#040914] text-slate-400 border-slate-800 hover:text-white'
+                    }`}
+                  >
+                    {dep}
+                  </button>
+                ))}
+              </div>
+
+              {/* Filtro por Turno */}
+              <div className="flex flex-wrap items-center gap-2">
+                {['TODOS', 'Mañana', 'Tarde/Noche'].map((turno) => (
+                  <button
+                    key={turno}
+                    type="button"
+                    onClick={() => setFiltroTurno(turno)}
+                    className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-colors cursor-pointer flex items-center gap-1 ${
+                      filtroTurno === turno
+                        ? 'bg-white text-slate-950 border-white shadow'
+                        : 'bg-transparent text-slate-400 border-slate-700 hover:text-white'
+                    }`}
+                  >
+                    {turno === 'Mañana' && '☀️ '}
+                    {turno === 'Tarde/Noche' && '🌙 '}
+                    {turno === 'TODOS' ? 'Ambos Turnos' : turno}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

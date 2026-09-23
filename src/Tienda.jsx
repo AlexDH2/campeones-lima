@@ -9,6 +9,7 @@ import Navbar from './Navbar';
 import Footer from './Footer';
 import { useTheme } from './ThemeContext';
 import { useTiendaProductos, useWhatsAppGlobal } from './queries';
+import CarruselProducto from './CarruselProducto';
 
 const normalizarCoordenada = (val, defecto = 50) => {
   if (val === null || val === undefined || val === '') return defecto;
@@ -22,13 +23,15 @@ export default function Tienda() {
 
   const { data: productos = [], isLoading: cargando } = useTiendaProductos();
   const [categoriaActiva, setCategoriaActiva] = useState('Todas');
+  const [deporteActivo, setDeporteActivo] = useState('TODOS');
   const [tallaSeleccionadaPorProducto, setTallaSeleccionadaPorProducto] = useState({});
 
   const categorias = ['Todas', 'Uniformes & Ropa', 'Balones & Accesorios', 'Protección & Rodilleras'];
 
   const productosFiltrados = productos.filter(p => {
-    if (categoriaActiva === 'Todas') return true;
-    return p.categoria === categoriaActiva;
+    const matchCat = categoriaActiva === 'Todas' || p.categoria === categoriaActiva;
+    const matchDep = deporteActivo === 'TODOS' || p.deporte === deporteActivo || (!p.deporte && deporteActivo === 'General');
+    return matchCat && matchDep;
   });
 
   const handleSeleccionarTalla = (prodId, talla) => {
@@ -71,20 +74,39 @@ export default function Tienda() {
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-8 relative z-10">
         {/* FILTRO DE CATEGORÍAS */}
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {categorias.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setCategoriaActiva(cat)}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition-all border cursor-pointer ${
-                categoriaActiva === cat
-                  ? 'bg-[#00B4A7] text-slate-950 border-[#00B4A7] shadow-lg shadow-[#00B4A7]/25'
-                  : 'bg-[#071527] text-slate-300 border-slate-800 hover:border-slate-700'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {categorias.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setCategoriaActiva(cat)}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all border cursor-pointer ${
+                  categoriaActiva === cat
+                    ? 'bg-[#00B4A7] text-slate-950 border-[#00B4A7] shadow-lg shadow-[#00B4A7]/25'
+                    : 'bg-[#071527] text-slate-300 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <span className="text-xs font-bold text-slate-400 uppercase mr-1">Deporte:</span>
+            {['TODOS', 'General', 'Voleibol', 'Básquetbol'].map(dep => (
+              <button
+                key={dep}
+                onClick={() => setDeporteActivo(dep)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border cursor-pointer ${
+                  deporteActivo === dep
+                    ? 'bg-[#F7B52C] text-slate-950 border-[#F7B52C] shadow-lg'
+                    : 'bg-[#040914] text-slate-400 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                {dep}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* LISTADO DE PRODUCTOS */}
@@ -119,18 +141,8 @@ export default function Tienda() {
                   <div>
                     {/* FOTO 1:1 */}
                     <div className="relative aspect-square bg-slate-950 overflow-hidden">
-                      {p.foto ? (
-                        <img loading="lazy" src={p.foto}
-                          alt={p.nombre}
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          style={{ objectPosition: `${posX}% ${posY}%` }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs text-slate-500 font-bold">
-                          Foto en preparación
-                        </div>
-                      )}
-                      <span className="absolute top-3 left-3 bg-[#00B4A7] text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded shadow">
+                      <CarruselProducto producto={p} />
+                      <span className="absolute top-3 left-3 bg-[#00B4A7] text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded shadow z-10 pointer-events-none">
                         {p.categoria}
                       </span>
                     </div>
