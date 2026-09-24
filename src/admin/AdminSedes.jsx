@@ -20,7 +20,9 @@ import {
   Copy,
   Phone,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import ModalEncuadre from './ModalEncuadre';
@@ -210,6 +212,29 @@ export default function AdminSedes() {
     });
   };
 
+  const handleMoverFotoPanoramica = async (idx, direccion) => {
+    const nuevaLista = [...canchasPanoramicas];
+    if (direccion === 'izq' && idx > 0) {
+      [nuevaLista[idx - 1], nuevaLista[idx]] = [nuevaLista[idx], nuevaLista[idx - 1]];
+    } else if (direccion === 'der' && idx < nuevaLista.length - 1) {
+      [nuevaLista[idx + 1], nuevaLista[idx]] = [nuevaLista[idx], nuevaLista[idx + 1]];
+    } else {
+      return;
+    }
+    
+    // Optimistic update
+    setCanchasPanoramicas(nuevaLista);
+    
+    // Save to DB
+    const res = await guardar(supabase.from('configuracion_web').upsert({
+      clave: 'banner_canchas_sedes',
+      valor: nuevaLista
+    }));
+    if (!res.ok) {
+      mostrarToast(res.error, "error");
+    }
+  };
+
   const handleGuardarTodasPanoramicas = async () => {
     setGuardandoPanoramicas(true);
     try {
@@ -306,6 +331,18 @@ export default function AdminSedes() {
       imagenes: nuevasFotos,
       foto_principal: nuevaPrincipal
     }));
+  };
+
+  const handleMoverFoto = (idx, direccion) => {
+    setFormSede(prev => {
+      const nuevoArray = [...prev.imagenes];
+      if (direccion === 'izq' && idx > 0) {
+        [nuevoArray[idx - 1], nuevoArray[idx]] = [nuevoArray[idx], nuevoArray[idx - 1]];
+      } else if (direccion === 'der' && idx < nuevoArray.length - 1) {
+        [nuevoArray[idx + 1], nuevoArray[idx]] = [nuevoArray[idx], nuevoArray[idx + 1]];
+      }
+      return { ...prev, imagenes: nuevoArray };
+    });
   };
 
   const handleGuardarEncuadreFoto = async (posOValorY, posObjeto) => {
@@ -679,7 +716,27 @@ export default function AdminSedes() {
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-800/80 flex justify-end">
+                <div className="pt-2 border-t border-slate-800/80 flex justify-between items-center">
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleMoverFotoPanoramica(idx, 'izq')}
+                      disabled={idx === 0}
+                      className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                      title="Mover a la izquierda"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMoverFotoPanoramica(idx, 'der')}
+                      disabled={idx === canchasPanoramicas.length - 1}
+                      className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                      title="Mover a la derecha"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={() => handleEliminarFotoPanoramica(idx)}
@@ -932,6 +989,27 @@ export default function AdminSedes() {
                               className="p-1 text-red-400 hover:text-red-300 cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <div className="flex justify-between items-center px-1 py-1 flex-1 bg-[#040914] border-t border-slate-800">
+                            <button
+                              type="button"
+                              onClick={() => handleMoverFoto(idx, 'izq')}
+                              disabled={idx === 0}
+                              className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                              title="Mover a la izquierda"
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <span className="text-[10px] font-mono text-slate-500 font-bold">{idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleMoverFoto(idx, 'der')}
+                              disabled={idx === formSede.imagenes.length - 1}
+                              className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                              title="Mover a la derecha"
+                            >
+                              <ChevronRight className="w-4 h-4" />
                             </button>
                           </div>
                         </div>

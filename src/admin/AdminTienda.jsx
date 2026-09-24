@@ -10,7 +10,9 @@ import {
   Crop, 
   Loader2, 
   PackageOpen,
-  Edit
+  Edit,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import ModalEncuadre from './ModalEncuadre';
@@ -111,6 +113,18 @@ export default function AdminTienda() {
 
   const handleEliminarFotoFormulario = (idx) => {
     setFotosUrl(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleMoverFotoFormulario = (idx, direccion) => {
+    setFotosUrl(prev => {
+      const nuevoArray = [...prev];
+      if (direccion === 'izq' && idx > 0) {
+        [nuevoArray[idx - 1], nuevoArray[idx]] = [nuevoArray[idx], nuevoArray[idx - 1]];
+      } else if (direccion === 'der' && idx < nuevoArray.length - 1) {
+        [nuevoArray[idx + 1], nuevoArray[idx]] = [nuevoArray[idx], nuevoArray[idx + 1]];
+      }
+      return nuevoArray;
+    });
   };
 
   const handleCrearProducto = async (e) => {
@@ -460,15 +474,41 @@ export default function AdminTienda() {
             {fotosUrl.length > 0 && (
               <div className="flex gap-2 flex-wrap pt-2">
                 {fotosUrl.map((url, idx) => (
-                  <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-800">
-                    <img src={url} alt="preview" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => handleEliminarFotoFormulario(idx)}
-                      className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                  <div key={idx} className="relative w-20 h-24 rounded-lg overflow-hidden border border-slate-800 bg-[#071527] flex flex-col group">
+                    <div className="relative w-full h-16">
+                      <img src={url} alt="preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => handleEliminarFotoFormulario(idx)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                        title="Eliminar foto"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                    
+                    {/* Botones de ordenamiento */}
+                    <div className="flex justify-between items-center px-1 flex-1 bg-[#040914] border-t border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => handleMoverFotoFormulario(idx, 'izq')}
+                        disabled={idx === 0}
+                        className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent"
+                        title="Mover a la izquierda"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <span className="text-[10px] font-mono text-slate-500 font-bold">{idx + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleMoverFotoFormulario(idx, 'der')}
+                        disabled={idx === fotosUrl.length - 1}
+                        className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent"
+                        title="Mover a la derecha"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
