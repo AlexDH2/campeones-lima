@@ -367,7 +367,7 @@ export default function AdminInicio() {
           className="px-6 py-2.5 rounded-xl bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#00B4A7]/25 cursor-pointer disabled:opacity-50"
         >
           {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          <span>Guardar Portada</span>
+          <span>Guardar Cambios</span>
         </button>
       </div>
 
@@ -756,6 +756,19 @@ export default function AdminInicio() {
               className="w-full bg-[#071527] border border-slate-800 p-2.5 rounded-xl text-white font-mono"
             />
           </div>
+        </div>
+
+        {/* Botón de guardado inferior */}
+        <div className="pt-4 mt-2 border-t border-slate-800 flex justify-end">
+          <button
+            type="button"
+            onClick={handleGuardarCambios}
+            disabled={guardando}
+            className="px-6 py-2.5 rounded-xl bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#00B4A7]/25 cursor-pointer disabled:opacity-50"
+          >
+            {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            <span>Guardar Cambios</span>
+          </button>
         </div>
       </div>
 
