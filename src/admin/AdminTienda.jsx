@@ -41,6 +41,8 @@ export default function AdminTienda() {
   const [deporte, setDeporte] = useState('General'); // Agregado: Deporte
   const [precio, setPrecio] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [sku, setSku] = useState('');
+  const [lugaresRetiro, setLugaresRetiro] = useState([]);
   const [fotosUrl, setFotosUrl] = useState([]);
   const [tallasSeleccionadas, setTallasSeleccionadas] = useState([]);
   const [editandoId, setEditandoId] = useState(null);
@@ -48,32 +50,47 @@ export default function AdminTienda() {
   const [modalEncuadreAbierto, setModalEncuadreAbierto] = useState(false);
   const [productoAEncuadrar, setProductoAEncuadrar] = useState(null);
   const [filtroCategoria, setFiltroCategoria] = useState('TODOS');
+  
+  const [sedesDisponibles, setSedesDisponibles] = useState([]);
+  const [nuevoLugarManual, setNuevoLugarManual] = useState('');
 
   useEffect(() => {
-    async function cargarProductosReales() {
+    async function cargarDatosIniciales() {
       try {
-        const { data, error } = await supabase
+        // Cargar productos
+        const { data: dataProd, error: errorProd } = await supabase
           .from('configuracion_web')
           .select('valor')
           .eq('clave', 'tienda_productos')
           .maybeSingle();
 
-        if (error) throw error;
+        if (errorProd) throw errorProd;
 
-        if (data?.valor && Array.isArray(data.valor)) {
-          setProductos(data.valor);
+        if (dataProd?.valor && Array.isArray(dataProd.valor)) {
+          setProductos(dataProd.valor);
         } else {
           setProductos([]);
         }
+        
+        // Cargar sedes
+        const { data: dataSedes, error: errorSedes } = await supabase
+          .from('sedes')
+          .select('nombre, distrito')
+          .order('nombre');
+          
+        if (!errorSedes && dataSedes) {
+          setSedesDisponibles(dataSedes.map(s => `${s.nombre} (${s.distrito})`));
+        }
+
         setErrorCarga('');
       } catch (err) {
-        console.error("Error al cargar productos:", err);
-        setErrorCarga("No se pudo cargar el catálogo de productos. Recarga para reintentar antes de realizar modificaciones.");
+        console.error("Error al cargar datos:", err);
+        setErrorCarga("No se pudieron cargar los datos. Recarga para reintentar antes de realizar modificaciones.");
       } finally {
         setCargando(false);
       }
     }
-    cargarProductosReales();
+    cargarDatosIniciales();
   }, []);
 
   const tallasDisponibles = categoria === 'Uniformes & Ropa' 
@@ -148,6 +165,8 @@ export default function AdminTienda() {
         deporte,
         precio: parseFloat(precio) || 0,
         descripcion: descripcion.trim(),
+        sku: sku.trim(),
+        infoRetiro: lugaresRetiro,
         fotos: fotosUrl,
         foto: fotosUrl[0] || "",
         tallas: tallasSeleccionadas
@@ -160,6 +179,8 @@ export default function AdminTienda() {
         deporte,
         precio: parseFloat(precio) || 0,
         descripcion: descripcion.trim(),
+        sku: sku.trim(),
+        infoRetiro: lugaresRetiro,
         fotos: fotosUrl,
         foto: fotosUrl[0] || "",
         tallas: tallasSeleccionadas,
@@ -194,6 +215,8 @@ export default function AdminTienda() {
     setCategoria('Uniformes & Ropa');
     setDeporte('General');
     setDescripcion('');
+    setSku('');
+    setLugaresRetiro([]);
     setFotosUrl([]);
     setTallasSeleccionadas([]);
   };
@@ -205,6 +228,17 @@ export default function AdminTienda() {
     setDeporte(p.deporte || 'General');
     setPrecio(p.precio || '');
     setDescripcion(p.descripcion || '');
+    setSku(p.sku || '');
+    
+    const infoActual = p.infoRetiro;
+    if (Array.isArray(infoActual)) {
+      setLugaresRetiro(infoActual);
+    } else if (typeof infoActual === 'string' && infoActual.trim() !== '') {
+      setLugaresRetiro([infoActual]);
+    } else {
+      setLugaresRetiro([]);
+    }
+    
     setFotosUrl(p.fotos || (p.foto ? [p.foto] : []));
     setTallasSeleccionadas(p.tallas || []);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -424,6 +458,17 @@ export default function AdminTienda() {
                 className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-mono font-bold"
               />
             </div>
+
+            <div>
+              <label className="block text-slate-300 font-bold mb-1">Código / SKU:</label>
+              <input
+                type="text"
+                placeholder="Ej. 84380Z"
+                value={sku}
+                onChange={e => setSku(e.target.value)}
+                className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-mono font-bold"
+              />
+            </div>
           </div>
 
           <div className="space-y-1.5 p-4 rounded-2xl bg-[#040914] border border-slate-800">
@@ -460,6 +505,85 @@ export default function AdminTienda() {
               onChange={e => setDescripcion(e.target.value)}
               className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white"
             />
+          </div>
+
+          <div className="space-y-3 p-5 rounded-2xl bg-[#040914] border border-slate-800">
+            <span className="text-xs font-black uppercase tracking-wider text-[#00B4A7] block">
+              Lugares de Retiro Permitidos:
+            </span>
+            <p className="text-[11px] text-slate-400">Selecciona las sedes donde este producto puede ser entregado:</p>
+            
+            <div className="flex flex-wrap gap-2 pt-1">
+              {sedesDisponibles.map(sede => {
+                const activo = lugaresRetiro.includes(sede);
+                return (
+                  <button
+                    type="button"
+                    key={sede}
+                    onClick={() => {
+                      if (activo) {
+                        setLugaresRetiro(lugaresRetiro.filter(l => l !== sede));
+                      } else {
+                        setLugaresRetiro([...lugaresRetiro, sede]);
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border cursor-pointer ${
+                      activo
+                        ? 'bg-[#00B4A7] text-slate-950 border-[#00B4A7] shadow-md shadow-[#00B4A7]/20'
+                        : 'bg-[#071527] text-slate-300 border-slate-700 hover:border-slate-500'
+                    }`}
+                  >
+                    {sede} {activo && '✓'}
+                  </button>
+                );
+              })}
+              
+              {/* Lugares manuales ya agregados */}
+              {lugaresRetiro.filter(l => !sedesDisponibles.includes(l)).map(lugarManual => (
+                <button
+                  type="button"
+                  key={lugarManual}
+                  onClick={() => {
+                    setLugaresRetiro(lugaresRetiro.filter(l => l !== lugarManual));
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-[#F7B52C] text-slate-950 border border-[#F7B52C] shadow-md transition-all cursor-pointer group flex items-center gap-1"
+                >
+                  <span>{lugarManual} (Manual)</span>
+                  <span className="font-black group-hover:text-red-700 transition-colors ml-1">×</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-2 pt-3 mt-1 border-t border-slate-800/50">
+              <input
+                type="text"
+                placeholder="Añadir otro lugar (Ej. Oficina Miraflores)"
+                value={nuevoLugarManual}
+                onChange={e => setNuevoLugarManual(e.target.value)}
+                className="flex-1 bg-[#071527] border border-slate-700 px-3 py-2 rounded-xl text-white text-xs placeholder:text-slate-500"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (nuevoLugarManual.trim() && !lugaresRetiro.includes(nuevoLugarManual.trim())) {
+                      setLugaresRetiro([...lugaresRetiro, nuevoLugarManual.trim()]);
+                      setNuevoLugarManual('');
+                    }
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (nuevoLugarManual.trim() && !lugaresRetiro.includes(nuevoLugarManual.trim())) {
+                    setLugaresRetiro([...lugaresRetiro, nuevoLugarManual.trim()]);
+                    setNuevoLugarManual('');
+                  }
+                }}
+                className="bg-slate-700 hover:bg-slate-600 text-white font-bold px-4 rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                + Agregar
+              </button>
+            </div>
           </div>
 
           <div className="space-y-1.5">
