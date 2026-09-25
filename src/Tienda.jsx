@@ -70,7 +70,7 @@ export default function Tienda() {
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
-              Uniformes oficiales de competencia, balones de entrenamiento y accesorios para atletas de básquetbol y vóley.
+              Uniformes oficiales de competencia, balones de entrenamiento y accesorios para atletas de básquetbol, vóley y futbol.
             </p>
           </div>
         </header>
@@ -160,7 +160,7 @@ export default function Tienda() {
                         </div>
 
                         {p.descripcion && (
-                          <p className="text-xs text-slate-400 leading-relaxed line-clamp-2">
+                          <p className="text-xs text-slate-400 leading-relaxed line-clamp-2 whitespace-pre-line">
                             {p.descripcion}
                           </p>
                         )}

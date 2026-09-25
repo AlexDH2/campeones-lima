@@ -258,7 +258,7 @@ export default function ProductoDetalleVista({ producto, onVolver }) {
 
           {producto.descripcion && (
             <div className="pt-4 border-t border-slate-800 text-sm text-slate-300 leading-relaxed space-y-4">
-              <p>{producto.descripcion}</p>
+              <p className="whitespace-pre-wrap">{producto.descripcion}</p>
             </div>
           )}
 
