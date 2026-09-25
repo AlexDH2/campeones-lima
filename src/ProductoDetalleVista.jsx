@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Check, Share2, MessageCircle, Info } from 'lucide-react';
+import { ArrowLeft, Check, Share2, MessageCircle, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { useWhatsAppGlobal, useSedes } from './queries';
 import { useToast } from './toast';
 
@@ -11,6 +11,7 @@ export default function ProductoDetalleVista({ producto, onVolver }) {
   const [cantidad, setCantidad] = useState(1);
   const [fotoActiva, setFotoActiva] = useState(0);
   const [tallaElegida, setTallaElegida] = useState(producto.tallas?.[0] || '');
+  const [mostrarOpcionesRetiro, setMostrarOpcionesRetiro] = useState(false);
 
   // Procesar lugares de retiro (compatibilidad string o array)
   let lugaresRetiro = [];
@@ -173,19 +174,20 @@ export default function ProductoDetalleVista({ producto, onVolver }) {
             </a>
           </div>
 
-          <div className="pt-4 space-y-3">
-            {lugaresConInfo.map((lugar, idx) => (
-              <div key={idx} className="flex items-start gap-2 text-sm">
+          <div className="pt-4">
+            {lugaresConInfo.length === 1 ? (
+              // Caso 1: Solo una sede
+              <div className="flex items-start gap-2 text-sm">
                 <Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-slate-300">
                     <span className="font-bold text-white">Retiro disponible en </span> 
-                    {lugar.nombre}
+                    {lugaresConInfo[0].nombre}
                   </p>
                   <p className="text-slate-400 text-xs mt-0.5">Normalmente está listo en 24 horas</p>
-                  {lugar.maps && (
+                  {lugaresConInfo[0].maps && (
                     <a 
-                      href={lugar.maps}
+                      href={lugaresConInfo[0].maps}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-block text-xs underline text-slate-400 hover:text-white mt-1 cursor-pointer"
@@ -195,7 +197,52 @@ export default function ProductoDetalleVista({ producto, onVolver }) {
                   )}
                 </div>
               </div>
-            ))}
+            ) : (
+              // Caso 2: Múltiples sedes, hacerlo desglosable
+              <div className="border border-slate-800 rounded-xl overflow-hidden bg-[#071527]">
+                <button
+                  type="button"
+                  onClick={() => setMostrarOpcionesRetiro(!mostrarOpcionesRetiro)}
+                  className="w-full px-4 py-3 flex items-center justify-between text-sm hover:bg-[#0a1e35] transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Check className="w-5 h-5 text-emerald-500 shrink-0" />
+                    <p className="text-slate-300 font-bold">
+                      Retiro disponible en <span className="text-white">{lugaresConInfo.length} ubicaciones</span>
+                    </p>
+                  </div>
+                  {mostrarOpcionesRetiro ? (
+                    <ChevronUp className="w-4 h-4 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  )}
+                </button>
+                
+                {mostrarOpcionesRetiro && (
+                  <div className="px-4 pb-3 pt-1 space-y-4 border-t border-slate-800 bg-[#040914]/50">
+                    {lugaresConInfo.map((lugar, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-sm">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 mt-1.5" />
+                        <div>
+                          <p className="text-white font-bold">{lugar.nombre}</p>
+                          <p className="text-slate-400 text-xs mt-0.5">Normalmente está listo en 24 horas</p>
+                          {lugar.maps && (
+                            <a 
+                              href={lugar.maps}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-block text-xs underline text-slate-400 hover:text-white mt-1 cursor-pointer"
+                            >
+                              Ver ubicación en mapa
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="pt-4">
