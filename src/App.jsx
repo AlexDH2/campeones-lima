@@ -301,9 +301,7 @@ function PaginaInicio() {
       )}
 
       {/* HERO */}
-      <header className={`relative min-h-[calc(100vh-5rem)] flex items-center overflow-hidden z-10 ${
-        promocionActiva ? 'mt-0' : 'mt-20'
-      } pt-8 sm:pt-12 pb-16`}>
+      <header className="relative min-h-[calc(100vh)] flex items-center overflow-hidden z-10 pt-32 sm:pt-36 lg:pt-40 pb-28">
         
         {heroFotos.length > 0 && (
           <div className="absolute inset-0 z-0 overflow-hidden select-none pointer-events-none">
