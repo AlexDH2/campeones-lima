@@ -145,20 +145,21 @@ export default function AdminPreciosPromos() {
   };
 
   // --- SUBIDA DE ARCHIVO DE BANNER PARA UNA SEDE ---
-  const handleSubirFlyerSede = async (nombreSede, file) => {
+  const handleSubirFlyerSede = async (nombreSede, file, tipo = 'general') => {
     if (!file) return;
 
-    setSubiendoSede(nombreSede);
+    setSubiendoSede(`${nombreSede}-${tipo}`);
     try {
       const publicUrl = await subirArchivoStorage(file, 'promociones');
       if (!publicUrl) throw new Error("Error en la compresión/subida");
       const nuevaUrl = publicUrl;
 
+      const keyUrl = tipo === 'general' ? 'flyer_url' : `flyer_${tipo}_url`;
       const nuevoMapa = {
         ...bannersSedes,
         [nombreSede]: {
           ...(bannersSedes[nombreSede] || {}),
-          flyer_url: nuevaUrl,
+          [keyUrl]: nuevaUrl,
           activo: true,
           titulo: bannersSedes[nombreSede]?.titulo || `Promociones Temporada · ${nombreSede}`
         }
@@ -171,7 +172,7 @@ export default function AdminPreciosPromos() {
       if (errUpsert) throw errUpsert;
 
       setBannersSedes(nuevoMapa);
-      mostrarToast(`Banner oficial de ${nombreSede} subido exitosamente.`, "exito");
+      mostrarToast(`Banner oficial de ${nombreSede} (${tipo}) subido exitosamente.`, "exito");
     } catch (err) {
       mostrarToast("Error al subir banner: " + (err.message || err), "error");
     } finally {
@@ -200,14 +201,23 @@ export default function AdminPreciosPromos() {
     }
   };
 
-  const handleEliminarBannerSede = async (nombreSede) => {
+  const handleEliminarBannerSede = async (nombreSede, tipo = 'general') => {
     setConfirmacion({
-      mensaje: `¿Eliminar el banner de ${nombreSede}?`,
+      mensaje: `¿Eliminar el banner ${tipo !== 'general' ? 'de ' + tipo : ''} de ${nombreSede}?`,
       peligroso: true,
       onConfirmar: async () => {
         setConfirmacion(null);
         const copia = { ...bannersSedes };
-        delete copia[nombreSede];
+        
+        if (!copia[nombreSede]) return;
+        
+        const keyUrl = tipo === 'general' ? 'flyer_url' : `flyer_${tipo}_url`;
+        delete copia[nombreSede][keyUrl];
+
+        // Si ya no le queda ningún flyer, podemos borrar toda la entrada de la sede
+        if (!copia[nombreSede].flyer_url && !copia[nombreSede].flyer_basquet_url && !copia[nombreSede].flyer_voley_url) {
+          delete copia[nombreSede];
+        }
 
         try {
           const { error } = await supabase.from('configuracion_web').upsert({
@@ -501,10 +511,61 @@ export default function AdminPreciosPromos() {
               {sedes
                 .filter(s => filtroSedeAdmin === 'TODAS' || s.nombre === filtroSedeAdmin)
                 .map((s) => {
-                  const promo = bannersSedes[s.nombre] || {};
-                  const tieneFlyer = Boolean(promo.flyer_url);
-                  const esActivo = promo.activo !== false && tieneFlyer;
-                  const estaSubiendo = subiendoSede === s.nombre;
+                  const tieneAlgunFlyer = Boolean(promo.flyer_url || promo.flyer_basquet_url || promo.flyer_voley_url);
+                  const esActivo = promo.activo !== false && tieneAlgunFlyer;
+
+                  const renderSlotFlyer = (tipo, titulo) => {
+                    const keyUrl = tipo === 'general' ? 'flyer_url' : `flyer_${tipo}_url`;
+                    const flyerUrl = promo[keyUrl];
+                    const estaSubiendoSlot = subiendoSede === `${s.nombre}-${tipo}`;
+
+                    if (flyerUrl) {
+                      return (
+                        <div className="flex-1 space-y-1.5">
+                          <p className="text-[10px] font-bold text-center text-slate-400 uppercase tracking-wider">{titulo}</p>
+                          <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-black border border-slate-800 shadow group">
+                            <img loading="lazy" src={flyerUrl} alt={s.nombre} className="w-full h-full object-cover" />
+                            <label className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white font-bold cursor-pointer text-xs">
+                              <Upload className="w-4 h-4 text-[#F7B52C]" />
+                              <span>Cambiar</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                disabled={estaSubiendoSlot}
+                                onChange={(e) => handleSubirFlyerSede(s.nombre, e.target.files?.[0], tipo)}
+                                className="hidden"
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => handleEliminarBannerSede(s.nombre, tipo)}
+                              className="absolute top-1.5 right-1.5 bg-red-600/90 hover:bg-red-500 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow cursor-pointer"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="flex-1 space-y-1.5 flex flex-col">
+                        <p className="text-[10px] font-bold text-center text-slate-400 uppercase tracking-wider">{titulo}</p>
+                        <label className="flex-1 rounded-xl border-2 border-dashed border-slate-800 hover:border-[#00B4A7] bg-slate-950/40 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-white transition-all cursor-pointer p-2 text-center min-h-[140px]">
+                          {estaSubiendoSlot ? <Loader2 className="w-5 h-5 animate-spin text-[#00B4A7]" /> : <Upload className="w-5 h-5 text-[#F7B52C]" />}
+                          <span className="font-bold text-[10px] text-white">Subir</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            disabled={estaSubiendoSlot}
+                            onChange={(e) => handleSubirFlyerSede(s.nombre, e.target.files?.[0], tipo)}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    );
+                  };
 
                   return (
                     <div
@@ -519,7 +580,7 @@ export default function AdminPreciosPromos() {
                             <MapPin className="w-3.5 h-3.5 text-[#00B4A7]" /> {s.nombre}
                           </strong>
 
-                          {tieneFlyer && (
+                          {tieneAlgunFlyer && (
                             <button
                               type="button"
                               onClick={() => handleToggleActivoBanner(s.nombre)}
@@ -538,61 +599,11 @@ export default function AdminPreciosPromos() {
                           )}
                         </div>
 
-                        {tieneFlyer ? (
-                          <div className="relative aspect-[3/4] max-h-52 rounded-xl overflow-hidden bg-black border border-slate-800 shadow group">
-                            <img loading="lazy" src={promo.flyer_url} alt={s.nombre} className="w-full h-full object-cover" />
-                            <label className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white font-bold cursor-pointer text-xs">
-                              <Upload className="w-5 h-5 text-[#F7B52C]" />
-                              <span>Cambiar Flyer</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                disabled={estaSubiendo}
-                                onChange={(e) => handleSubirFlyerSede(s.nombre, e.target.files?.[0])}
-                                className="hidden"
-                              />
-                            </label>
-                          </div>
-                        ) : (
-                          <label className="aspect-[3/4] max-h-52 rounded-xl border-2 border-dashed border-slate-800 hover:border-[#00B4A7] bg-slate-950/40 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-white transition-all cursor-pointer p-4 text-center">
-                            {estaSubiendo ? <Loader2 className="w-6 h-6 animate-spin text-[#00B4A7]" /> : <Upload className="w-6 h-6 text-[#F7B52C]" />}
-                            <span className="font-bold text-xs text-white">
-                              {estaSubiendo ? 'Subiendo...' : '+ Subir Flyer de Sede'}
-                            </span>
-                            <span className="text-[10px] text-slate-500">Desde tus archivos</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              disabled={estaSubiendo}
-                              onChange={(e) => handleSubirFlyerSede(s.nombre, e.target.files?.[0])}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
-                      </div>
-
-                      {tieneFlyer && (
-                        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
-                          <label className="text-[#00B4A7] hover:underline font-bold flex items-center gap-1 cursor-pointer">
-                            <Upload className="w-3 h-3" /> Subir otro
-                            <input
-                              type="file"
-                              accept="image/*"
-                              disabled={estaSubiendo}
-                              onChange={(e) => handleSubirFlyerSede(s.nombre, e.target.files?.[0])}
-                              className="hidden"
-                            />
-                          </label>
-
-                          <button
-                            type="button"
-                            onClick={() => handleEliminarBannerSede(s.nombre)}
-                            className="text-red-400 hover:text-red-300 font-bold flex items-center gap-1 cursor-pointer"
-                          >
-                            <Trash2 className="w-3 h-3" /> Quitar
-                          </button>
+                        <div className="flex gap-2">
+                          {renderSlotFlyer('basquet', 'Básquet')}
+                          {renderSlotFlyer('voley', 'Vóley')}
                         </div>
-                      )}
+                      </div>
                     </div>
                   );
                 })}

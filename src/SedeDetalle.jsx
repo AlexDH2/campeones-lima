@@ -51,10 +51,15 @@ export default function SedeDetalle() {
     return infoSede ? normalizarPagos(infoSede) : null;
   }, [sede, metodosPagoConfig]);
 
-  const bannerPromocionalSede = useMemo(() => {
-    if (!sede || !bannerPromocionesSedes || typeof bannerPromocionesSedes !== 'object') return null;
+  const bannersPromocionalesSede = useMemo(() => {
+    if (!sede || !bannerPromocionesSedes || typeof bannerPromocionesSedes !== 'object') return [];
     const b = bannerPromocionesSedes[sede.nombre];
-    return (b && b.activo !== false && b.flyer_url) ? b.flyer_url : null;
+    if (!b || b.activo === false) return [];
+    const flyers = [];
+    if (b.flyer_basquet_url) flyers.push(b.flyer_basquet_url);
+    if (b.flyer_voley_url) flyers.push(b.flyer_voley_url);
+    if (b.flyer_url) flyers.push(b.flyer_url); // Fallback general
+    return flyers;
   }, [sede, bannerPromocionesSedes]);
 
   const promocionesDeEstaSede = useMemo(() => {
@@ -179,7 +184,9 @@ export default function SedeDetalle() {
   };
 
   const enlaceMapa = sede.maps || sede.mapa || sede.mapa_url || '';
-  const flyerDeLaSede = bannerPromocionalSede || promocionesDeEstaSede.find(p => p.flyer_url)?.flyer_url || null;
+  const flyersDeLaSede = bannersPromocionalesSede.length > 0 
+    ? bannersPromocionalesSede 
+    : (promocionesDeEstaSede.find(p => p.flyer_url)?.flyer_url ? [promocionesDeEstaSede.find(p => p.flyer_url).flyer_url] : []);
 
   return (
     <div className="min-h-screen font-sans bg-[#040914] text-slate-100 relative overflow-hidden">
@@ -223,14 +230,16 @@ export default function SedeDetalle() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-hidden flex-1 min-h-0">
-              <div className="lg:col-span-5 flex flex-col items-center justify-center rounded-2xl bg-black/70 border-2 border-[#F7B52C]/40 p-2 overflow-hidden shadow-inner">
-                {flyerDeLaSede ? (
-                  <img loading="lazy" src={flyerDeLaSede}
-                    alt={`Flyer Promocional ${sede.nombre}`}
-                    className="w-full h-auto max-h-[45vh] lg:max-h-[65vh] object-contain rounded-xl shadow-2xl"
-                  />
+              <div className="lg:col-span-5 flex flex-col items-center justify-center rounded-2xl bg-black/70 border-2 border-[#F7B52C]/40 p-2 overflow-y-auto shadow-inner space-y-4">
+                {flyersDeLaSede.length > 0 ? (
+                  flyersDeLaSede.map((flyerUrl, idx) => (
+                    <img key={idx} loading="lazy" src={flyerUrl}
+                      alt={`Flyer Promocional ${sede.nombre} ${idx + 1}`}
+                      className="w-full h-auto max-h-[45vh] lg:max-h-[65vh] object-contain rounded-xl shadow-2xl"
+                    />
+                  ))
                 ) : (
-                  <div className="p-8 text-center space-y-3 text-slate-500">
+                  <div className="p-8 text-center space-y-3 text-slate-500 my-auto">
                     <ImageIcon className="w-12 h-12 text-[#F7B52C] mx-auto opacity-70" />
                     <p className="text-xs font-black text-white uppercase">Campaña Oficial {sede.nombre}</p>
                     <p className="text-[11px] text-slate-400">
