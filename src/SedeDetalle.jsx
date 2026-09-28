@@ -175,8 +175,9 @@ export default function SedeDetalle() {
   };
 
   const crearLinkWsTarjetaPromo = (promo) => {
+    const tituloLimpio = promo.titulo.replace(new RegExp(`\\s*-\\s*${sede.nombre}`, 'i'), '').trim();
     const texto = `¡Hola Campeones Lima! Deseo reclamar la siguiente promoción en la sede *${sede.nombre}*:%0A%0A` +
-      `🔥 *Promoción:* ${encodeURIComponent(promo.titulo)}%0A` +
+      `🔥 *Promoción:* ${encodeURIComponent(tituloLimpio)}%0A` +
       (promo.valor_beneficio ? `💰 *Inversión:* ${encodeURIComponent(promo.valor_beneficio)}%0A` : '') +
       (promo.descripcion ? `📋 *Detalle:* ${encodeURIComponent(promo.descripcion)}%0A` : '') +
       `%0A¿Cuáles son los pasos para realizar la inscripción con esta promo?`;
@@ -205,7 +206,7 @@ export default function SedeDetalle() {
           className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in select-none"
           onClick={(e) => { if (e.target === e.currentTarget) setModalPromosAbierto(false); }}
         >
-          <div className="bg-[#071527] border-2 border-[#F7B52C] w-full max-w-5xl rounded-3xl p-5 sm:p-7 space-y-4 shadow-2xl max-h-[94vh] flex flex-col">
+          <div className="bg-[#071527] border-2 border-[#F7B52C] w-full max-w-7xl rounded-3xl p-5 sm:p-7 space-y-4 shadow-2xl max-h-[94vh] flex flex-col">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-[#F7B52C]/15 text-[#F7B52C]">
@@ -230,11 +231,7 @@ export default function SedeDetalle() {
             </div>
 
             <div className={`grid grid-cols-1 gap-5 overflow-hidden flex-1 min-h-0 ${
-              flyersDeLaSede.length >= 2 
-                ? 'lg:grid-cols-12' 
-                : flyersDeLaSede.length === 1 
-                  ? 'lg:grid-cols-12' 
-                  : 'lg:grid-cols-1'
+              flyersDeLaSede.length > 0 ? 'lg:grid-cols-12' : 'lg:grid-cols-1'
             }`}>
               
               {/* COLUMNA IZQUIERDA (Imagen 1) */}
@@ -249,7 +246,7 @@ export default function SedeDetalle() {
                 </div>
               )}
 
-              {/* COLUMNA CENTRAL O DERECHA (Lista de Promociones) */}
+              {/* COLUMNA CENTRAL (Lista de Promociones) */}
               <div className={`flex flex-col overflow-y-auto space-y-3 pr-1 order-2 ${
                 flyersDeLaSede.length >= 2 
                   ? 'lg:col-span-4' 
@@ -267,12 +264,12 @@ export default function SedeDetalle() {
                   promocionesDeEstaSede.map((promo) => (
                     <div 
                       key={promo.id} 
-                      className="p-4 rounded-2xl bg-[#040914] border-2 border-slate-800 hover:border-[#F7B52C]/70 transition-all flex flex-col sm:flex-row gap-3.5 justify-between items-start sm:items-center shadow-lg"
+                      className="w-full max-w-[470px] mx-auto p-4 rounded-2xl bg-[#040914] border-2 border-slate-800 hover:border-[#F7B52C]/70 transition-all flex flex-col sm:flex-row gap-3.5 justify-between items-start sm:items-center shadow-lg"
                     >
                       <div className="space-y-1.5 flex-1 pr-2 text-left">
                         <div className="flex flex-wrap items-center gap-2">
                           <h4 className="text-xs sm:text-sm font-black uppercase text-white tracking-wide">
-                            {promo.titulo}
+                            {promo.titulo.replace(new RegExp(`\\s*-\\s*${sede.nombre}`, 'i'), '').trim()}
                           </h4>
                           {promo.valor_beneficio && (
                             <span className="text-[11px] font-mono font-black px-2 py-0.5 rounded bg-[#F7B52C] text-slate-950 shadow-sm">
@@ -282,7 +279,7 @@ export default function SedeDetalle() {
                         </div>
 
                         {promo.descripcion && (
-                          <p className="text-xs text-slate-300 leading-relaxed">{promo.descripcion}</p>
+                          <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{promo.descripcion}</p>
                         )}
 
                         <div className="flex items-center gap-2 pt-1 text-[10px] font-mono">
@@ -301,16 +298,16 @@ export default function SedeDetalle() {
                         href={crearLinkWsTarjetaPromo(promo)}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[#F7B52C] hover:bg-[#ffc247] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#F7B52C]/25 transition-all transform hover:scale-105 shrink-0 cursor-pointer"
+                        title="Reclamar Promoción por WhatsApp"
+                        className="p-3.5 sm:p-4 rounded-xl bg-[#25D366] hover:bg-[#20b858] text-white flex items-center justify-center shadow-lg shadow-[#25D366]/30 transition-all transform hover:scale-110 hover:-translate-y-1 shrink-0 cursor-pointer"
                       >
-                        <Phone className="w-4 h-4 fill-slate-950" />
-                        <span>RECLAMAR PROMO</span>
+                        <Phone className="w-5 h-5 fill-current" />
                       </a>
                     </div>
                   ))
                 )}
               </div>
-
+              
               {/* COLUMNA DERECHA (Imagen 2) */}
               {flyersDeLaSede.length >= 2 && (
                 <div className="flex flex-col items-center justify-center rounded-2xl bg-black/70 border-2 border-[#F7B52C]/40 p-2 overflow-y-auto shadow-inner order-3 lg:col-span-4">

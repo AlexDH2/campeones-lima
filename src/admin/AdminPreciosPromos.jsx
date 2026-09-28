@@ -797,7 +797,7 @@ export default function AdminPreciosPromos() {
                       </div>
 
                       {p.descripcion && (
-                        <p className="text-slate-300 text-[11px] line-clamp-2">{p.descripcion}</p>
+                        <p className="text-slate-300 text-[11px] line-clamp-2 whitespace-pre-line">{p.descripcion}</p>
                       )}
 
                       {p.sede && (
