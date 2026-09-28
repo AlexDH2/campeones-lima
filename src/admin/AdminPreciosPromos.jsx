@@ -511,6 +511,7 @@ export default function AdminPreciosPromos() {
               {sedes
                 .filter(s => filtroSedeAdmin === 'TODAS' || s.nombre === filtroSedeAdmin)
                 .map((s) => {
+                  const promo = bannersSedes[s.nombre] || {};
                   const tieneAlgunFlyer = Boolean(promo.flyer_url || promo.flyer_basquet_url || promo.flyer_voley_url);
                   const esActivo = promo.activo !== false && tieneAlgunFlyer;
 
