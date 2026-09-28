@@ -229,27 +229,34 @@ export default function SedeDetalle() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-hidden flex-1 min-h-0">
-              <div className="lg:col-span-5 flex flex-col items-center justify-center rounded-2xl bg-black/70 border-2 border-[#F7B52C]/40 p-2 overflow-y-auto shadow-inner space-y-4">
-                {flyersDeLaSede.length > 0 ? (
-                  flyersDeLaSede.map((flyerUrl, idx) => (
-                    <img key={idx} loading="lazy" src={flyerUrl}
-                      alt={`Flyer Promocional ${sede.nombre} ${idx + 1}`}
-                      className="w-full h-auto max-h-[45vh] lg:max-h-[65vh] object-contain rounded-xl shadow-2xl"
-                    />
-                  ))
-                ) : (
-                  <div className="p-8 text-center space-y-3 text-slate-500 my-auto">
-                    <ImageIcon className="w-12 h-12 text-[#F7B52C] mx-auto opacity-70" />
-                    <p className="text-xs font-black text-white uppercase">Campaña Oficial {sede.nombre}</p>
-                    <p className="text-[11px] text-slate-400">
-                      Consulta los precios y paquetes disponibles en el panel lateral.
-                    </p>
-                  </div>
-                )}
-              </div>
+            <div className={`grid grid-cols-1 gap-5 overflow-hidden flex-1 min-h-0 ${
+              flyersDeLaSede.length >= 2 
+                ? 'lg:grid-cols-12' 
+                : flyersDeLaSede.length === 1 
+                  ? 'lg:grid-cols-12' 
+                  : 'lg:grid-cols-1'
+            }`}>
+              
+              {/* COLUMNA IZQUIERDA (Imagen 1) */}
+              {flyersDeLaSede.length > 0 && (
+                <div className={`flex flex-col items-center justify-center rounded-2xl bg-black/70 border-2 border-[#F7B52C]/40 p-2 overflow-y-auto shadow-inner order-1 ${
+                  flyersDeLaSede.length >= 2 ? 'lg:col-span-4' : 'lg:col-span-5'
+                }`}>
+                  <img loading="lazy" src={flyersDeLaSede[0]}
+                    alt={`Flyer Promocional ${sede.nombre} 1`}
+                    className="w-full h-auto object-contain rounded-xl shadow-2xl"
+                  />
+                </div>
+              )}
 
-              <div className="lg:col-span-7 flex flex-col overflow-y-auto space-y-3 pr-1">
+              {/* COLUMNA CENTRAL O DERECHA (Lista de Promociones) */}
+              <div className={`flex flex-col overflow-y-auto space-y-3 pr-1 order-2 ${
+                flyersDeLaSede.length >= 2 
+                  ? 'lg:col-span-4' 
+                  : flyersDeLaSede.length === 1 
+                    ? 'lg:col-span-7' 
+                    : 'max-w-4xl mx-auto w-full'
+              }`}>
                 {promocionesDeEstaSede.length === 0 ? (
                   <div className="p-8 text-center bg-[#040914] rounded-2xl border border-dashed border-slate-800 text-slate-400 text-xs space-y-2 my-auto">
                     <Tag className="w-8 h-8 text-slate-600 mx-auto" />
@@ -303,6 +310,16 @@ export default function SedeDetalle() {
                   ))
                 )}
               </div>
+
+              {/* COLUMNA DERECHA (Imagen 2) */}
+              {flyersDeLaSede.length >= 2 && (
+                <div className="flex flex-col items-center justify-center rounded-2xl bg-black/70 border-2 border-[#F7B52C]/40 p-2 overflow-y-auto shadow-inner order-3 lg:col-span-4">
+                  <img loading="lazy" src={flyersDeLaSede[1]}
+                    alt={`Flyer Promocional ${sede.nombre} 2`}
+                    className="w-full h-auto object-contain rounded-xl shadow-2xl"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="pt-2 border-t border-slate-800 flex justify-end">
