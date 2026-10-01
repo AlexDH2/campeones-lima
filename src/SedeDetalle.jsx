@@ -189,6 +189,55 @@ export default function SedeDetalle() {
     ? bannersPromocionalesSede 
     : (promocionesDeEstaSede.find(p => p.flyer_url)?.flyer_url ? [promocionesDeEstaSede.find(p => p.flyer_url).flyer_url] : []);
 
+  const promosBasquet = promocionesDeEstaSede.filter(p => p.titulo.toLowerCase().includes('básquet') || p.titulo.toLowerCase().includes('basquet') || p.descripcion?.toLowerCase().includes('básquet') || p.descripcion?.toLowerCase().includes('basquet'));
+  const promosVoley = promocionesDeEstaSede.filter(p => !promosBasquet.includes(p) && (p.titulo.toLowerCase().includes('vóley') || p.titulo.toLowerCase().includes('voley') || p.descripcion?.toLowerCase().includes('vóley') || p.descripcion?.toLowerCase().includes('voley') || p.descripcion?.toLowerCase().includes('voleibol')));
+  const otrasPromos = promocionesDeEstaSede.filter(p => !promosBasquet.includes(p) && !promosVoley.includes(p));
+
+  const renderTarjetaPromo = (promo) => (
+    <div 
+      key={promo.id} 
+      className="w-full max-w-[470px] mx-auto p-4 rounded-2xl bg-[#040914] border-2 border-slate-800 hover:border-[#F7B52C]/70 transition-all flex flex-row gap-3.5 justify-between items-center shadow-lg"
+    >
+      <div className="space-y-1.5 flex-1 pr-2 text-left">
+        <div className="flex flex-wrap items-center gap-2">
+          <h4 className="text-xs sm:text-sm font-black uppercase text-white tracking-wide">
+            {promo.titulo.replace(new RegExp(`\\s*-\\s*${sede.nombre}`, 'i'), '').trim()}
+          </h4>
+          {promo.valor_beneficio && (
+            <span className="text-[11px] font-mono font-black px-2 py-0.5 rounded bg-[#F7B52C] text-slate-950 shadow-sm">
+              {promo.valor_beneficio}
+            </span>
+          )}
+        </div>
+
+        {promo.descripcion && (
+          <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{promo.descripcion}</p>
+        )}
+
+        <div className="flex items-center gap-2 pt-1 text-[10px] font-mono">
+          <span className="text-[#00B4A7] flex items-center gap-1 font-bold">
+            <Star className="w-3 h-3 fill-current" /> Campaña Oficial
+          </span>
+          {promo.valido_hasta && (
+            <span className="text-slate-400 flex items-center gap-1">
+              <Clock className="w-3 h-3" /> Hasta: {promo.valido_hasta}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <a
+        href={crearLinkWsTarjetaPromo(promo)}
+        target="_blank"
+        rel="noreferrer"
+        title="Reclamar Promoción por WhatsApp"
+        className="transition-all transform hover:scale-110 hover:-translate-y-1 shrink-0 cursor-pointer drop-shadow-lg"
+      >
+        <img src="/whatsapp.png" alt="Reclamar Promoción" className="w-11 h-11 sm:w-12 sm:h-12 object-contain drop-shadow-xl opacity-95 hover:opacity-100" />
+      </a>
+    </div>
+  );
+
   return (
     <div className="min-h-screen font-sans bg-[#040914] text-slate-100 relative overflow-hidden">
       <Navbar />
@@ -234,9 +283,9 @@ export default function SedeDetalle() {
               flyersDeLaSede.length > 0 ? 'lg:grid-cols-12' : 'lg:grid-cols-1'
             }`}>
               
-              {/* COLUMNA IZQUIERDA (Imagen 1) */}
+              {/* COLUMNA IZQUIERDA (Imagen 1) - Oculto en móviles */}
               {flyersDeLaSede.length > 0 && (
-                <div className={`flex flex-col items-center justify-center rounded-2xl bg-black/70 border-2 border-[#F7B52C]/40 p-2 overflow-y-auto shadow-inner order-1 ${
+                <div className={`hidden lg:flex flex-col items-center justify-center rounded-2xl bg-black/70 border-2 border-[#F7B52C]/40 p-2 overflow-y-auto shadow-inner order-1 ${
                   flyersDeLaSede.length >= 2 ? 'lg:col-span-4' : 'lg:col-span-5'
                 }`}>
                   <img loading="lazy" src={flyersDeLaSede[0]}
@@ -247,7 +296,7 @@ export default function SedeDetalle() {
               )}
 
               {/* COLUMNA CENTRAL (Lista de Promociones) */}
-              <div className={`flex flex-col overflow-y-auto space-y-3 pr-1 order-2 ${
+              <div className={`flex flex-col overflow-y-auto pr-1 order-2 ${
                 flyersDeLaSede.length >= 2 
                   ? 'lg:col-span-4' 
                   : flyersDeLaSede.length === 1 
@@ -261,56 +310,38 @@ export default function SedeDetalle() {
                     <p className="text-slate-500">Consulta nuestras tarifas regulares mensuales directamente con nosotros.</p>
                   </div>
                 ) : (
-                  promocionesDeEstaSede.map((promo) => (
-                    <div 
-                      key={promo.id} 
-                      className="w-full max-w-[470px] mx-auto p-4 rounded-2xl bg-[#040914] border-2 border-slate-800 hover:border-[#F7B52C]/70 transition-all flex flex-col sm:flex-row gap-3.5 justify-between items-start sm:items-center shadow-lg"
-                    >
-                      <div className="space-y-1.5 flex-1 pr-2 text-left">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="text-xs sm:text-sm font-black uppercase text-white tracking-wide">
-                            {promo.titulo.replace(new RegExp(`\\s*-\\s*${sede.nombre}`, 'i'), '').trim()}
-                          </h4>
-                          {promo.valor_beneficio && (
-                            <span className="text-[11px] font-mono font-black px-2 py-0.5 rounded bg-[#F7B52C] text-slate-950 shadow-sm">
-                              {promo.valor_beneficio}
-                            </span>
-                          )}
-                        </div>
-
-                        {promo.descripcion && (
-                          <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{promo.descripcion}</p>
-                        )}
-
-                        <div className="flex items-center gap-2 pt-1 text-[10px] font-mono">
-                          <span className="text-[#00B4A7] flex items-center gap-1 font-bold">
-                            <Star className="w-3 h-3 fill-current" /> Campaña Oficial
-                          </span>
-                          {promo.valido_hasta && (
-                            <span className="text-slate-400 flex items-center gap-1">
-                              <Clock className="w-3 h-3" /> Hasta: {promo.valido_hasta}
-                            </span>
-                          )}
-                        </div>
+                  <div className="space-y-6 pb-2">
+                    {promosBasquet.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="text-xs sm:text-sm font-black text-[#F7B52C] uppercase flex items-center justify-center gap-2 border-b border-[#F7B52C]/20 pb-2 mb-3">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#F7B52C] animate-pulse"/> Básquetbol
+                        </h4>
+                        {promosBasquet.map(renderTarjetaPromo)}
                       </div>
-
-                      <a
-                        href={crearLinkWsTarjetaPromo(promo)}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Reclamar Promoción por WhatsApp"
-                        className="p-3.5 sm:p-4 rounded-xl bg-[#25D366] hover:bg-[#20b858] text-white flex items-center justify-center shadow-lg shadow-[#25D366]/30 transition-all transform hover:scale-110 hover:-translate-y-1 shrink-0 cursor-pointer"
-                      >
-                        <Phone className="w-5 h-5 fill-current" />
-                      </a>
-                    </div>
-                  ))
+                    )}
+                    {promosVoley.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="text-xs sm:text-sm font-black text-[#00B4A7] uppercase flex items-center justify-center gap-2 border-b border-[#00B4A7]/20 pb-2 mb-3">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#00B4A7] animate-pulse"/> Voleibol
+                        </h4>
+                        {promosVoley.map(renderTarjetaPromo)}
+                      </div>
+                    )}
+                    {otrasPromos.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="text-xs sm:text-sm font-black text-slate-300 uppercase flex items-center justify-center gap-2 border-b border-slate-700/50 pb-2 mb-3">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400"/> Más Promociones
+                        </h4>
+                        {otrasPromos.map(renderTarjetaPromo)}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
               
-              {/* COLUMNA DERECHA (Imagen 2) */}
+              {/* COLUMNA DERECHA (Imagen 2) - Oculto en móviles */}
               {flyersDeLaSede.length >= 2 && (
-                <div className="flex flex-col items-center justify-center rounded-2xl bg-black/70 border-2 border-[#F7B52C]/40 p-2 overflow-y-auto shadow-inner order-3 lg:col-span-4">
+                <div className="hidden lg:flex flex-col items-center justify-center rounded-2xl bg-black/70 border-2 border-[#F7B52C]/40 p-2 overflow-y-auto shadow-inner order-3 lg:col-span-4">
                   <img loading="lazy" src={flyersDeLaSede[1]}
                     alt={`Flyer Promocional ${sede.nombre} 2`}
                     className="w-full h-auto object-contain rounded-xl shadow-2xl"
@@ -403,8 +434,8 @@ export default function SedeDetalle() {
             </div>
 
             {/* CLASE MODELO */}
-            <div className="w-full lg:w-auto border rounded-2xl p-4 sm:px-6 sm:py-4 shadow-xl flex flex-row lg:flex-col items-center justify-between lg:justify-center gap-4 bg-[#040914]/90 border-slate-800">
-              <div className="text-left lg:text-center">
+            <div className="w-full lg:w-auto border rounded-2xl p-4 sm:px-6 sm:py-4 shadow-xl flex flex-col sm:flex-row lg:flex-col items-center justify-center sm:justify-between lg:justify-center gap-3 sm:gap-4 bg-[#040914]/90 border-slate-800">
+              <div className="text-center sm:text-left lg:text-center flex-shrink-0">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
                   Clase Modelo
                 </span>
@@ -420,13 +451,13 @@ export default function SedeDetalle() {
                 aria-disabled={suspendida}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg transition-all whitespace-nowrap ${
+                className={`inline-flex w-full sm:w-auto justify-center items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-slate-950 font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-lg transition-all whitespace-nowrap ${
                   suspendida
                     ? 'bg-slate-600 cursor-not-allowed opacity-60'
                     : 'bg-gradient-to-r from-[#00B4A7] to-teal-400 hover:from-[#00c9ba] hover:to-teal-300 shadow-[#00B4A7]/25 cursor-pointer hover:-translate-y-0.5'
                 }`}
               >
-                <Send className="w-3.5 h-3.5" />
+                <img src="/whatsapp.png" alt="WhatsApp" className="w-5 h-5 object-contain" />
                 <span>{suspendida ? 'Clases suspendidas' : 'Reservar Clase'}</span>
               </a>
             </div>
@@ -633,8 +664,9 @@ export default function SedeDetalle() {
                         aria-disabled={suspendida}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-2.5 py-1.5 px-3 rounded-lg bg-[#00B4A7] text-slate-950 text-xs font-bold block"
+                        className="mt-2.5 py-1.5 px-3 rounded-lg bg-[#00B4A7] text-slate-950 text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-[#00c9ba] transition-colors"
                       >
+                        <img src="/whatsapp.png" alt="WhatsApp" className="w-3.5 h-3.5 object-contain" />
                         Inscribirme
                       </a>
                     </div>
@@ -651,8 +683,9 @@ export default function SedeDetalle() {
                           aria-disabled={suspendida}
                           target="_blank"
                           rel="noreferrer"
-                          className="mt-2.5 py-1.5 px-3 rounded-lg bg-[#F7B52C] text-slate-950 text-xs font-black block"
+                          className="mt-2.5 py-1.5 px-3 rounded-lg bg-[#F7B52C] text-slate-950 text-xs font-black flex items-center justify-center gap-1.5 hover:bg-[#ffc247] transition-colors"
                         >
+                          <img src="/whatsapp.png" alt="WhatsApp" className="w-3.5 h-3.5 object-contain" />
                           Elegir X2
                         </a>
                       </div>
@@ -670,8 +703,9 @@ export default function SedeDetalle() {
                           aria-disabled={suspendida}
                           target="_blank"
                           rel="noreferrer"
-                          className="mt-2.5 py-1.5 px-3 rounded-lg bg-[#00B4A7] text-slate-950 text-xs font-black block"
+                          className="mt-2.5 py-1.5 px-3 rounded-lg bg-[#00B4A7] text-slate-950 text-xs font-black flex items-center justify-center gap-1.5 hover:bg-[#00c9ba] transition-colors"
                         >
+                          <img src="/whatsapp.png" alt="WhatsApp" className="w-3.5 h-3.5 object-contain" />
                           Elegir X2 + U
                         </a>
                       </div>
