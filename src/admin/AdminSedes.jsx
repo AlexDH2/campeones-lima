@@ -312,7 +312,7 @@ export default function AdminSedes() {
     setFormSede(prev => ({
       ...prev,
       imagenes: nuevasFotos,
-      foto_principal: esPrimera || !prev.foto_principal ? data.publicUrl : prev.foto_principal
+      foto_principal: esPrimera || !prev.foto_principal ? publicUrl : prev.foto_principal
     }));
   };
 
