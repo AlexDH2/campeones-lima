@@ -269,17 +269,24 @@ export default function AdminInicio() {
 
   const handleAgregarVideo = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!nuevoVideoUrl.trim()) return mostrarToast("Ingresa el enlace de YouTube.", "error");
+    if (!nuevoVideoUrl.trim()) return mostrarToast("Ingresa el enlace del video.", "error");
     
     const enlaceLimpio = nuevoVideoUrl.trim();
     const tituloFinal = nuevoVideoTitulo.trim() || 'Video Oficial Campeones Lima';
+
+    let redDetectada = 'Video';
+    const urlMinuscula = enlaceLimpio.toLowerCase();
+    if (urlMinuscula.includes('youtube.com') || urlMinuscula.includes('youtu.be')) redDetectada = 'YouTube';
+    else if (urlMinuscula.includes('tiktok.com')) redDetectada = 'TikTok';
+    else if (urlMinuscula.includes('instagram.com')) redDetectada = 'Instagram';
+    else if (urlMinuscula.includes('facebook.com') || urlMinuscula.includes('fb.watch')) redDetectada = 'Facebook';
 
     const nuevoItem = { 
       id: Date.now(), 
       url: enlaceLimpio, 
       enlace: enlaceLimpio, 
       titulo: tituloFinal, 
-      red: 'YouTube' 
+      red: redDetectada 
     };
 
     const nuevaLista = [...videos, nuevoItem];
@@ -610,9 +617,9 @@ export default function AdminInicio() {
       <div className="p-5 sm:p-6 bg-[#040914] border border-slate-800 rounded-2xl space-y-5">
         <div className="border-b border-slate-800 pb-3">
           <h3 className="text-sm font-black text-white flex items-center gap-2">
-            <Video className="w-4 h-4 text-red-500" /> Videos de YouTube ({videos.length})
+            <Video className="w-4 h-4 text-cyan-400" /> Videos Destacados ({videos.length})
           </h3>
-          <p className="text-[11px] text-slate-400">Agrega enlaces de videos o Shorts oficiales y previsualízalos aquí mismo.</p>
+          <p className="text-[11px] text-slate-400">Agrega enlaces de videos oficiales (YouTube, TikTok, Instagram, Facebook).</p>
         </div>
 
         <div className="grid sm:grid-cols-3 gap-2.5 max-w-2xl">
@@ -625,7 +632,7 @@ export default function AdminInicio() {
           />
           <input
             type="text"
-            placeholder="https://youtube.com/watch?v=... o shorts/..."
+            placeholder="Enlace del video (YouTube, TikTok, Instagram...)"
             value={nuevoVideoUrl}
             onChange={e => setNuevoVideoUrl(e.target.value)}
             className="sm:col-span-1 bg-[#071527] border border-slate-800 p-2.5 rounded-xl text-white text-xs font-mono"
@@ -651,6 +658,14 @@ export default function AdminInicio() {
               const tituloReal = (typeof v === 'object' && (v?.titulo || v?.title)) || `Video ${i + 1}`;
               const idYt = obtenerIdYouTube(urlReal);
 
+              let redVisual = 'Video';
+              const urlMinuscula = urlReal.toLowerCase();
+              if (urlMinuscula.includes('youtube.com') || urlMinuscula.includes('youtu.be')) redVisual = 'YouTube';
+              else if (urlMinuscula.includes('tiktok.com')) redVisual = 'TikTok';
+              else if (urlMinuscula.includes('instagram.com')) redVisual = 'Instagram';
+              else if (urlMinuscula.includes('facebook.com') || urlMinuscula.includes('fb.watch')) redVisual = 'Facebook';
+              else if (typeof v === 'object' && v.red) redVisual = v.red;
+
               return (
                 <div 
                   key={v.id || i} 
@@ -658,8 +673,14 @@ export default function AdminInicio() {
                 >
                   <div className="space-y-2.5">
                     <div className="flex justify-between items-start gap-2">
-                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-red-600/20 text-red-400 font-mono">
-                        YouTube
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded font-mono ${
+                        redVisual === 'YouTube' ? 'bg-red-600/20 text-red-400' : 
+                        redVisual === 'TikTok' ? 'bg-zinc-800/80 text-zinc-300' :
+                        redVisual === 'Instagram' ? 'bg-pink-600/20 text-pink-400' :
+                        redVisual === 'Facebook' ? 'bg-blue-600/20 text-blue-400' :
+                        'bg-cyan-600/20 text-cyan-400'
+                      }`}>
+                        {redVisual}
                       </span>
                       <button
                         type="button"
@@ -700,7 +721,7 @@ export default function AdminInicio() {
                     rel="noreferrer"
                     className="w-full py-2 bg-[#040914] hover:bg-slate-800 text-slate-300 hover:text-white font-bold text-[11px] rounded-xl flex items-center justify-center gap-1.5 border border-slate-700 transition-colors"
                   >
-                    <span>Abrir en YouTube</span>
+                    <span>Abrir en {redVisual}</span>
                     <ExternalLink className="w-3 h-3 text-[#00B4A7]" />
                   </a>
                 </div>

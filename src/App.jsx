@@ -1,5 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { InstagramEmbed, TikTokEmbed, FacebookEmbed, YouTubeEmbed } from 'react-social-media-embed';
 import { 
   ShieldCheck, 
   MapPin, 
@@ -100,6 +101,89 @@ function obtenerEmbedVideo(url) {
   }
 
   return null;
+}
+
+function VideoCard({ video }) {
+  const [mostrarEmbed, setMostrarEmbed] = useState(false);
+  
+  const urlReal = typeof video === 'string' ? video : (video.enlace || video.url || video.link || "");
+  const embedInfo = obtenerEmbedVideo(urlReal);
+  const tituloReal = (typeof video === 'object' && (video.titulo || video.title)) || "Video Oficial";
+  const redReal = (typeof video === 'object' && video.red) || "Video";
+  const usuarioReal = (typeof video === 'object' && video.usuario) || "@campeoneslima_";
+
+  const urlMin = urlReal.toLowerCase();
+  const isInstagram = urlMin.includes('instagram.com');
+  const isTikTok = urlMin.includes('tiktok.com');
+  const isFacebook = urlMin.includes('facebook.com') || urlMin.includes('fb.watch');
+  const usaEmbedLibrary = isInstagram || isTikTok || isFacebook;
+
+  return (
+    <div className={`w-full max-w-[320px] rounded-3xl overflow-hidden border-2 border-slate-800 bg-[#071527] shadow-2xl relative flex flex-col justify-between group transition-all duration-300 ${mostrarEmbed && usaEmbedLibrary ? '' : 'aspect-[9/16]'}`}>
+      {embedInfo ? (
+        embedInfo.tipo === 'youtube' ? (
+          <div className="relative w-full h-full bg-black">
+            <iframe
+              src={embedInfo.embedUrl}
+              title={tituloReal}
+              className="w-full h-full border-0 rounded-3xl"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </div>
+        ) : (
+          <div className="relative w-full h-full bg-black">
+            <video
+              src={embedInfo.embedUrl}
+              autoPlay
+              muted
+              loop
+              playsInline
+              controls
+              className="w-full h-full object-cover rounded-3xl"
+            />
+          </div>
+        )
+      ) : mostrarEmbed && usaEmbedLibrary ? (
+        <div className="w-full bg-white flex items-center justify-center p-2">
+          {isInstagram && <InstagramEmbed url={urlReal} width="100%" />}
+          {isTikTok && <TikTokEmbed url={urlReal} width="100%" />}
+          {isFacebook && <FacebookEmbed url={urlReal} width="100%" />}
+        </div>
+      ) : (
+        <div className="p-6 flex flex-col justify-between h-full text-center bg-gradient-to-b from-[#0A233D] via-[#071527] to-[#040914] relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#00B4A7]/10 rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="flex justify-between items-center z-10">
+            <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-[#00B4A7] text-slate-950 font-bold">
+              {redReal}
+            </span>
+            <span className="text-[10px] font-mono text-[#F7B52C] font-bold">{usuarioReal}</span>
+          </div>
+
+          <div className="space-y-4 my-auto z-10">
+            <button
+              onClick={() => usaEmbedLibrary ? setMostrarEmbed(true) : window.open(urlReal, '_blank')}
+              className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-[#F7B52C] to-[#e6a524] text-slate-950 flex items-center justify-center shadow-xl shadow-[#F7B52C]/20 hover:scale-110 transition-transform cursor-pointer"
+            >
+              <Play className="w-8 h-8 fill-current ml-1" />
+            </button>
+            <h3 className="text-base font-black text-white leading-snug px-2">
+              {tituloReal}
+            </h3>
+          </div>
+
+          <button
+            onClick={() => usaEmbedLibrary ? setMostrarEmbed(true) : window.open(urlReal, '_blank')}
+            className="w-full py-3 rounded-xl bg-[#F7B52C] hover:bg-[#ffc247] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all z-10 cursor-pointer active:scale-95"
+          >
+            <span>Ver en {redReal}</span>
+            <ExternalLink className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function PaginaInicio() {
@@ -547,82 +631,11 @@ function PaginaInicio() {
             </h2>
           </div>
 
+// (El componente de tarjeta se definirá fuera de PaginaInicio)
           <div className="flex flex-wrap justify-center gap-6">
-            {videosAdmin.map((video, idx) => {
-              const urlReal = typeof video === 'string' ? video : (video.enlace || video.url || video.link || "");
-              const embedInfo = obtenerEmbedVideo(urlReal);
-              const tituloReal = (typeof video === 'object' && (video.titulo || video.title)) || "Video Oficial";
-              const redReal = (typeof video === 'object' && video.red) || "Video";
-              const usuarioReal = (typeof video === 'object' && video.usuario) || "@campeoneslima_";
-
-              return (
-                <div 
-                  key={idx} 
-                  className="w-full max-w-[320px] aspect-[9/16] rounded-3xl overflow-hidden border-2 border-slate-800 bg-[#071527] shadow-2xl relative flex flex-col justify-between group"
-                >
-                  {embedInfo ? (
-                    embedInfo.tipo === 'youtube' ? (
-                      <div className="relative w-full h-full bg-black">
-                        <iframe
-                          src={embedInfo.embedUrl}
-                          title={tituloReal}
-                          className="w-full h-full border-0 rounded-3xl"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                          allowFullScreen
-                        />
-                      </div>
-                    ) : (
-                      <div className="relative w-full h-full bg-black">
-                        <video
-                          src={embedInfo.embedUrl}
-                          autoPlay
-                          muted
-                          loop
-                          playsInline
-                          controls
-                          className="w-full h-full object-cover rounded-3xl"
-                        />
-                      </div>
-                    )
-                  ) : (
-                    <div className="p-6 flex flex-col justify-between h-full text-center bg-gradient-to-b from-[#0A233D] via-[#071527] to-[#040914] relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-[#00B4A7]/10 rounded-full blur-2xl pointer-events-none" />
-                      
-                      <div className="flex justify-between items-center z-10">
-                        <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-[#00B4A7] text-slate-950 font-bold">
-                          {redReal}
-                        </span>
-                        <span className="text-[10px] font-mono text-[#F7B52C] font-bold">{usuarioReal}</span>
-                      </div>
-
-                      <div className="space-y-4 my-auto z-10">
-                        <a
-                          href={urlReal}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-[#F7B52C] to-[#e6a524] text-slate-950 flex items-center justify-center shadow-xl shadow-[#F7B52C]/20 group-hover:scale-110 transition-transform cursor-pointer"
-                        >
-                          <Play className="w-8 h-8 fill-current ml-1" />
-                        </a>
-                        <h3 className="text-base font-black text-white leading-snug px-2">
-                          {tituloReal}
-                        </h3>
-                      </div>
-
-                      <a
-                        href={urlReal}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="w-full py-3 rounded-xl bg-[#F7B52C] hover:bg-[#ffc247] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all z-10 cursor-pointer active:scale-95"
-                      >
-                        <span>Ver en {redReal}</span>
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {videosAdmin.map((video, idx) => (
+              <VideoCard key={idx} video={video} />
+            ))}
           </div>
         </section>
       )}
