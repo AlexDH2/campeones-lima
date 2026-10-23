@@ -168,8 +168,7 @@ export default function SedeDetalle() {
     const texto = `¡Hola Campeones Lima! Deseo inscribirme en el *${promoNombre}* para la sede *${sede.nombre}*:%0A%0A` +
       `🏆 *Deporte:* ${encodeURIComponent(turno.deporte)} (${encodeURIComponent(turno.categoria)})%0A` +
       `📅 *Días:* ${encodeURIComponent(turno.dias)}%0A` +
-      `⏰ *Horario:* ${encodeURIComponent(turno.horaInicio)} - ${encodeURIComponent(turno.horaFin)}%0A` +
-      (monto !== undefined && monto !== null && monto !== '' ? `💰 *Inversión:* ${mostrarPrecio(monto)}%0A` : '') +
+      `⏰ *Horario:* ${encodeURIComponent(turno.horaInicio)} - ${encodeURIComponent(turno.horaFin)}%0A%0A` +
       `¿Cuáles son las formas de pago de la matrícula/reserva?`;
     return `https://wa.me/${numeroWhatsappSede}?text=${texto}`;
   };

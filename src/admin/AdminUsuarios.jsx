@@ -227,6 +227,7 @@ export default function AdminUsuarios() {
                   <input
                     type={mostrarClave ? "text" : "password"}
                     required
+                    autoComplete="new-password"
                     placeholder="Mínimo 6 caracteres"
                     value={nuevaClave}
                     onChange={e => setNuevaClave(e.target.value)}
@@ -249,6 +250,7 @@ export default function AdminUsuarios() {
                   <input
                     type={mostrarClave ? "text" : "password"}
                     required
+                    autoComplete="new-password"
                     placeholder="Repite la nueva contraseña"
                     value={confirmarClave}
                     onChange={e => setConfirmarClave(e.target.value)}
