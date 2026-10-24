@@ -149,6 +149,17 @@ export default function AdminTrabaja() {
     }
   };
 
+  // Alternar estado activa/pausada
+  const handleToggleActiva = async (id, estadoActual) => {
+    const nuevoEstado = !estadoActual;
+    const { error } = await supabase.from('convocatorias').update({ activa: nuevoEstado }).eq('id', id);
+    if (error) mostrarToast('No se pudo guardar el cambio: ' + error.message, "error");
+    if (!error) {
+      setConvocatorias(convocatorias.map(c => c.id === id ? { ...c, activa: nuevoEstado } : c));
+      mostrarToast(nuevoEstado ? "Convocatoria activada." : "Convocatoria pausada.", "exito");
+    }
+  };
+
   // Alternar visibilidad de foto en vivo
   const handleToggleVisibilidadFoto = async (id, estadoActual) => {
     const nuevoEstado = !estadoActual;
@@ -170,6 +181,7 @@ export default function AdminTrabaja() {
         if (error) mostrarToast('No se pudo guardar el cambio: ' + error.message, "error");
         if (!error) {
           setConvocatorias(convocatorias.map(c => c.id === id ? { ...c, foto: null, foto_visible: false } : c));
+          if (editandoId === id) setFotoUrl('');
         }
       }
     });
@@ -193,6 +205,8 @@ export default function AdminTrabaja() {
     });
   };
 
+  const cantidadRequisitos = requisitosTexto.split('\n').map(r => r.trim()).filter(Boolean).length;
+
   if (errorCarga) return <div role="alert" className="p-6 text-red-300 space-y-3"><p>{errorCarga}</p><button type="button" onClick={() => window.location.reload()} className="underline">Reintentar carga</button></div>;
 
   if (cargando) {
@@ -214,18 +228,36 @@ export default function AdminTrabaja() {
             <Briefcase className="w-7 h-7 text-[#00B4A7]" /> Convocatorias & Trabaja con Nosotros
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Publica y edita vacantes de entrenadores, asistentes de cancha y coordinadores con fotos visibles u ocultas.
+            Publica, edita y gestiona las vacantes laborales para entrenadores, coordinadores y staff.
           </p>
         </div>
       </div>
 
       {/* FORMULARIO AGREGAR / EDITAR CONVOCATORIA */}
-      <div className={`bg-[#071527] border ${editandoId ? 'border-[#00B4A7]/60 ring-1 ring-[#00B4A7]/40' : 'border-slate-800'} p-6 sm:p-8 rounded-3xl space-y-5 shadow-xl transition-all`}>
+      <div className={`bg-[#071527] border ${editandoId ? 'border-[#00B4A7] ring-1 ring-[#00B4A7]/50 shadow-[#00B4A7]/10' : 'border-slate-800'} p-6 sm:p-8 rounded-3xl space-y-5 shadow-2xl transition-all`}>
+        
+        {/* BANNER INFORMATIVO EN MODO EDICIÓN */}
+        {editandoId && (
+          <div className="p-3.5 rounded-2xl bg-[#00B4A7]/15 border border-[#00B4A7]/40 flex items-center justify-between gap-3 text-xs text-cyan-200">
+            <div className="flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-[#00B4A7] shrink-0" />
+              <span>Estás editando: <strong className="text-white font-black">{nuevoPuesto || 'Sin título'}</strong></span>
+            </div>
+            <button
+              type="button"
+              onClick={cancelarEdicion}
+              className="text-xs font-bold text-slate-300 hover:text-white underline cursor-pointer shrink-0"
+            >
+              Cancelar y crear nueva
+            </button>
+          </div>
+        )}
+
         <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
           <h2 className="text-base font-black text-white flex items-center gap-2">
             {editandoId ? (
               <>
-                <Pencil className="w-5 h-5 text-[#00B4A7]" /> Editar Convocatoria
+                <Pencil className="w-5 h-5 text-[#00B4A7]" /> Editar Vacante Laboral
               </>
             ) : (
               <>
@@ -240,7 +272,7 @@ export default function AdminTrabaja() {
               className="text-xs text-slate-400 hover:text-white flex items-center gap-1 font-bold cursor-pointer transition-colors"
             >
               <X className="w-4 h-4" />
-              <span>Cancelar edición</span>
+              <span>Descartar cambios</span>
             </button>
           )}
         </div>
@@ -255,7 +287,7 @@ export default function AdminTrabaja() {
                 placeholder="Ej. Entrenador de Básquetbol Formativo"
                 value={nuevoPuesto}
                 onChange={e => setNuevoPuesto(e.target.value)}
-                className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-bold"
+                className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 rounded-xl text-white font-bold focus:outline-none transition-colors"
               />
             </div>
 
@@ -264,7 +296,7 @@ export default function AdminTrabaja() {
               <select
                 value={nuevaSede}
                 onChange={e => setNuevaSede(e.target.value)}
-                className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-bold cursor-pointer"
+                className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 rounded-xl text-white font-bold cursor-pointer focus:outline-none transition-colors"
               >
                 {sedes.map((s, i) => (
                   <option key={i} value={s.nombre}>{s.nombre}</option>
@@ -278,7 +310,7 @@ export default function AdminTrabaja() {
               <select
                 value={nuevaJornada}
                 onChange={e => setNuevaJornada(e.target.value)}
-                className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-bold cursor-pointer"
+                className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 rounded-xl text-white font-bold cursor-pointer focus:outline-none transition-colors"
               >
                 <option value="Tiempo Parcial">Tiempo Parcial (Tardes)</option>
                 <option value="Fines de Semana">Solo Fines de Semana (Sáb/Dom)</option>
@@ -288,56 +320,73 @@ export default function AdminTrabaja() {
           </div>
 
           <div>
-            <label className="block text-slate-300 font-bold mb-1">Descripción del Puesto:</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-slate-300 font-bold">Descripción y Horarios:</label>
+              <span className="text-[11px] text-slate-400">Puedes incluir emojis, días y turnos</span>
+            </div>
             <textarea
-              rows={2}
-              placeholder="Responsable de la preparación física y táctica de categorías formativas..."
+              rows={4}
+              placeholder="Ej: Estamos en búsqueda de ENTRENADOR(A) para formación de niños de 9 a 17 años.&#10;🗓️ Días: Martes y jueves.&#10;⏰ Horario: De 6:00 p. m. a 9:00 p. m."
               value={nuevaDesc}
               onChange={e => setNuevaDesc(e.target.value)}
-              className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white"
+              className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 rounded-xl text-white font-medium focus:outline-none leading-relaxed transition-colors"
             />
           </div>
 
           <div>
-            <label className="block text-slate-300 font-bold mb-1">Requisitos (Un requisito por línea):</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-slate-300 font-bold">Requisitos del Puesto:</label>
+              <span className="text-[11px] text-[#00B4A7] font-bold">
+                {cantidadRequisitos > 0 ? `✓ ${cantidadRequisitos} requisitos agregados` : 'Escribe un requisito por cada línea'}
+              </span>
+            </div>
             <textarea
-              rows={3}
+              rows={4}
               placeholder={`Experiencia mínima de 2 años en academias formativas\nEstudiante o egresado de Educación Física / Deportes\nDisponibilidad por las tardes`}
               value={requisitosTexto}
               onChange={e => setRequisitosTexto(e.target.value)}
-              className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-mono"
+              className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 rounded-xl text-white font-mono focus:outline-none leading-relaxed transition-colors"
             />
           </div>
 
-          {/* FOTO Y CONTROL DE VISIBILIDAD */}
-          <div className="p-4 rounded-2xl bg-[#040914] border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <label className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-4 py-2 rounded-xl text-xs cursor-pointer border border-slate-700 flex items-center gap-1.5 shadow">
-                <Upload className="w-3.5 h-3.5 text-[#00B4A7]" />
-                <span>{fotoUrl ? "✓ Foto seleccionada" : "Subir Foto Opcional del Puesto"}</span>
-                <input type="file" accept="image/*" onChange={handleSubirFoto} className="hidden" />
+          {/* FOTO CON PREVISUALIZACIÓN REAL */}
+          <div className="p-4 rounded-2xl bg-[#040914] border border-slate-800 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                {fotoUrl ? (
+                  <div className="relative group w-20 h-14 rounded-xl overflow-hidden border border-slate-700 bg-black shrink-0">
+                    <img src={fotoUrl} alt="Vista previa" className="w-full h-full object-cover" />
+                  </div>
+                ) : null}
+
+                <div className="space-y-1">
+                  <label className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs cursor-pointer border border-slate-700 inline-flex items-center gap-1.5 shadow transition-colors">
+                    <Upload className="w-3.5 h-3.5 text-[#00B4A7]" />
+                    <span>{fotoUrl ? "Cambiar foto" : "Subir Foto del Puesto (Opcional)"}</span>
+                    <input type="file" accept="image/*" onChange={handleSubirFoto} className="hidden" />
+                  </label>
+                  {fotoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFotoUrl('')}
+                      className="block text-[11px] text-red-400 hover:underline cursor-pointer"
+                    >
+                      Quitar foto
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={fotoVisible}
+                  onChange={e => setFotoVisible(e.target.checked)}
+                  className="w-4 h-4 accent-[#00B4A7] cursor-pointer"
+                />
+                <span className="text-slate-300 font-bold">Mostrar foto en la web</span>
               </label>
-
-              {fotoUrl && (
-                <button
-                  type="button"
-                  onClick={() => setFotoUrl('')}
-                  className="text-xs text-red-400 hover:underline"
-                >
-                  Quitar foto
-                </button>
-              )}
             </div>
-
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={fotoVisible}
-                onChange={e => setFotoVisible(e.target.checked)}
-                className="w-4 h-4 accent-[#00B4A7]"
-              />
-              <span className="text-slate-300 font-bold">Mostrar foto en la web</span>
-            </label>
           </div>
 
           <div className="flex items-center justify-end gap-2.5 pt-2">
@@ -353,10 +402,10 @@ export default function AdminTrabaja() {
             <button
               type="submit"
               disabled={guardando}
-              className={`font-black px-6 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow transition-all ${
+              className={`font-black px-6 py-2.5 rounded-xl text-xs flex items-center gap-2 cursor-pointer shadow-lg transition-all active:scale-98 ${
                 editandoId 
-                  ? 'bg-[#F7B52C] hover:bg-[#ffc247] text-slate-950' 
-                  : 'bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950'
+                  ? 'bg-[#F7B52C] hover:bg-[#ffc247] text-slate-950 shadow-[#F7B52C]/20' 
+                  : 'bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950 shadow-[#00B4A7]/20'
               }`}
             >
               {guardando ? (
@@ -374,91 +423,151 @@ export default function AdminTrabaja() {
 
       {/* LISTADO DE CONVOCATORIAS PUBLICADAS */}
       <div className="space-y-4">
-        <h2 className="text-base font-black text-white">Convocatorias Activas ({convocatorias.length})</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-black text-white flex items-center gap-2">
+            <span>Convocatorias Activas</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold font-mono">
+              {convocatorias.length}
+            </span>
+          </h2>
+        </div>
 
         {convocatorias.length === 0 ? (
           <div className="p-12 text-center bg-[#071527] rounded-3xl border border-dashed border-slate-800 text-slate-500 text-xs">
-            No hay convocatorias activas en la base de datos.
+            No hay convocatorias registradas en la base de datos.
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 gap-4">
-            {convocatorias.map(c => (
-              <div 
-                key={c.id} 
-                className={`p-5 bg-[#071527] border ${editandoId === c.id ? 'border-[#00B4A7] ring-1 ring-[#00B4A7]' : 'border-slate-800'} rounded-3xl space-y-4 flex flex-col justify-between shadow-xl transition-all`}
-              >
-                <div>
-                  {c.foto && c.foto_visible !== false && (
-                    <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 mb-3 border border-slate-800">
-                      <img loading="lazy" src={c.foto} alt={c.puesto} className="w-full h-full object-cover" />
+            {convocatorias.map(c => {
+              const estaEditando = editandoId === c.id;
+              const estaActiva = c.activa !== false;
+
+              return (
+                <div 
+                  key={c.id} 
+                  className={`p-5 bg-[#071527] border ${estaEditando ? 'border-[#00B4A7] ring-2 ring-[#00B4A7]/40 shadow-xl shadow-[#00B4A7]/10' : 'border-slate-800'} rounded-3xl space-y-4 flex flex-col justify-between shadow-xl transition-all relative overflow-hidden`}
+                >
+                  {/* BADGE DE MODO EDITANDO */}
+                  {estaEditando && (
+                    <div className="absolute top-0 right-0 bg-[#00B4A7] text-slate-950 text-[10px] font-black uppercase px-3 py-1 rounded-bl-xl tracking-wider">
+                      Editando ahora
                     </div>
                   )}
 
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-start gap-2">
-                      <h3 className="font-bold text-white text-base leading-snug">{c.puesto}</h3>
-                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-[#F7B52C]/20 text-[#F7B52C] shrink-0">
-                        {c.tipo_jornada}
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#00B4A7] font-bold flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5" /> Sede: {c.sede}
-                    </p>
-                    {c.descripcion && <p className="text-xs text-slate-300 leading-relaxed pt-1">{c.descripcion}</p>}
-                  </div>
-                </div>
+                  <div className="space-y-3">
+                    {c.foto && c.foto_visible !== false && (
+                      <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 mb-3 border border-slate-800">
+                        <img loading="lazy" src={c.foto} alt={c.puesto} className="w-full h-full object-cover" />
+                      </div>
+                    )}
 
-                {/* CONTROLES: OCULTAR/MOSTRAR FOTO, QUITAR FOTO, EDITAR Y ELIMINAR */}
-                <div className="flex items-center justify-between pt-3 border-t border-slate-800 text-xs">
-                  {c.foto ? (
-                    <div className="flex items-center gap-2">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-start gap-2 pr-20">
+                        <h3 className="font-black text-white text-base leading-snug">{c.puesto}</h3>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-[#F7B52C]/20 text-[#F7B52C] border border-[#F7B52C]/30">
+                          {c.tipo_jornada}
+                        </span>
+                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
+                          estaActiva ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                        }`}>
+                          {estaActiva ? '● Activa en web' : '○ Pausada'}
+                        </span>
+                        <span className="text-xs text-[#00B4A7] font-bold flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5" /> Sede: {c.sede}
+                        </span>
+                      </div>
+
+                      {c.descripcion && (
+                        <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line pt-1 bg-[#040914]/60 p-3 rounded-2xl border border-slate-800/80">
+                          {c.descripcion}
+                        </p>
+                      )}
+
+                      {/* REQUISITOS VISIBLES EN LA TARJETA */}
+                      {c.requisitos && c.requisitos.length > 0 && (
+                        <div className="pt-2 space-y-1.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                            Requisitos ({c.requisitos.length}):
+                          </span>
+                          <ul className="space-y-1">
+                            {c.requisitos.map((req, idx) => (
+                              <li key={idx} className="text-[11px] text-slate-300 flex items-start gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-[#00B4A7] shrink-0 mt-0.5" />
+                                <span className="leading-snug">{req}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* CONTROLES INFERIORES */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-800 text-xs">
+                    {c.foto ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleVisibilidadFoto(c.id, c.foto_visible !== false)}
+                          className={`p-1.5 rounded-xl border flex items-center gap-1 font-bold cursor-pointer transition-colors ${
+                            c.foto_visible !== false ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-slate-400 border-slate-700 bg-slate-800/40'
+                          }`}
+                          title="Ocultar o mostrar foto"
+                        >
+                          {c.foto_visible !== false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                          <span className="text-[10px]">{c.foto_visible !== false ? 'Foto visible' : 'Foto oculta'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleQuitarFoto(c.id)}
+                          className="text-[10px] text-red-400 hover:underline cursor-pointer"
+                        >
+                          Quitar foto
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-500 font-bold font-mono">Sin foto</span>
+                    )}
+
+                    <div className="flex items-center gap-2 ml-auto">
                       <button
                         type="button"
-                        onClick={() => handleToggleVisibilidadFoto(c.id, c.foto_visible !== false)}
-                        className={`p-1.5 rounded-lg border flex items-center gap-1 font-bold ${
-                          c.foto_visible !== false ? 'text-emerald-400 border-emerald-500/30' : 'text-slate-500 border-slate-700'
+                        onClick={() => handleToggleActiva(c.id, estaActiva)}
+                        className={`px-2 py-1 rounded-xl border text-[10px] font-bold cursor-pointer transition-colors ${
+                          estaActiva ? 'text-slate-300 border-slate-700 hover:bg-slate-800' : 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
                         }`}
-                        title="Ocultar o mostrar foto"
+                        title={estaActiva ? "Pausar vacante (ocultar de la web)" : "Activar vacante (mostrar en web)"}
                       >
-                        {c.foto_visible !== false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                        <span className="text-[10px]">{c.foto_visible !== false ? 'Visible' : 'Oculta'}</span>
+                        {estaActiva ? "Pausar" : "Reactivar"}
                       </button>
 
                       <button
                         type="button"
-                        onClick={() => handleQuitarFoto(c.id)}
-                        className="text-[10px] text-red-400 hover:underline"
+                        onClick={() => handleEditarConvocatoria(c)}
+                        className="px-2.5 py-1 rounded-xl bg-[#00B4A7]/15 hover:bg-[#00B4A7]/25 text-[#00B4A7] border border-[#00B4A7]/30 flex items-center gap-1 font-bold cursor-pointer transition-colors text-[11px]"
+                        title="Editar esta convocatoria"
                       >
-                        Quitar foto
+                        <Pencil className="w-3 h-3" />
+                        <span>Editar</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleEliminarConvocatoria(c.id)}
+                        className="p-1 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-1 font-bold cursor-pointer transition-colors"
+                        title="Eliminar convocatoria"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                  ) : (
-                    <span className="text-[10px] text-slate-500 font-bold">Sin foto adjunta</span>
-                  )}
-
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleEditarConvocatoria(c)}
-                      className="p-1.5 text-[#00B4A7] hover:text-[#00c9ba] flex items-center gap-1 font-bold cursor-pointer transition-colors"
-                      title="Editar esta convocatoria"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                      <span>Editar</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleEliminarConvocatoria(c.id)}
-                      className="p-1.5 text-red-400 hover:text-red-300 flex items-center gap-1 font-bold cursor-pointer transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Eliminar</span>
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
