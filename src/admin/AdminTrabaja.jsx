@@ -16,7 +16,9 @@ import {
   Clock, 
   CheckCircle2,
   Sparkles,
-  FileText
+  FileText,
+  Pencil,
+  X
 } from 'lucide-react';
 import { supabase } from '../supabase';
 
@@ -28,8 +30,9 @@ export default function AdminTrabaja() {
   const [errorCarga, setErrorCarga] = useState('');
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
+  const [editandoId, setEditandoId] = useState(null);
 
-  // Formulario nueva vacante
+  // Formulario vacante
   const [nuevoPuesto, setNuevoPuesto] = useState('');
   const [nuevaSede, setNuevaSede] = useState('');
   const [nuevaJornada, setNuevaJornada] = useState('Tiempo Parcial');
@@ -73,7 +76,32 @@ export default function AdminTrabaja() {
     setFotoUrl(publicUrl);
   };
 
-  const handleCrearConvocatoria = async (e) => {
+  const cancelarEdicion = () => {
+    setEditandoId(null);
+    setNuevoPuesto('');
+    setNuevaSede(sedes[0]?.nombre || 'Todas las Sedes');
+    setNuevaJornada('Tiempo Parcial');
+    setNuevaDesc('');
+    setRequisitosTexto('');
+    setFotoUrl('');
+    setFotoVisible(true);
+  };
+
+  const handleEditarConvocatoria = (c) => {
+    setEditandoId(c.id);
+    setNuevoPuesto(c.puesto || '');
+    setNuevaSede(c.sede || (sedes[0]?.nombre || 'Todas las Sedes'));
+    setNuevaJornada(c.tipo_jornada || 'Tiempo Parcial');
+    setNuevaDesc(c.descripcion || '');
+    setRequisitosTexto(Array.isArray(c.requisitos) ? c.requisitos.join('\n') : (c.requisitos || ''));
+    setFotoUrl(c.foto || '');
+    setFotoVisible(c.foto_visible !== false);
+
+    // Desplazamiento suave hacia el formulario
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleGuardarConvocatoria = async (e) => {
     e.preventDefault();
     if (!nuevoPuesto.trim()) return mostrarToast("Ingresa el título del puesto.", "error");
 
@@ -95,18 +123,27 @@ export default function AdminTrabaja() {
         activa: true
       };
 
-      const { data, error } = await supabase.from('convocatorias').insert([payload]).select();
+      if (editandoId) {
+        // ACTUALIZAR CONVOCATORIA EXISTENTE
+        const { error } = await supabase.from('convocatorias').update(payload).eq('id', editandoId);
+        if (error) throw error;
 
-      if (error) mostrarToast('No se pudo guardar el registro: ' + error.message, "error");
-      if (!error && data && data[0]) {
-        setConvocatorias([data[0], ...convocatorias]);
-        setNuevoPuesto('');
-        setNuevaDesc('');
-        setRequisitosTexto('');
-        setFotoUrl('');
-        setFotoVisible(true);
-        mostrarToast("Convocatoria publicada exitosamente en Supabase.", "exito");
+        setConvocatorias(convocatorias.map(c => c.id === editandoId ? { ...c, ...payload } : c));
+        cancelarEdicion();
+        mostrarToast("Convocatoria actualizada exitosamente.", "exito");
+      } else {
+        // CREAR NUEVA CONVOCATORIA
+        const { data, error } = await supabase.from('convocatorias').insert([payload]).select();
+        if (error) throw error;
+
+        if (data && data[0]) {
+          setConvocatorias([data[0], ...convocatorias]);
+          cancelarEdicion();
+          mostrarToast("Convocatoria publicada exitosamente en Supabase.", "exito");
+        }
       }
+    } catch (err) {
+      mostrarToast('No se pudo guardar la convocatoria: ' + (err.message || ''), "error");
     } finally {
       setGuardando(false);
     }
@@ -149,6 +186,7 @@ export default function AdminTrabaja() {
         if (error) mostrarToast('No se pudo guardar el cambio: ' + error.message, "error");
         if (!error) {
           setConvocatorias(convocatorias.filter(c => c.id !== id));
+          if (editandoId === id) cancelarEdicion();
           mostrarToast("Convocatoria eliminada definitivamente.", "exito");
         }
       }
@@ -176,20 +214,38 @@ export default function AdminTrabaja() {
             <Briefcase className="w-7 h-7 text-[#00B4A7]" /> Convocatorias & Trabaja con Nosotros
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Publica vacantes de entrenadores, asistentes de cancha y coordinadores con fotos visibles u ocultas.
+            Publica y edita vacantes de entrenadores, asistentes de cancha y coordinadores con fotos visibles u ocultas.
           </p>
         </div>
       </div>
 
-      {/* FORMULARIO AGREGAR CONVOCATORIA */}
-      <div className="bg-[#071527] border border-slate-800 p-6 sm:p-8 rounded-3xl space-y-5 shadow-xl">
-        <div className="border-b border-slate-800 pb-3">
+      {/* FORMULARIO AGREGAR / EDITAR CONVOCATORIA */}
+      <div className={`bg-[#071527] border ${editandoId ? 'border-[#00B4A7]/60 ring-1 ring-[#00B4A7]/40' : 'border-slate-800'} p-6 sm:p-8 rounded-3xl space-y-5 shadow-xl transition-all`}>
+        <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
           <h2 className="text-base font-black text-white flex items-center gap-2">
-            <Plus className="w-5 h-5 text-[#F7B52C]" /> Publicar Nueva Vacante Laboral
+            {editandoId ? (
+              <>
+                <Pencil className="w-5 h-5 text-[#00B4A7]" /> Editar Convocatoria
+              </>
+            ) : (
+              <>
+                <Plus className="w-5 h-5 text-[#F7B52C]" /> Publicar Nueva Vacante Laboral
+              </>
+            )}
           </h2>
+          {editandoId && (
+            <button
+              type="button"
+              onClick={cancelarEdicion}
+              className="text-xs text-slate-400 hover:text-white flex items-center gap-1 font-bold cursor-pointer transition-colors"
+            >
+              <X className="w-4 h-4" />
+              <span>Cancelar edición</span>
+            </button>
+          )}
         </div>
 
-        <form onSubmit={handleCrearConvocatoria} className="space-y-4 text-xs">
+        <form onSubmit={handleGuardarConvocatoria} className="space-y-4 text-xs">
           <div className="grid sm:grid-cols-3 gap-3">
             <div className="sm:col-span-1">
               <label className="block text-slate-300 font-bold mb-1">Título del Puesto *:</label>
@@ -284,14 +340,33 @@ export default function AdminTrabaja() {
             </label>
           </div>
 
-          <div className="flex justify-end pt-2">
+          <div className="flex items-center justify-end gap-2.5 pt-2">
+            {editandoId && (
+              <button
+                type="button"
+                onClick={cancelarEdicion}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+            )}
             <button
               type="submit"
               disabled={guardando}
-              className="bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950 font-black px-6 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow"
+              className={`font-black px-6 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow transition-all ${
+                editandoId 
+                  ? 'bg-[#F7B52C] hover:bg-[#ffc247] text-slate-950' 
+                  : 'bg-[#00B4A7] hover:bg-[#00c9ba] text-slate-950'
+              }`}
             >
-              {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              <span>Publicar Convocatoria</span>
+              {guardando ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : editandoId ? (
+                <Save className="w-4 h-4" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}
+              <span>{editandoId ? 'Guardar Cambios' : 'Publicar Convocatoria'}</span>
             </button>
           </div>
         </form>
@@ -308,7 +383,10 @@ export default function AdminTrabaja() {
         ) : (
           <div className="grid sm:grid-cols-2 gap-4">
             {convocatorias.map(c => (
-              <div key={c.id} className="p-5 bg-[#071527] border border-slate-800 rounded-3xl space-y-4 flex flex-col justify-between shadow-xl">
+              <div 
+                key={c.id} 
+                className={`p-5 bg-[#071527] border ${editandoId === c.id ? 'border-[#00B4A7] ring-1 ring-[#00B4A7]' : 'border-slate-800'} rounded-3xl space-y-4 flex flex-col justify-between shadow-xl transition-all`}
+              >
                 <div>
                   {c.foto && c.foto_visible !== false && (
                     <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 mb-3 border border-slate-800">
@@ -330,7 +408,7 @@ export default function AdminTrabaja() {
                   </div>
                 </div>
 
-                {/* CONTROLES: OCULTAR/MOSTRAR FOTO, QUITAR FOTO Y ELIMINAR */}
+                {/* CONTROLES: OCULTAR/MOSTRAR FOTO, QUITAR FOTO, EDITAR Y ELIMINAR */}
                 <div className="flex items-center justify-between pt-3 border-t border-slate-800 text-xs">
                   {c.foto ? (
                     <div className="flex items-center gap-2">
@@ -358,14 +436,26 @@ export default function AdminTrabaja() {
                     <span className="text-[10px] text-slate-500 font-bold">Sin foto adjunta</span>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => handleEliminarConvocatoria(c.id)}
-                    className="p-1.5 text-red-400 hover:text-red-300 flex items-center gap-1 font-bold cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Eliminar</span>
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleEditarConvocatoria(c)}
+                      className="p-1.5 text-[#00B4A7] hover:text-[#00c9ba] flex items-center gap-1 font-bold cursor-pointer transition-colors"
+                      title="Editar esta convocatoria"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      <span>Editar</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleEliminarConvocatoria(c.id)}
+                      className="p-1.5 text-red-400 hover:text-red-300 flex items-center gap-1 font-bold cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Eliminar</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
