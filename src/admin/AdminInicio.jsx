@@ -194,8 +194,12 @@ export default function AdminInicio() {
       const posFinal = { x: posX, y: posY };
       const nuevasPosiciones = {
         ...bannerPosiciones,
-        [bannerAEncuadrar.idx]: posFinal
+        [bannerAEncuadrar.idx]: posFinal,
+        [String(bannerAEncuadrar.idx)]: posFinal
       };
+      if (bannerAEncuadrar.url) {
+        nuevasPosiciones[bannerAEncuadrar.url] = posFinal;
+      }
 
       const guardadoOk = await guardar(supabase.from('configuracion_web').upsert({
         clave: 'banner_posiciones',
@@ -402,7 +406,7 @@ export default function AdminInicio() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {banners.map((b, idx) => {
               const url = typeof b === 'string' ? b : (b?.url || b?.imagen || "");
-              const pos = bannerPosiciones[idx] || bannerPosiciones[url] || { x: 50, y: 50 };
+              const pos = bannerPosiciones[idx] ?? bannerPosiciones[String(idx)] ?? bannerPosiciones[url] ?? { x: 50, y: 50 };
               const posX = normalizarCoordenada(pos?.x);
               const posY = normalizarCoordenada(pos?.y);
 

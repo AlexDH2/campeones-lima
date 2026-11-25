@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import * as XLSX from 'xlsx';
+import { Download, Users } from 'lucide-react';
 import { supabase } from '../supabase';
 
 export default function Postulaciones() {
@@ -26,6 +28,25 @@ export default function Postulaciones() {
     return () => { activo = false; };
   }, []);
 
+  const handleExportarExcel = () => {
+    if (!postulaciones || postulaciones.length === 0) return;
+    const datos = postulaciones.map((p, idx) => ({
+      "N°": idx + 1,
+      "Fecha": p.created_at ? new Date(p.created_at).toLocaleDateString('es-PE') : '',
+      "Postulante": p.nombre || '',
+      "Puesto": p.puesto || '',
+      "Teléfono / WhatsApp": p.telefono || '',
+      "Correo": p.email || '',
+      "Estado": p.estado || 'Recibido',
+      "Experiencia": p.experiencia || ''
+    }));
+
+    const hoja = XLSX.utils.json_to_sheet(datos);
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, hoja, "Postulaciones");
+    XLSX.writeFile(libro, `CampeonesLima_Postulaciones_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   async function prepararCv(postulacion) {
     setAbriendo(postulacion.id);
     setDocumento(null);
@@ -46,7 +67,23 @@ export default function Postulaciones() {
   }
 
   return <section className="space-y-4 border-t border-slate-800 pt-6">
-    <h2 className="text-xl font-black text-white">Postulaciones recibidas</h2>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <h2 className="text-xl font-black text-white flex items-center gap-2">
+        <Users className="w-5 h-5 text-[#00B4A7]" />
+        Postulaciones recibidas ({postulaciones.length})
+      </h2>
+      {postulaciones.length > 0 && (
+        <button
+          type="button"
+          onClick={handleExportarExcel}
+          className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow transition-all self-start sm:self-auto"
+          title="Descargar lista de postulantes en Excel"
+        >
+          <Download className="w-4 h-4" />
+          <span>Exportar a Excel</span>
+        </button>
+      )}
+    </div>
     {error && <p role="alert" className="text-red-300 text-sm">{error}</p>}
     {cargando ? <p role="status">Cargando postulaciones…</p> : postulaciones.length === 0 && !error ? <p>No hay postulaciones recibidas.</p> : null}
     {postulaciones.map(p => <article key={p.id} className="rounded-2xl border border-slate-800 bg-[#071527] p-4 space-y-2 text-sm">

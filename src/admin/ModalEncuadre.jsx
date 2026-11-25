@@ -212,10 +212,48 @@ export default function ModalEncuadre({
 
           {esHero && simularOverlay && (
             <>
+              {/* Degradados laterales y superiores idénticos a la web pública */}
               <div className="absolute inset-0 bg-gradient-to-r from-[#040813] via-[#040813]/85 lg:via-[#040813]/60 to-transparent pointer-events-none" />
               <div className="absolute inset-0 bg-gradient-to-t from-[#040813] via-transparent to-black/40 pointer-events-none" />
 
-              <div className="absolute inset-0 p-4 sm:p-7 flex flex-col justify-center text-left pointer-events-none max-w-sm sm:max-w-md">
+              {/* Simulación del Navbar superior */}
+              <div className="absolute top-0 left-0 right-0 h-7 sm:h-9 bg-[#040813]/70 border-b border-white/10 backdrop-blur-[2px] flex items-center justify-between px-3 pointer-events-none z-10">
+                <span className="text-[7px] sm:text-[8px] font-mono font-bold text-slate-400 uppercase tracking-widest">
+                  NAVBAR SUPERIOR
+                </span>
+                <span className="text-[7px] sm:text-[8px] font-mono text-[#F7B52C]/90">
+                  ZONA SUPERIOR
+                </span>
+              </div>
+
+              {/* Simulación del Escudo central que cuelga del Navbar (Zona tapada) */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none z-20 flex flex-col items-center">
+                <div 
+                  className="w-28 sm:w-36 h-14 sm:h-18 bg-gradient-to-b from-[#0a1428] via-[#070e1c] to-[#040813] border-b-2 border-[#00B4A7]/60 flex flex-col items-center justify-center pt-1 pb-2 shadow-2xl"
+                  style={{
+                    clipPath: 'polygon(0% 0%, 100% 0%, 82% 100%, 18% 100%)'
+                  }}
+                >
+                  <img 
+                    src="/logo.png" 
+                    alt="Escudo" 
+                    className="w-5 h-5 sm:w-6 sm:h-6 object-contain"
+                    onError={(e) => { e.target.src = '/logo.svg'; }}
+                  />
+                  <span className="text-[7px] sm:text-[8px] font-black uppercase text-white leading-none mt-0.5">
+                    CAMPEONES <span className="text-[#F7B52C]">LIMA</span>
+                  </span>
+                  <span className="text-[5px] sm:text-[6px] font-mono text-[#00B4A7] font-bold uppercase">
+                    ESCUDO WEB
+                  </span>
+                </div>
+                <span className="text-[7px] text-[#F7B52C] bg-black/85 px-1.5 py-0.5 rounded-full mt-0.5 font-mono border border-yellow-500/30 whitespace-nowrap shadow">
+                  Evitar caras bajo el escudo
+                </span>
+              </div>
+
+              {/* Textos del Hero a la izquierda */}
+              <div className="absolute inset-0 p-4 sm:p-7 flex flex-col justify-center text-left pointer-events-none max-w-sm sm:max-w-md z-10">
                 <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#071527]/90 border-l-2 border-[#F7B52C] text-[8px] sm:text-[9px] font-mono text-slate-100 font-bold mb-1.5 w-fit">
                   TEMPORADA 2026 · OFICIAL
                 </div>

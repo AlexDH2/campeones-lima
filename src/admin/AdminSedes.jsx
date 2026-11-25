@@ -91,6 +91,7 @@ export default function AdminSedes() {
     aviso_especial: ''
   });
 
+  const [pestañaModalSede, setPestañaModalSede] = useState('datos');
   const [turnoEnEdicionIdx, setTurnoEnEdicionIdx] = useState(null);
   const [formTurno, setFormTurno] = useState({
     deporte: 'Básquetbol',
@@ -107,7 +108,8 @@ export default function AdminSedes() {
     precio_mes: 180,
     precio_x2: 270,
     precio_x2_u: 340,
-    precio_clase: 20
+    precio_clase: 20,
+    cupos_estado: 'disponible'
   });
 
   const [modalEncuadreAbierto, setModalEncuadreAbierto] = useState(false);
@@ -254,6 +256,7 @@ export default function AdminSedes() {
 
   const abrirModalNuevaSede = () => {
     setSedeEnEdicion(null);
+    setPestañaModalSede('datos');
     setFiltroDeporteTurnos('TODOS');
     setFormSede({
       nombre: '',
@@ -274,6 +277,7 @@ export default function AdminSedes() {
 
   const abrirModalEditarSede = (sede) => {
     setSedeEnEdicion(sede);
+    setPestañaModalSede('datos');
     setFiltroDeporteTurnos('TODOS');
     let fotosArray = Array.isArray(sede.imagenes) ? [...sede.imagenes] : [];
     if (fotosArray.length === 0 && sede.foto_principal) fotosArray = [sede.foto_principal];
@@ -428,6 +432,7 @@ export default function AdminSedes() {
       precio_x3: null,
       precio_x3_u: null,
       precio_clase: precioValido(formTurno.precio_clase),
+      cupos_estado: formTurno.cupos_estado || 'disponible',
       activo: turnoEnEdicionIdx !== null ? (formSede.horarios[turnoEnEdicionIdx].activo !== false) : true
     };
 
@@ -455,7 +460,8 @@ export default function AdminSedes() {
       precio_mes: 180,
       precio_x2: 270,
       precio_x2_u: 340,
-      precio_clase: 20
+      precio_clase: 20,
+      cupos_estado: 'disponible'
     });
   };
 
@@ -483,7 +489,8 @@ export default function AdminSedes() {
       precio_mes: turno.precio_mes ?? '',
       precio_x2: turno.precio_x2 ?? '',
       precio_x2_u: turno.precio_x2_u ?? '',
-      precio_clase: turno.precio_clase ?? ''
+      precio_clase: turno.precio_clase ?? '',
+      cupos_estado: turno.cupos_estado || 'disponible'
     });
   };
 
@@ -508,6 +515,16 @@ export default function AdminSedes() {
     setFormSede(prev => {
       const nuevos = [...prev.horarios];
       nuevos[idx] = { ...nuevos[idx], activo: nuevos[idx].activo === false ? true : false };
+      return { ...prev, horarios: nuevos };
+    });
+  };
+
+  const handleToggleCuposTurno = (idx) => {
+    setFormSede(prev => {
+      const nuevos = [...prev.horarios];
+      const actual = nuevos[idx]?.cupos_estado || 'disponible';
+      const siguiente = actual === 'disponible' ? 'pocos' : actual === 'pocos' ? 'agotado' : 'disponible';
+      nuevos[idx] = { ...nuevos[idx], cupos_estado: siguiente };
       return { ...prev, horarios: nuevos };
     });
   };
@@ -840,74 +857,145 @@ export default function AdminSedes() {
               </button>
             </div>
 
+            {/* PESTAÑAS DEL MODAL */}
+            <div className="flex items-center gap-1 bg-[#040914] border-b border-slate-800 px-5 pt-2 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setPestañaModalSede('datos')}
+                className={`px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-t-xl transition-all cursor-pointer border-t-2 shrink-0 ${
+                  pestañaModalSede === 'datos'
+                    ? 'bg-[#071527] text-[#00B4A7] border-[#00B4A7]'
+                    : 'text-slate-400 hover:text-white border-transparent'
+                }`}
+              >
+                📍 Información & Ubicación
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPestañaModalSede('fotos')}
+                className={`px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-t-xl transition-all cursor-pointer border-t-2 shrink-0 ${
+                  pestañaModalSede === 'fotos'
+                    ? 'bg-[#071527] text-[#00B4A7] border-[#00B4A7]'
+                    : 'text-slate-400 hover:text-white border-transparent'
+                }`}
+              >
+                📷 Galería de Fotos ({formSede.imagenes.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPestañaModalSede('turnos')}
+                className={`px-4 py-2.5 text-xs font-black uppercase tracking-wider rounded-t-xl transition-all cursor-pointer border-t-2 shrink-0 ${
+                  pestañaModalSede === 'turnos'
+                    ? 'bg-[#071527] text-[#F7B52C] border-[#F7B52C]'
+                    : 'text-slate-400 hover:text-white border-transparent'
+                }`}
+              >
+                ⏰ Turnos & Horarios ({formSede.horarios.length})
+              </button>
+            </div>
+
             <form onSubmit={handleGuardarSede} className="p-5 sm:p-6 space-y-6 overflow-y-auto flex-1 text-xs">
               
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-300 font-bold mb-1">Nombre Oficial de la Sede *:</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej. Sede Liceo Naval"
-                    value={formSede.nombre}
-                    onChange={e => setFormSede({ ...formSede, nombre: e.target.value })}
-                    className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-bold"
-                  />
+              {/* PESTAÑA 1: DATOS Y UBICACIÓN */}
+              {pestañaModalSede === 'datos' && (
+                <div className="space-y-4 animate-in fade-in">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-slate-300 font-bold mb-1">Nombre Oficial de la Sede *:</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej. Sede Liceo Naval"
+                        value={formSede.nombre}
+                        onChange={e => setFormSede({ ...formSede, nombre: e.target.value })}
+                        className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-bold focus:border-[#00B4A7] focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-bold mb-1">Distrito (se guardará en minúsculas) *:</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej. san miguel / cercado de lima"
+                        value={formSede.distrito}
+                        onChange={e => setFormSede({ ...formSede, distrito: e.target.value })}
+                        className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-bold lowercase focus:border-[#00B4A7] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-slate-300 font-bold mb-1">Dirección Exacta:</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Av. Simón Bolívar 1234"
+                        value={formSede.direccion}
+                        onChange={e => setFormSede({ ...formSede, direccion: e.target.value })}
+                        className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white focus:border-[#00B4A7] focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-emerald-400 font-bold mb-1 flex items-center gap-1.5">
+                        <Phone className="w-3.5 h-3.5" /> WhatsApp de Atención de la Sede:
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ej. 987654321"
+                        value={formSede.telefono_contacto}
+                        onChange={e => setFormSede({ ...formSede, telefono_contacto: e.target.value })}
+                        className="w-full bg-[#040914] border border-emerald-500/40 p-2.5 rounded-xl text-white font-mono font-bold focus:border-emerald-400 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-slate-300 font-bold mb-1">Referencia de Llegada:</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Frente al parque, portón metálico azul"
+                        value={formSede.referencia || ''}
+                        onChange={e => setFormSede({ ...formSede, referencia: e.target.value })}
+                        className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white focus:border-[#00B4A7] focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-bold mb-1">Enlace de Google Maps:</label>
+                      <input
+                        type="url"
+                        placeholder="https://maps.app.goo.gl/..."
+                        value={formSede.maps || ''}
+                        onChange={e => setFormSede({ ...formSede, maps: e.target.value })}
+                        className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-mono focus:border-[#00B4A7] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[#F7B52C] font-bold mb-1 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Aviso Especial de la Sede (Opcional):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ej. Inscripciones solo los días 15, 20 y 25 de cada mes."
+                      value={formSede.aviso_especial}
+                      onChange={e => setFormSede({ ...formSede, aviso_especial: e.target.value })}
+                      className="w-full bg-[#040914] border border-[#F7B52C]/40 p-2.5 rounded-xl text-[#F7B52C] font-bold focus:border-[#F7B52C] focus:outline-none"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Este mensaje aparecerá resaltado al ver los detalles de la sede (útil para reglas únicas de inscripción).</p>
+                  </div>
                 </div>
+              )}
 
-                <div>
-                  <label className="block text-slate-300 font-bold mb-1">Distrito (se guardará en minúsculas) *:</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej. san miguel / cercado de lima"
-                    value={formSede.distrito}
-                    onChange={e => setFormSede({ ...formSede, distrito: e.target.value })}
-                    className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white font-bold lowercase"
-                  />
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-300 font-bold mb-1">Dirección Exacta:</label>
-                  <input
-                    type="text"
-                    value={formSede.direccion}
-                    onChange={e => setFormSede({ ...formSede, direccion: e.target.value })}
-                    className="w-full bg-[#040914] border border-slate-800 p-2.5 rounded-xl text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-emerald-400 font-bold mb-1 flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5" /> WhatsApp de Atención de la Sede:
-                  </label>
-                  <input
-                    type="text"
-                    value={formSede.telefono_contacto}
-                    onChange={e => setFormSede({ ...formSede, telefono_contacto: e.target.value })}
-                    className="w-full bg-[#040914] border border-emerald-500/40 p-2.5 rounded-xl text-white font-mono font-bold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[#F7B52C] font-bold mb-1 flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5" /> Aviso Especial de la Sede (Opcional):
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej. Inscripciones solo los días 15, 20 y 25 de cada mes."
-                  value={formSede.aviso_especial}
-                  onChange={e => setFormSede({ ...formSede, aviso_especial: e.target.value })}
-                  className="w-full bg-[#040914] border border-[#F7B52C]/40 p-2.5 rounded-xl text-[#F7B52C] font-bold"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">Este mensaje aparecerá resaltado al ver los detalles de la sede (útil para reglas únicas de inscripción).</p>
-              </div>
-
-              {/* GALERÍA DE FOTOS */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-[#040914] border border-slate-800 space-y-4">
+              {/* PESTAÑA 2: GALERÍA DE FOTOS */}
+              {pestañaModalSede === 'fotos' && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#040914] border border-slate-800 space-y-4 animate-in fade-in">
                 <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
                   <div>
                     <h4 className="font-black text-white text-xs flex items-center gap-2">
@@ -1017,10 +1105,12 @@ export default function AdminSedes() {
                     })}
                   </div>
                 )}
-              </div>
+                </div>
+              )}
 
-              {/* HORARIOS Y TARIFAS REGULARES */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-[#040914] border border-slate-800 space-y-4">
+              {/* PESTAÑA 3: HORARIOS Y TARIFAS REGULARES */}
+              {pestañaModalSede === 'turnos' && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#040914] border border-slate-800 space-y-4 animate-in fade-in">
                 
                 <div className="border-b border-slate-800/80 pb-2">
                   <h4 className="font-black text-white text-xs flex items-center gap-2">
@@ -1195,6 +1285,48 @@ export default function AdminSedes() {
                     </div>
                   </div>
 
+                  {/* ESTADO DE CUPOS / VACANTES */}
+                  <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
+                    <label className="text-slate-300 font-bold text-xs block">
+                      🎯 Estado de Vacantes / Cupos del Turno:
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormTurno({ ...formTurno, cupos_estado: 'disponible' })}
+                        className={`flex-1 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                          (formTurno.cupos_estado || 'disponible') === 'disponible'
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/60 ring-1 ring-emerald-500/60'
+                            : 'bg-[#040914] text-slate-400 border-slate-800 hover:text-white'
+                        }`}
+                      >
+                        🟢 Vacantes Libres
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormTurno({ ...formTurno, cupos_estado: 'pocos' })}
+                        className={`flex-1 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                          formTurno.cupos_estado === 'pocos'
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/60 ring-1 ring-amber-500/60'
+                            : 'bg-[#040914] text-slate-400 border-slate-800 hover:text-white'
+                        }`}
+                      >
+                        🟡 Pocos Cupos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormTurno({ ...formTurno, cupos_estado: 'agotado' })}
+                        className={`flex-1 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                          formTurno.cupos_estado === 'agotado'
+                            ? 'bg-red-500/20 text-red-400 border-red-500/60 ring-1 ring-red-500/60'
+                            : 'bg-[#040914] text-slate-400 border-slate-800 hover:text-white'
+                        }`}
+                      >
+                        🔴 Cupos Agotados
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="pt-2 flex justify-end">
                     <button
                       type="button"
@@ -1268,7 +1400,23 @@ export default function AdminSedes() {
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                            {/* Toggle rápido de cupos */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCuposTurno(idx)}
+                              className={`px-2 py-1 rounded text-[10px] font-black cursor-pointer transition-colors border ${
+                                t.cupos_estado === 'agotado'
+                                  ? 'bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30'
+                                  : t.cupos_estado === 'pocos'
+                                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                                  : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25'
+                              }`}
+                              title="Clic para cambiar: Disponible -> Pocos cupos -> Agotado"
+                            >
+                              {t.cupos_estado === 'agotado' ? '🔴 Agotado' : t.cupos_estado === 'pocos' ? '🟡 Pocos Cupos' : '🟢 Vacantes'}
+                            </button>
+
                             <button
                               type="button"
                               onClick={() => handleToggleActivoTurno(idx)}
@@ -1325,6 +1473,7 @@ export default function AdminSedes() {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* BOTONES GUARDAR SEDE */}
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">

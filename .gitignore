@@ -30,3 +30,5 @@ audit-eslint*.json
 
 .vercel
 .env*
+
+supabase/.temp/

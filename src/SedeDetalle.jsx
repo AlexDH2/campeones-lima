@@ -104,7 +104,7 @@ export default function SedeDetalle() {
     if (fotos.length <= 1) return;
     const temporizador = setInterval(() => {
       setIndiceActual((prev) => (prev + 1) % fotos.length);
-    }, 3500);
+    }, 5500);
     return () => clearInterval(temporizador);
   }, [fotos]);
 
@@ -129,6 +129,8 @@ export default function SedeDetalle() {
 
   const numeroWhatsappSede = whatsappNumero(sede.telefono_contacto);
   const suspendida = estaSuspendida(sede);
+  const esSedeFatima = Boolean(sede?.nombre?.toLowerCase().includes('fátima') || sede?.nombre?.toLowerCase().includes('fatima'));
+  const esSedeBuenasNuevas = Boolean(sede?.nombre?.toLowerCase().includes('buenas nuevas'));
   const horariosTodos = Array.isArray(sede.horarios) ? sede.horarios.filter(h => h.activo !== false) : [];
   const deportesDisponibles = Array.from(new Set(horariosTodos.map(h => h.deporte).filter(Boolean)));
   
@@ -165,10 +167,12 @@ export default function SedeDetalle() {
   )}`;
 
   const crearLinkWsPromo = (turno, promoNombre, monto) => {
+    const estadoNota = turno.cupos_estado === 'agotado' ? '%0A⚠️ *Nota:* Deseo consultar si hay lista de espera para este turno.' : '';
     const texto = `¡Hola Campeones Lima! Deseo inscribirme en el *${promoNombre}* para la sede *${sede.nombre}*:%0A%0A` +
       `🏆 *Deporte:* ${encodeURIComponent(turno.deporte)} (${encodeURIComponent(turno.categoria)})%0A` +
       `📅 *Días:* ${encodeURIComponent(turno.dias)}%0A` +
-      `⏰ *Horario:* ${encodeURIComponent(turno.horaInicio)} - ${encodeURIComponent(turno.horaFin)}%0A%0A` +
+      `⏰ *Horario:* ${encodeURIComponent(turno.horaInicio)} - ${encodeURIComponent(turno.horaFin)}%0A` +
+      estadoNota + `%0A` +
       `¿Cuáles son las formas de pago de la matrícula/reserva?`;
     return `https://wa.me/${numeroWhatsappSede}?text=${texto}`;
   };
@@ -212,6 +216,11 @@ export default function SedeDetalle() {
         {promo.descripcion && (
           <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{promo.descripcion}</p>
         )}
+
+        <div className="inline-flex items-center gap-1.5 text-[10px] text-amber-300 font-semibold bg-[#F7B52C]/10 border border-[#F7B52C]/20 px-2 py-0.5 rounded-md mt-0.5">
+          <span>📦</span>
+          <span>Incluye 2 meses, matrícula, uniforme y chaleco</span>
+        </div>
 
         <div className="flex items-center gap-2 pt-1 text-[10px] font-mono">
           <span className="text-[#00B4A7] flex items-center gap-1 font-bold">
@@ -267,6 +276,10 @@ export default function SedeDetalle() {
                   <p className="text-xs text-slate-400">
                     Packs especiales y campañas vigentes para la sede <strong className="text-[#F7B52C]">{sede.nombre}</strong>
                   </p>
+                  <div className="mt-2 inline-flex flex-wrap items-center gap-1.5 px-3 py-1 rounded-xl bg-[#F7B52C]/10 border border-[#F7B52C]/25 text-[11px] text-amber-200">
+                    <span className="font-bold text-[#F7B52C]">⚡ Promociones de Diciembre (válidas hasta el 11):</span>
+                    <span className="text-slate-200 font-medium">Incluyen 2 meses, matrícula, uniforme y chaleco de entrenamiento.</span>
+                  </div>
                 </div>
               </div>
               <button 
@@ -396,7 +409,7 @@ export default function SedeDetalle() {
 
                 {(sede.disciplinas || ['Básquetbol', 'Voleibol']).map((dep, idx) => (
                   <span key={idx} className="text-xs font-bold px-3 py-1 rounded-full bg-[#040914] text-[#F7B52C] border border-[#F7B52C]/30 flex items-center gap-1">
-                    <span>{dep.toLowerCase().includes('voley') ? '🏐' : '🏀'}</span>
+                    <span>{(dep.toLowerCase().includes('voley') || dep.toLowerCase().includes('volei')) ? '🏐' : '🏀'}</span>
                     <span>{dep}</span>
                   </span>
                 ))}
@@ -432,34 +445,48 @@ export default function SedeDetalle() {
               </div>
             </div>
 
-            {/* CLASE MODELO */}
-            <div className="w-full lg:w-auto border rounded-2xl p-4 sm:px-6 sm:py-4 shadow-xl flex flex-col sm:flex-row lg:flex-col items-center justify-center sm:justify-between lg:justify-center gap-3 sm:gap-4 bg-[#040914]/90 border-slate-800">
-              <div className="text-center sm:text-left lg:text-center flex-shrink-0">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
-                  Clase Modelo
-                </span>
-                <span className={`text-base sm:text-lg font-black font-mono inline-block mt-0.5 ${
-                  esGratis ? 'text-emerald-400' : 'text-[#F7B52C]'
-                }`}>
-                  {esGratis ? '¡TOTALMENTE GRATIS!' : mostrarPrecio(precioClaseModelo)}
-                </span>
+            {/* CLASE MODELO O AVISO DE APERTURA */}
+            {esSedeFatima || precioClaseModelo === null ? (
+              <div className="w-full lg:w-auto border rounded-2xl p-4 sm:px-6 sm:py-4 shadow-xl flex items-center justify-center sm:justify-start gap-3 bg-[#040914]/90 border-slate-800 text-left">
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                <div>
+                  <span className="text-[10px] font-black text-[#F7B52C] uppercase tracking-widest block">
+                    Temporada Verano 2027
+                  </span>
+                  <span className="text-xs text-slate-300 font-bold block mt-0.5">
+                    Sin clase de prueba disponible
+                  </span>
+                </div>
               </div>
+            ) : (
+              <div className="w-full lg:w-auto border rounded-2xl p-4 sm:px-6 sm:py-4 shadow-xl flex flex-col sm:flex-row lg:flex-col items-center justify-center sm:justify-between lg:justify-center gap-3 sm:gap-4 bg-[#040914]/90 border-slate-800">
+                <div className="text-center sm:text-left lg:text-center flex-shrink-0">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
+                    Clase Modelo
+                  </span>
+                  <span className={`text-base sm:text-lg font-black font-mono inline-block mt-0.5 ${
+                    esGratis ? 'text-emerald-400' : 'text-[#F7B52C]'
+                  }`}>
+                    {esGratis ? '¡TOTALMENTE GRATIS!' : mostrarPrecio(precioClaseModelo)}
+                  </span>
+                </div>
 
-              <a
-                href={suspendida ? undefined : linkClasePrueba}
-                aria-disabled={suspendida}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`inline-flex w-full sm:w-auto justify-center items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-slate-950 font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-lg transition-all whitespace-nowrap ${
-                  suspendida
-                    ? 'bg-slate-600 cursor-not-allowed opacity-60'
-                    : 'bg-gradient-to-r from-[#00B4A7] to-teal-400 hover:from-[#00c9ba] hover:to-teal-300 shadow-[#00B4A7]/25 cursor-pointer hover:-translate-y-0.5'
-                }`}
-              >
-                <img src="/whatsapp.png" alt="WhatsApp" className="w-5 h-5 object-contain" />
-                <span>{suspendida ? 'Clases suspendidas' : 'Reservar Clase'}</span>
-              </a>
-            </div>
+                <a
+                  href={suspendida ? undefined : linkClasePrueba}
+                  aria-disabled={suspendida}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`inline-flex w-full sm:w-auto justify-center items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-slate-950 font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-lg transition-all whitespace-nowrap ${
+                    suspendida
+                      ? 'bg-slate-600 cursor-not-allowed opacity-60'
+                      : 'bg-gradient-to-r from-[#00B4A7] to-teal-400 hover:from-[#00c9ba] hover:to-teal-300 shadow-[#00B4A7]/25 cursor-pointer hover:-translate-y-0.5'
+                  }`}
+                >
+                  <img src="/whatsapp.png" alt="WhatsApp" className="w-5 h-5 object-contain" />
+                  <span>{suspendida ? 'Clases suspendidas' : 'Reservar Clase'}</span>
+                </a>
+              </div>
+            )}
           </div>
 
           {/* CARRUSEL DE FOTOS */}
@@ -526,6 +553,55 @@ export default function SedeDetalle() {
             )}
           </div>
         </section>
+
+        {/* ESPACIO DEDICADO: GRAN CLASE MODELO 28 DE NOVIEMBRE (SEDE BUENAS NUEVAS) */}
+        {esSedeBuenasNuevas && (
+          <section className="relative rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-[#00B4A7]/15 via-[#071527] to-[#F7B52C]/15 border-2 border-[#F7B52C] shadow-[0_0_35px_rgba(247,181,44,0.2)] overflow-hidden space-y-4">
+            <div className="absolute top-0 right-0 -mr-10 -mt-10 w-48 h-48 bg-[#F7B52C]/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+              <div className="space-y-2 text-left">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F7B52C] text-slate-950 font-black text-xs uppercase tracking-wider shadow">
+                  <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
+                  <span>¡Gran Inauguración · Nueva Sede!</span>
+                </div>
+                <h3 className="text-2xl sm:text-3xl font-black uppercase italic tracking-tight text-white">
+                  Clase Modelo Especial · <span className="text-[#F7B52C]">28 de Noviembre</span>
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-200 max-w-xl leading-relaxed">
+                  Ven a conocer nuestras instalaciones techadas en el <strong>Colegio Buenas Nuevas</strong> (San Miguel - Prolongación Jr. Cuzco 165). Participa en los entrenamientos formativos de <strong>Básquetbol</strong> y <strong>Voleibol</strong> para niños y jóvenes de 6 a 17 años.
+                </p>
+                <div className="flex flex-wrap items-center gap-2.5 pt-1 text-xs">
+                  <span className="px-3 py-1 rounded-lg bg-[#040914] border border-slate-700 text-slate-300 font-mono font-bold flex items-center gap-1.5">
+                    📅 Sábado 28 de Noviembre
+                  </span>
+                  <span className="px-3 py-1 rounded-lg bg-[#040914] border border-slate-700 text-[#00B4A7] font-mono font-bold flex items-center gap-1.5">
+                    📍 San Miguel
+                  </span>
+                  <span className="px-3 py-1 rounded-lg bg-[#040914] border border-[#F7B52C]/40 text-[#F7B52C] font-mono font-black flex items-center gap-1.5 animate-pulse">
+                    ⚡ Cupos Limitados
+                  </span>
+                </div>
+              </div>
+
+              <div className="shrink-0 flex flex-col items-center sm:items-end justify-center gap-2">
+                <a
+                  href={`https://wa.me/${numeroWhatsappSede}?text=${encodeURIComponent(
+                    `¡Hola Campeones Lima! Deseo reservar un cupo para la *Gran Clase Modelo del 28 de Noviembre* en la nueva *Sede Colegio Buenas Nuevas* (San Miguel). ¿Cuáles son los horarios exactos por categoría?`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#F7B52C] to-[#ffc247] hover:from-[#ffc247] hover:to-[#F7B52C] text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-xl shadow-[#F7B52C]/30 hover:shadow-[#F7B52C]/50 transition-all transform hover:-translate-y-0.5 active:scale-95 cursor-pointer text-center"
+                >
+                  <img src="/whatsapp.png" alt="WhatsApp" className="w-5 h-5 object-contain" />
+                  <span>Inscribirme al 28 de Noviembre</span>
+                </a>
+                <span className="text-[10px] text-slate-400 font-medium text-center sm:text-right">
+                  Reserva inmediata vía WhatsApp oficial
+                </span>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* HORARIOS Y TARIFAS */}
         <section className="border-2 border-[#F7B52C]/50 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl bg-[#071527]">
@@ -598,8 +674,11 @@ export default function SedeDetalle() {
                   <Sparkles className="w-6 h-6 animate-pulse" />
                 </div>
                 <div>
+                  <h3 className="text-sm sm:text-base font-black uppercase text-white tracking-wide">
+                    ¡Packs y Promociones Oficiales de Verano!
+                  </h3>
                   <p className="text-xs text-slate-300 mt-0.5">
-                    Revisa el flyer oficial de temporada, uniformes y paquetes de 3 meses.
+                    Promociones de Diciembre válidas hasta el 11 · Incluyen 2 meses, matrícula, uniforme y chaleco de entrenamiento.
                   </p>
                 </div>
               </div>
@@ -618,7 +697,7 @@ export default function SedeDetalle() {
           {/* MATRIZ DE HORARIOS */}
           <div className="space-y-4">
             {horariosFiltrados.map((t, idx) => {
-              const esVoley = t.deporte?.toLowerCase().includes('voley');
+              const esVoley = t.deporte?.toLowerCase().includes('voley') || t.deporte?.toLowerCase().includes('volei');
               const tieneX2 = precioValido(t.precio_x2) > 0;
               const tieneX2U = precioValido(t.precio_x2_u) > 0;
 
@@ -629,13 +708,23 @@ export default function SedeDetalle() {
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700/50 pb-3">
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
                           esVoley ? 'bg-[#00B4A7]/20 text-[#00B4A7]' : 'bg-[#F7B52C]/20 text-[#F7B52C]'
                         }`}>
                           {t.deporte || 'Básquetbol'}
                         </span>
                         <strong className="text-base sm:text-lg text-white">{t.categoria}</strong>
+
+                        {t.cupos_estado === 'agotado' ? (
+                          <span className="text-[9px] font-mono font-black uppercase px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/40">
+                            🔴 Cupos Agotados
+                          </span>
+                        ) : t.cupos_estado === 'pocos' ? (
+                          <span className="text-[9px] font-mono font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                            🟡 Pocos Cupos
+                          </span>
+                        ) : null}
                       </div>
                       <p className="text-slate-400 text-xs font-medium">
                         🗓️ {t.dias} · ⏰ <span className="font-mono font-bold">{t.horaInicio} - {t.horaFin}</span>
@@ -672,9 +761,12 @@ export default function SedeDetalle() {
 
                     {/* PROMO X2 */}
                     {tieneX2 && (
-                      <div className="p-3.5 rounded-xl border border-[#F7B52C]/40 text-center flex flex-col justify-between bg-[#071527]">
+                      <div className="relative p-3.5 rounded-xl border-2 border-[#F7B52C] text-center flex flex-col justify-between bg-[#071527] shadow-[0_0_15px_rgba(247,181,44,0.15)]">
+                        <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#F7B52C] text-slate-950 font-black text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-full shadow">
+                          ⭐ Más Elegido
+                        </span>
                         <div>
-                          <span className="text-[10px] font-bold text-[#F7B52C] uppercase block">Promo X2 (2 Meses)</span>
+                          <span className="text-[10px] font-bold text-[#F7B52C] uppercase block pt-0.5">Promo X2 (2 Meses)</span>
                           <span className="text-xl font-black font-mono text-[#F7B52C]">{mostrarPrecio(t.precio_x2)}</span>
                         </div>
                         <a
@@ -682,7 +774,7 @@ export default function SedeDetalle() {
                           aria-disabled={suspendida}
                           target="_blank"
                           rel="noreferrer"
-                          className="mt-2.5 py-1.5 px-3 rounded-lg bg-[#F7B52C] text-slate-950 text-xs font-black flex items-center justify-center gap-1.5 hover:bg-[#ffc247] transition-colors"
+                          className="mt-2.5 py-1.5 px-3 rounded-lg bg-[#F7B52C] text-slate-950 text-xs font-black flex items-center justify-center gap-1.5 hover:bg-[#ffc247] transition-all shadow-[0_0_12px_rgba(247,181,44,0.3)]"
                         >
                           <img src="/whatsapp.png" alt="WhatsApp" className="w-3.5 h-3.5 object-contain" />
                           Elegir X2

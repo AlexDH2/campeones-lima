@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { useToast } from '../toast';
 import ModalConfirmacion from './ModalConfirmacion';
 import { 
@@ -12,7 +13,11 @@ import {
   CheckCircle2, 
   Clock, 
   X, 
-  UserPlus 
+  UserPlus,
+  Download,
+  Send,
+  FileSpreadsheet,
+  Copy
 } from 'lucide-react';
 import { supabase } from '../supabase';
 
@@ -35,6 +40,7 @@ export default function AdminProspectos() {
   const [filtroDeporte, setFiltroDeporte] = useState('todos');
 
   const [modalNuevoAbierto, setModalNuevoAbierto] = useState(false);
+  const [prospectoPlantilla, setProspectoPlantilla] = useState(null);
   const [guardandoNuevo, setGuardandoNuevo] = useState(false);
   const [nuevoProspecto, setNuevoProspecto] = useState({
     nombre: '',
@@ -168,6 +174,35 @@ export default function AdminProspectos() {
   const totalMatriculados = prospectos.filter(p => (p.estado || '').toLowerCase() === 'matriculado').length;
   const totalContactados = prospectos.filter(p => (p.estado || '').toLowerCase() === 'contactado').length;
   const totalPendientes = prospectos.filter(p => (p.estado || 'pendiente').toLowerCase() === 'pendiente').length;
+
+  const handleExportarExcel = () => {
+    if (!prospectosFiltrados || prospectosFiltrados.length === 0) {
+      mostrarToast("No hay alumnos o prospectos para exportar con los filtros actuales.", "error");
+      return;
+    }
+
+    const datosExportar = prospectosFiltrados.map((p, idx) => {
+      const { nombreReal, telefonoReal } = extraerDatosProspecto(p);
+      return {
+        "N°": idx + 1,
+        "Fecha Solicitud": p.created_at ? new Date(p.created_at).toLocaleDateString('es-PE') : 'Sin fecha',
+        "Hora": p.created_at ? new Date(p.created_at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : '',
+        "Alumno / Apoderado": nombreReal,
+        "WhatsApp": telefonoReal,
+        "Sede": p.sede || 'No especificada',
+        "Disciplina": p.disciplina || 'Básquetbol',
+        "Categoría / Edad": p.edad || '',
+        "Estado": p.estado || 'Pendiente',
+        "Notas / Observaciones": p.notas || ''
+      };
+    });
+
+    const hoja = XLSX.utils.json_to_sheet(datosExportar);
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, hoja, "Prospectos");
+    XLSX.writeFile(libro, `CampeonesLima_Alumnos_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    mostrarToast(`Se exportaron ${datosExportar.length} registros a Excel con éxito.`, "exito");
+  };
 
   if (cargando) {
     return (
@@ -316,6 +351,89 @@ export default function AdminProspectos() {
         </div>
       )}
 
+      {/* MODAL PLANTILLAS WHATSAPP */}
+      {prospectoPlantilla && (() => {
+        const { nombreReal, telefonoReal } = extraerDatosProspecto(prospectoPlantilla);
+        const telLimpio = (telefonoReal || '').replace(/\D/g, '');
+        const sedeNombre = prospectoPlantilla.sede || 'nuestra sede';
+        const deporteNombre = prospectoPlantilla.disciplina || 'Básquetbol';
+
+        const plantillas = [
+          {
+            titulo: '🏀 Confirmación de Clase de Prueba',
+            subtitulo: 'Invitar y confirmar el día de su clase modelo.',
+            mensaje: `¡Hola ${nombreReal}! Te saludamos de la Academia Deportiva Campeones Lima 🏀🏐.%0A%0ARecibimos tu solicitud para una *Clase de Prueba* de *${deporteNombre}* en la sede *${sedeNombre}*.%0A%0A¿Deseas que coordinemos tu cupo para esta semana? Quedamos atentos para reservar tu asistencia.`
+          },
+          {
+            titulo: '💳 Cuentas Oficiales y Matrícula',
+            subtitulo: 'Datos de pago (BCP, Yape, Plin) para cerrar la inscripción.',
+            mensaje: `¡Hola ${nombreReal}! Te compartimos las cuentas oficiales de *Campeones Lima* para asegurar tu vacante:%0A%0A📌 *BCP Soles:* 193-XXXXXXXX-0-XX%0A📌 *CCI:* 002193XXXXXXXXXX%0A📌 *Yape / Plin:* 987 654 321%0A%0APor favor envíanos la captura o constancia de pago por este medio con los nombres y DNI del alumno para emitir tu boleta oficial.`
+          },
+          {
+            titulo: '⏰ Recordatorio 24h Antes de la Clase',
+            subtitulo: 'Recordar qué traer (ropa deportiva, zapatillas, hidratación).',
+            mensaje: `¡Hola ${nombreReal}! Te recordamos que mañana tenemos programada tu *Clase de Prueba* de *${deporteNombre}* en la sede *${sedeNombre}* 🏆.%0A%0A👟 *Recomendaciones:* Venir con ropa deportiva cómoda, zapatillas para cancha techada y una botella de agua 🥤.%0A%0A¡Te esperamos con la mejor energía!`
+          },
+          {
+            titulo: '🏆 Seguimiento y Experiencia Post-Clase',
+            subtitulo: 'Preguntar qué tal le pareció la clase y ofrecer la membresía.',
+            mensaje: `¡Hola ${nombreReal}! Esperamos que tu hijo/a haya disfrutado al máximo su clase de prueba de *${deporteNombre}* hoy en *Campeones Lima* 🌟.%0A%0A¿Qué tal le pareció la experiencia con los profesores? Quedamos a tu entera disposición para resolver cualquier consulta y formalizar su inscripción mensual o con la *Promo X2*.`
+          }
+        ];
+
+        return (
+          <div 
+            className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4 overflow-y-auto"
+            onClick={(e) => { if (e.target === e.currentTarget) setProspectoPlantilla(null); }}
+          >
+            <div className="bg-[#071527] border-2 border-[#00B4A7]/60 p-6 sm:p-7 rounded-3xl max-w-xl w-full space-y-5 shadow-2xl animate-in fade-in">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    <MessageCircle className="w-5 h-5 text-emerald-400" /> Plantillas Rápidas de WhatsApp
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Para: <strong className="text-white">{nombreReal}</strong> · Tel: <strong className="text-emerald-400">{telefonoReal}</strong>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setProspectoPlantilla(null)}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-xl cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                {plantillas.map((pl, i) => (
+                  <div key={i} className="p-4 rounded-2xl bg-[#040914] border border-slate-800 hover:border-[#00B4A7]/60 transition-all space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-black text-white">{pl.titulo}</h4>
+                        <p className="text-[10px] text-slate-400">{pl.subtitulo}</p>
+                      </div>
+                      <a
+                        href={`https://wa.me/51${telLimpio}?text=${pl.mensaje}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow transition-all shrink-0 cursor-pointer"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Enviar</span>
+                      </a>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-[#071527] border border-slate-800/80 text-[11px] text-slate-300 font-sans whitespace-pre-wrap leading-relaxed select-all">
+                      {decodeURIComponent(pl.mensaje.replace(/%0A/g, '\n'))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* CABECERA */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
@@ -327,14 +445,26 @@ export default function AdminProspectos() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setModalNuevoAbierto(true)}
-          className="bg-[#F7B52C] hover:bg-[#e6a524] text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-lg shadow-[#F7B52C]/20 transition-all self-start sm:self-auto"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>+ Registrar Alumno Manual</span>
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={handleExportarExcel}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-900/30 transition-all"
+            title="Descargar lista de alumnos en Excel"
+          >
+            <Download className="w-4 h-4" />
+            <span>Exportar Excel ({prospectosFiltrados.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setModalNuevoAbierto(true)}
+            className="bg-[#F7B52C] hover:bg-[#e6a524] text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-lg shadow-[#F7B52C]/20 transition-all"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>+ Registrar Alumno Manual</span>
+          </button>
+        </div>
       </div>
 
       {/* MÉTRICAS */}
@@ -519,15 +649,28 @@ export default function AdminProspectos() {
 
                 <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
                   {telefonoSoloDigitos ? (
-                    <a
-                      href={`https://wa.me/51${telefonoSoloDigitos}?text=${mensajePersonalizadoWs}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-bold border border-emerald-500/30 transition-colors"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>Contactar por WhatsApp</span>
-                    </a>
+                    <div className="flex items-center gap-1.5 flex-1">
+                      <a
+                        href={`https://wa.me/51${telefonoSoloDigitos}?text=${mensajePersonalizadoWs}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-bold border border-emerald-500/30 transition-colors"
+                        title="Abrir chat de WhatsApp"
+                      >
+                        <MessageCircle className="w-4 h-4 shrink-0" />
+                        <span className="truncate">WhatsApp</span>
+                      </a>
+
+                      <button
+                        type="button"
+                        onClick={() => setProspectoPlantilla(p)}
+                        className="inline-flex items-center gap-1 py-2 px-2.5 rounded-xl bg-[#00B4A7]/15 hover:bg-[#00B4A7]/25 text-[#00B4A7] text-xs font-bold border border-[#00B4A7]/30 transition-colors cursor-pointer shrink-0"
+                        title="Seleccionar plantilla de mensaje"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Plantillas</span>
+                      </button>
+                    </div>
                   ) : (
                     <span className="text-[11px] text-slate-500">Sin número registrado</span>
                   )}

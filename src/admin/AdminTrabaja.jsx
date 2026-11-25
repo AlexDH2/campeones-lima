@@ -320,32 +320,32 @@ export default function AdminTrabaja() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-slate-300 font-bold">Descripción y Horarios:</label>
-              <span className="text-[11px] text-slate-400">Puedes incluir emojis, días y turnos</span>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-slate-300 font-bold">Descripción del Puesto:</label>
+              <span className="text-[11px] text-slate-400">Puedes incluir funciones, días, horarios y emojis</span>
             </div>
             <textarea
-              rows={4}
+              rows={7}
               placeholder="Ej: Estamos en búsqueda de ENTRENADOR(A) para formación de niños de 9 a 17 años.&#10;🗓️ Días: Martes y jueves.&#10;⏰ Horario: De 6:00 p. m. a 9:00 p. m."
               value={nuevaDesc}
               onChange={e => setNuevaDesc(e.target.value)}
-              className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 rounded-xl text-white font-medium focus:outline-none leading-relaxed transition-colors"
+              className="w-full min-h-[160px] bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-4 rounded-2xl text-white font-medium focus:outline-none leading-relaxed transition-colors resize-y text-xs sm:text-sm shadow-inner"
             />
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-slate-300 font-bold">Requisitos del Puesto:</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-slate-300 font-bold">Requisitos (Un requisito por línea):</label>
               <span className="text-[11px] text-[#00B4A7] font-bold">
-                {cantidadRequisitos > 0 ? `✓ ${cantidadRequisitos} requisitos agregados` : 'Escribe un requisito por cada línea'}
+                {cantidadRequisitos > 0 ? `✓ ${cantidadRequisitos} requisitos agregados` : 'Escribe un requisito por línea'}
               </span>
             </div>
             <textarea
-              rows={4}
+              rows={7}
               placeholder={`Experiencia mínima de 2 años en academias formativas\nEstudiante o egresado de Educación Física / Deportes\nDisponibilidad por las tardes`}
               value={requisitosTexto}
               onChange={e => setRequisitosTexto(e.target.value)}
-              className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 rounded-xl text-white font-mono focus:outline-none leading-relaxed transition-colors"
+              className="w-full min-h-[160px] bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-4 rounded-2xl text-white font-mono focus:outline-none leading-relaxed transition-colors resize-y text-xs sm:text-sm shadow-inner"
             />
           </div>
 

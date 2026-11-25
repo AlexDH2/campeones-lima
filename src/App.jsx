@@ -396,9 +396,16 @@ function PaginaInicio() {
 
               if (!fotoUrl) return null;
 
-              const pos = bannerPosiciones[idx];
-              const posX = typeof pos === 'object' && pos !== null ? (pos.x || 50) : 50;
-              const posY = typeof pos === 'object' && pos !== null ? (pos.y || 50) : (Number(pos) || 50);
+              const pos = (typeof bannerPosiciones === 'object' && bannerPosiciones !== null)
+                ? (bannerPosiciones[idx] ?? bannerPosiciones[String(idx)] ?? bannerPosiciones[fotoUrl])
+                : null;
+
+              const posX = typeof pos === 'object' && pos !== null 
+                ? (pos.x !== undefined && pos.x !== null && Number.isFinite(Number(pos.x)) ? Number(pos.x) : 50)
+                : 50;
+              const posY = typeof pos === 'object' && pos !== null 
+                ? (pos.y !== undefined && pos.y !== null && Number.isFinite(Number(pos.y)) ? Number(pos.y) : 50)
+                : (pos !== undefined && pos !== null && Number.isFinite(Number(pos)) ? Number(pos) : 50);
 
               return (
                 <div
@@ -420,6 +427,10 @@ function PaginaInicio() {
 
             <div className="absolute inset-0 bg-gradient-to-r from-[#040813] via-[#040813]/90 lg:via-[#040813]/60 to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#040813] via-transparent to-black/40" />
+
+            {/* Resplandor focal deportivo (Efecto Reflector de Estadio) */}
+            <div className="absolute -left-20 top-1/4 w-[450px] h-[450px] bg-[#F7B52C]/10 rounded-full blur-[130px] pointer-events-none" />
+            <div className="absolute left-1/4 top-12 w-96 h-96 bg-[#00B4A7]/10 rounded-full blur-[110px] pointer-events-none" />
           </div>
         )}
 
@@ -427,13 +438,13 @@ function PaginaInicio() {
           <div className="max-w-xl sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl space-y-5 text-left">
 
             <div className="space-y-1">
-              <span className="block text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tight text-slate-200 drop-shadow-md">
+              <span className="block text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-slate-300 drop-shadow-md">
                 FORMAMOS
               </span>
-              <h1 className="text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-black uppercase italic tracking-tighter text-[#F7B52C] leading-none drop-shadow-[0_4px_30px_rgba(247,181,44,0.4)]">
+              <h1 className="text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-black uppercase italic tracking-tighter text-[#F7B52C] leading-none drop-shadow-[0_4px_30px_rgba(247,181,44,0.45)]">
                 LÍDERES EN LA CANCHA
               </h1>
-              <span className="block text-2xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-white drop-shadow-md pt-1">
+              <span className="block text-2xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-slate-300 drop-shadow-md pt-1">
                 PARA TRIUNFAR EN LA VIDA
               </span>
             </div>
@@ -443,14 +454,23 @@ function PaginaInicio() {
             </p>
 
             <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pt-1">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#071527]/95 border border-slate-700 text-[11px] font-bold text-white shadow">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#00B4A7]" /> Coliseos 100% Techados
+              <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#071527]/90 border border-[#00B4A7]/40 text-[11px] font-bold text-white shadow-lg backdrop-blur-md hover:border-[#00B4A7] transition-all">
+                <span className="w-5 h-5 rounded-lg bg-[#00B4A7]/20 flex items-center justify-center">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#00B4A7]" />
+                </span>
+                <span>Coliseos 100% Techados</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#071527]/95 border border-slate-700 text-[11px] font-bold text-white shadow">
-                <Award className="w-3.5 h-3.5 text-[#F7B52C]" /> Entrenadores Certificados
+              <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#071527]/90 border border-[#F7B52C]/40 text-[11px] font-bold text-white shadow-lg backdrop-blur-md hover:border-[#F7B52C] transition-all">
+                <span className="w-5 h-5 rounded-lg bg-[#F7B52C]/20 flex items-center justify-center">
+                  <Award className="w-3.5 h-3.5 text-[#F7B52C]" />
+                </span>
+                <span>Entrenadores Certificados</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#071527]/95 border border-slate-700 text-[11px] font-bold text-white shadow">
-                <Users className="w-3.5 h-3.5 text-cyan-400" /> Formación por Edades
+              <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#071527]/90 border border-cyan-500/40 text-[11px] font-bold text-white shadow-lg backdrop-blur-md hover:border-cyan-400 transition-all">
+                <span className="w-5 h-5 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                  <Users className="w-3.5 h-3.5 text-cyan-400" />
+                </span>
+                <span>Formación por Edades</span>
               </span>
             </div>
 
@@ -468,7 +488,7 @@ function PaginaInicio() {
                 className="px-6 py-3.5 rounded-xl bg-[#0a1122]/90 hover:bg-[#0e1830] border border-slate-700 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg backdrop-blur-md hover:border-[#00B4A7] text-center"
               >
                 <MapPin className="w-4 h-4 text-[#00B4A7]" />
-                <span>Conocer Nuestras 6 Sedes</span>
+                <span>Conocer Nuestras Sedes</span>
               </Link>
             </div>
 
@@ -493,24 +513,84 @@ function PaginaInicio() {
       </header>
 
       {/* SCOREBOARD */}
-      <section className="border-y border-slate-800 bg-[#070d1a] py-5 relative z-10 shadow-2xl">
+      <section className="border-y border-slate-800/80 bg-gradient-to-b from-[#070e1c] to-[#040813] py-6 relative z-10 shadow-2xl">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-center">
-            <div className="p-4 rounded-xl bg-[#040813] border border-slate-800/80 shadow">
-              <p className="text-2xl sm:text-3xl font-black text-[#F7B52C] font-mono tracking-tight">+11 Años</p>
-              <p className="text-[10px] sm:text-[11px] text-slate-400 font-black uppercase tracking-wider mt-0.5">De Experiencia Oficial</p>
+          <div className="text-center mb-3">
+            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/5 border border-white/10 text-[9px] font-mono font-black uppercase tracking-widest text-slate-300">
+              ⚡ TABLERO OFICIAL · TRAYECTORIA Y RESULTADOS
+            </span>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 text-center">
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#040813]/90 border border-slate-800/90 hover:border-[#F7B52C]/50 shadow-xl transition-all group">
+              <p className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#F7B52C] font-mono tracking-tight drop-shadow-[0_0_12px_rgba(247,181,44,0.55)] group-hover:scale-105 transition-transform">+11 Años</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 font-black uppercase tracking-wider mt-1">De Experiencia Oficial</p>
             </div>
-            <div className="p-4 rounded-xl bg-[#040813] border border-slate-800/80 shadow">
-              <p className="text-2xl sm:text-3xl font-black text-[#00B4A7] font-mono tracking-tight">+4,000</p>
-              <p className="text-[10px] sm:text-[11px] text-slate-400 font-black uppercase tracking-wider mt-0.5">Atletas Formados</p>
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#040813]/90 border border-slate-800/90 hover:border-[#00B4A7]/50 shadow-xl transition-all group">
+              <p className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#00B4A7] font-mono tracking-tight drop-shadow-[0_0_12px_rgba(0,180,167,0.55)] group-hover:scale-105 transition-transform">+4,000</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 font-black uppercase tracking-wider mt-1">Atletas Formados</p>
             </div>
-            <div className="p-4 rounded-xl bg-[#040813] border border-slate-800/80 shadow">
-              <p className="text-2xl sm:text-3xl font-black text-cyan-400 font-mono tracking-tight">+6,766</p>
-              <p className="text-[10px] sm:text-[11px] text-slate-400 font-black uppercase tracking-wider mt-0.5">Comunidad en Redes</p>
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#040813]/90 border border-slate-800/90 hover:border-cyan-400/50 shadow-xl transition-all group">
+              <p className="text-2xl sm:text-3xl lg:text-4xl font-black text-cyan-400 font-mono tracking-tight drop-shadow-[0_0_12px_rgba(34,211,238,0.55)] group-hover:scale-105 transition-transform">+6,766</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 font-black uppercase tracking-wider mt-1">Comunidad en Redes</p>
             </div>
-            <div className="p-4 rounded-xl bg-[#040813] border border-slate-800/80 shadow">
-              <p className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">6 Sedes</p>
-              <p className="text-[10px] sm:text-[11px] text-slate-400 font-black uppercase tracking-wider mt-0.5">Coliseos Techados</p>
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#040813]/90 border border-slate-800/90 hover:border-white/40 shadow-xl transition-all group">
+              <p className="text-2xl sm:text-3xl lg:text-4xl font-black text-white font-mono tracking-tight drop-shadow-[0_0_10px_rgba(255,255,255,0.4)] group-hover:scale-105 transition-transform">8 Sedes</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 font-black uppercase tracking-wider mt-1">Coliseos Techados</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* BANNER DESTACADO: NUEVA SEDE BUENAS NUEVAS & CLASE MODELO 28 NOV */}
+      <section className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-4">
+        <div className="relative rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-[#071527] via-[#091f38] to-[#071527] border-2 border-[#F7B52C] shadow-[0_0_40px_rgba(247,181,44,0.3)] overflow-hidden">
+          <div className="absolute top-0 right-0 w-72 h-72 bg-[#F7B52C]/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-72 h-72 bg-[#00B4A7]/10 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+            <div className="space-y-3 text-left">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F7B52C] text-slate-950 font-black text-[11px] uppercase tracking-wider shadow">
+                  <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
+                  <span>¡Nueva Sede en San Miguel!</span>
+                </span>
+                <span className="px-3 py-1 rounded-full bg-[#00B4A7]/15 border border-[#00B4A7]/40 text-[#00B4A7] font-bold text-[11px] uppercase tracking-wider">
+                  Coliseo Techado
+                </span>
+                <span className="px-3 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-red-300 font-bold text-[11px] uppercase tracking-wider animate-pulse">
+                  🔥 Clase Modelo 28 de Noviembre
+                </span>
+              </div>
+
+              <h2 className="text-2xl sm:text-4xl font-black uppercase italic tracking-tight text-white leading-tight">
+                Sede Colegio Buenas Nuevas
+              </h2>
+
+              <p className="text-xs sm:text-sm text-slate-200 max-w-2xl leading-relaxed">
+                ¡Abrimos las puertas de nuestra nueva sede en <strong>San Miguel</strong> (Prolongación Jr. Cuzco 165)! Este <strong>28 de Noviembre</strong> tendremos una <strong>Clase Modelo especial</strong> de Básquetbol y Voleibol para todas las categorías.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row lg:flex-col items-stretch lg:items-end justify-center gap-3 shrink-0">
+              <a
+                href={`https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(
+                  '¡Hola Campeones Lima! Deseo reservar mi cupo para la *Gran Clase Modelo del 28 de Noviembre* en la nueva *Sede Colegio Buenas Nuevas* (San Miguel). ¿Cuáles son los horarios disponibles?'
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-6 py-3.5 rounded-xl bg-[#F7B52C] hover:bg-[#ffc247] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(247,181,44,0.4)] transition-all transform hover:-translate-y-0.5 active:scale-95 cursor-pointer text-center"
+              >
+                <img src="/whatsapp.png" alt="WhatsApp" className="w-4 h-4 object-contain" />
+                <span>Reservar Clase 28 Nov</span>
+              </a>
+
+              <Link
+                to="/sedes/76d241b6-368e-4bc5-8c5e-19a61d7368bc"
+                className="px-6 py-3 rounded-xl bg-[#040914] hover:bg-slate-800 border border-slate-700 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer text-center"
+              >
+                <MapPin className="w-3.5 h-3.5 text-[#00B4A7]" />
+                <span>Ver Sede Buenas Nuevas</span>
+              </Link>
             </div>
           </div>
         </div>
@@ -590,6 +670,19 @@ function PaginaInicio() {
                           {descReal}
                         </p>
                       )}
+
+                      {/* Ficha técnica deportiva */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] font-mono font-bold text-slate-300">
+                          👶 6 a 17 años
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] font-mono font-bold text-slate-300">
+                          🏆 Formativo & Competitivo
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] font-mono font-bold text-slate-300">
+                          🏟️ Coliseo Techado
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -631,7 +724,6 @@ function PaginaInicio() {
             </h2>
           </div>
 
-// (El componente de tarjeta se definirá fuera de PaginaInicio)
           <div className="flex flex-wrap justify-center gap-6">
             {videosAdmin.map((video, idx) => (
               <VideoCard key={idx} video={video} />
@@ -642,11 +734,20 @@ function PaginaInicio() {
 
       {/* TICKET VIP DE CANCHA */}
       <section id="ticket-cancha" className="py-16 sm:py-24 max-w-4xl mx-auto px-4 sm:px-6 relative z-10">
-        <div className="rounded-3xl bg-[#071527] border-2 border-[#F7B52C]/60 shadow-2xl p-6 sm:p-10 relative overflow-hidden space-y-6">
+        <div className="rounded-3xl bg-[#071527] border-2 border-[#F7B52C]/60 shadow-[0_0_35px_rgba(247,181,44,0.12)] p-6 sm:p-10 relative overflow-hidden space-y-6">
+          {/* Muescas laterales del Ticket */}
+          <div className="hidden sm:block absolute -left-4 top-[82px] w-8 h-8 rounded-full bg-[#040914] border-r-2 border-[#F7B52C]/60 pointer-events-none" />
+          <div className="hidden sm:block absolute -right-4 top-[82px] w-8 h-8 rounded-full bg-[#040914] border-l-2 border-[#F7B52C]/60 pointer-events-none" />
+
           <div className="border-b-2 border-dashed border-slate-800 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#F7B52C]/15 border border-[#F7B52C]/40 text-[10px] font-black text-[#F7B52C] uppercase tracking-wider mb-1.5">
-                <Ticket className="w-3.5 h-3.5" /> Pase Oficial de Cancha
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#F7B52C]/15 border border-[#F7B52C]/40 text-[10px] font-black text-[#F7B52C] uppercase tracking-wider">
+                  <Ticket className="w-3.5 h-3.5" /> Pase Oficial de Cancha
+                </div>
+                <span className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-widest hidden sm:inline">
+                  TICKET #CCL-2026-VIP
+                </span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white italic">
                 Reserva tu Clase Modelo{formSede && tarifaClase ? ` · ${tarifaClase}` : ''}
@@ -763,9 +864,21 @@ function PaginaInicio() {
                       {sedes.map(s => {
                         const p = precioValido(preciosClaseModelo[s.nombre]);
                         const estaSusp = estaSuspendida(s);
+                        const esFatima = s.nombre.toLowerCase().includes('fatima') || s.nombre.toLowerCase().includes('fátima');
+                        const esBuenasNuevas = s.nombre.toLowerCase().includes('buenas nuevas');
+                        
+                        let labelTexto = `${s.nombre} (${p === 0 ? 'Gratis' : p ? mostrarPrecio(p) : 'Tarifa regular'})`;
+                        if (esBuenasNuevas) {
+                          labelTexto = `⭐ ${s.nombre} (¡Clase Modelo 28 Nov!)`;
+                        } else if (esFatima) {
+                          labelTexto = `⏳ ${s.nombre} (Apertura Verano - Sin clase prueba)`;
+                        } else if (estaSusp) {
+                          labelTexto += ' - [SUSPENDIDA]';
+                        }
+
                         return (
-                          <option key={s.id} value={s.nombre} disabled={estaSusp}>
-                            {s.nombre} ({p === 0 ? 'Gratis' : mostrarPrecio(p)}) {estaSusp ? ' - [SUSPENDIDA]' : ''}
+                          <option key={s.id} value={s.nombre} disabled={estaSusp || esFatima}>
+                            {labelTexto}
                           </option>
                         );
                       })}
@@ -836,7 +949,7 @@ function PaginaInicio() {
               Infraestructura Techada
             </span>
             <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-tight text-white italic">
-              Nuestras 6 Sedes en Lima
+              Nuestras Sedes en Lima
             </h2>
           </div>
           <Link to="/sedes" className="text-xs font-bold text-[#00B4A7] hover:underline flex items-center gap-1 self-start sm:self-auto">
@@ -846,47 +959,88 @@ function PaginaInicio() {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sedes.slice(0, 3).map((s) => (
-            <div key={s.id} className="bg-[#071527] border border-slate-800 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group">
-              <div>
-                <div className="relative aspect-video bg-slate-950 overflow-hidden">
-                  {(() => {
-                    const imgSrc = s.foto_principal || (s.imagenes && s.imagenes.length > 0 ? s.imagenes[0] : null);
-                    const safeSrc = typeof imgSrc === 'string' && imgSrc.trim() !== '' ? imgSrc : null;
-                    
-                    return safeSrc ? (
-                      <img loading="lazy" src={safeSrc} alt={s.nombre} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center opacity-20 transition-transform duration-500 group-hover:scale-105">
-                        <img loading="lazy" src="/logo.png" alt="Campeones Lima" className="w-20 h-20 object-contain grayscale" />
+          {(() => {
+            // Priorizamos Buenas Nuevas en primer lugar por ser la sede nueva con clase modelo 28 Nov
+            const sedesOrdenadas = [...sedes].sort((a, b) => {
+              if (a.nombre.toLowerCase().includes('buenas nuevas')) return -1;
+              if (b.nombre.toLowerCase().includes('buenas nuevas')) return 1;
+              return 0;
+            });
+
+            return sedesOrdenadas.slice(0, 3).map((s) => {
+              const esBN = s.nombre.toLowerCase().includes('buenas nuevas');
+              const esFatima = s.nombre.toLowerCase().includes('fatima') || s.nombre.toLowerCase().includes('fátima');
+
+              return (
+                <div 
+                  key={s.id} 
+                  className={`bg-[#071527] rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group transition-all ${
+                    esBN ? 'border-2 border-[#F7B52C] shadow-[0_0_30px_rgba(247,181,44,0.25)]' : 'border border-slate-800'
+                  }`}
+                >
+                  <div>
+                    <div className="relative aspect-video bg-slate-950 overflow-hidden">
+                      {(() => {
+                        const imgSrc = s.foto_principal || (s.imagenes && s.imagenes.length > 0 ? s.imagenes[0] : null);
+                        const safeSrc = typeof imgSrc === 'string' && imgSrc.trim() !== '' ? imgSrc : null;
+                        
+                        return safeSrc ? (
+                          <img loading="lazy" src={safeSrc} alt={s.nombre} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center opacity-20 transition-transform duration-500 group-hover:scale-105">
+                            <img loading="lazy" src="/logo.png" alt="Campeones Lima" className="w-20 h-20 object-contain grayscale" />
+                          </div>
+                        );
+                      })()}
+                      
+                      <div className="absolute top-3 left-3 flex flex-col gap-1 items-start">
+                        <span className="bg-[#00B4A7] text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded shadow">
+                          📍 {s.distrito}
+                        </span>
+                        {esBN && (
+                          <span className="bg-[#F7B52C] text-slate-950 font-black text-[9px] uppercase px-2 py-0.5 rounded shadow flex items-center gap-1">
+                            <Sparkles className="w-2.5 h-2.5 fill-slate-950" /> ¡Nueva Sede!
+                          </span>
+                        )}
+                        {esFatima && (
+                          <span className="bg-amber-400 text-slate-950 font-black text-[9px] uppercase px-2 py-0.5 rounded shadow">
+                            Apertura Verano
+                          </span>
+                        )}
                       </div>
-                    );
-                  })()}
-                  
-                  <span className="absolute top-3 left-3 bg-[#00B4A7] text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded shadow">
-                    📍 {s.distrito}
-                  </span>
 
-                  {estaSuspendida(s) && (
-                    <span className="absolute top-3 right-3 bg-red-600 text-white font-black text-[10px] px-2.5 py-0.5 rounded shadow flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" /> Suspendida
-                    </span>
-                  )}
-                </div>
-                <div className="p-5 space-y-1.5">
-                  <h3 className="font-black text-white text-base">{s.nombre}</h3>
-                  <p className="text-xs text-slate-400 truncate">{s.direccion}</p>
-                </div>
-              </div>
+                      {esBN && (
+                        <span className="absolute top-3 right-3 bg-red-600 text-white font-black text-[10px] uppercase px-2.5 py-0.5 rounded shadow animate-pulse">
+                          Clase 28 Nov
+                        </span>
+                      )}
 
-              <div className="p-5 pt-0">
-                <Link to={`/sedes/${s.id}`} className="w-full py-2.5 px-4 rounded-xl bg-[#040914] hover:bg-[#00B4A7] hover:text-slate-950 text-white font-bold text-xs flex items-center justify-center text-center gap-1.5 border border-slate-700 transition-colors">
-                  <span className="text-center">Ver Horarios & Tarifas</span>
-                  <ArrowRight className="w-3.5 h-3.5 shrink-0" />
-                </Link>
-              </div>
-            </div>
-          ))}
+                      {estaSuspendida(s) && (
+                        <span className="absolute top-3 right-3 bg-red-600 text-white font-black text-[10px] px-2.5 py-0.5 rounded shadow flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> Suspendida
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-5 space-y-1.5">
+                      <h3 className="font-black text-white text-base">{s.nombre}</h3>
+                      <p className="text-xs text-slate-400 truncate">{s.direccion}</p>
+                    </div>
+                  </div>
+
+                  <div className="p-5 pt-0">
+                    <Link to={`/sedes/${s.id}`} className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center text-center gap-1.5 border transition-all ${
+                      esBN 
+                        ? 'bg-[#F7B52C] hover:bg-[#ffc247] text-slate-950 border-[#F7B52C] font-black shadow-md' 
+                        : 'bg-[#040914] hover:bg-[#00B4A7] hover:text-slate-950 text-white border-slate-700'
+                    }`}>
+                      <span className="text-center">{esBN ? 'Ver Clase 28 Nov & Horarios' : 'Ver Horarios & Tarifas'}</span>
+                      <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                    </Link>
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       </section>
 
