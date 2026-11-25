@@ -2,9 +2,8 @@
 -- CAMBIAR CONTRASEÑA DESDE EL PANEL DE ADMINISTRACIÓN (SOLO ROL PRINCIPAL)
 -- ==============================================================================
 -- Instrucciones:
--- 1. Copia y pega este script en Supabase -> SQL Editor.
--- 2. Haz clic en "Run".
--- 3. Estado: PENDIENTE DE EJECUCIÓN (Ejecutar en la consola de Supabase).
+-- 1. Función y permisos creados en Supabase.
+-- 2. Estado: EJECUTADO DIRECTAMENTE en la base de datos de producción de Supabase.
 -- ==============================================================================
 
 CREATE OR REPLACE FUNCTION ccl_cambiar_password_admin(
