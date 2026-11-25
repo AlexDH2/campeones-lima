@@ -698,7 +698,10 @@ export default function SedeDetalle() {
           <div className="space-y-4">
             {horariosFiltrados.map((t, idx) => {
               const esVoley = t.deporte?.toLowerCase().includes('voley') || t.deporte?.toLowerCase().includes('volei');
+              const tieneX2 = precioValido(t.precio_x2) > 0;
               const tieneX2U = precioValido(t.precio_x2_u) > 0;
+              // Mantenida oculta en web a solicitud del club, pero preservada en código y base de datos
+              const mostrarPromoX2SinUniforme = false;
 
               return (
                 <div 
@@ -739,7 +742,7 @@ export default function SedeDetalle() {
                   </div>
 
                   {/* MATRIZ REGULAR */}
-                  <div className={`grid grid-cols-1 ${tieneX2U ? 'sm:grid-cols-2' : ''} gap-2.5`}>
+                  <div className={`grid grid-cols-1 ${tieneX2U || (mostrarPromoX2SinUniforme && tieneX2) ? ((tieneX2U && mostrarPromoX2SinUniforme && tieneX2) ? 'sm:grid-cols-3' : 'sm:grid-cols-2') : ''} gap-2.5`}>
                     {/* 1 MES REGULAR */}
                     <div className="p-3.5 rounded-xl border text-center flex flex-col justify-between bg-[#071527] border-slate-800">
                       <div>
@@ -757,6 +760,29 @@ export default function SedeDetalle() {
                         Inscribirme
                       </a>
                     </div>
+
+                    {/* PROMO X2 (2 MESES SIN UNIFORME - OCULTA PERO PRESERVADA EN CÓDIGO) */}
+                    {mostrarPromoX2SinUniforme && tieneX2 && (
+                      <div className="relative p-3.5 rounded-xl border-2 border-[#F7B52C] text-center flex flex-col justify-between bg-[#071527] shadow-[0_0_15px_rgba(247,181,44,0.15)]">
+                        <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#F7B52C] text-slate-950 font-black text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-full shadow">
+                          ⭐ Más Elegido
+                        </span>
+                        <div>
+                          <span className="text-[10px] font-bold text-[#F7B52C] uppercase block pt-0.5">Promo X2 (2 Meses)</span>
+                          <span className="text-xl font-black font-mono text-[#F7B52C]">{mostrarPrecio(t.precio_x2)}</span>
+                        </div>
+                        <a
+                          href={suspendida ? undefined : crearLinkWsPromo(t, "Promo X2", t.precio_x2)}
+                          aria-disabled={suspendida}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2.5 py-1.5 px-3 rounded-lg bg-[#F7B52C] text-slate-950 text-xs font-black flex items-center justify-center gap-1.5 hover:bg-[#ffc247] transition-all shadow-[0_0_12px_rgba(247,181,44,0.3)]"
+                        >
+                          <img src="/whatsapp.png" alt="WhatsApp" className="w-3.5 h-3.5 object-contain" />
+                          Elegir X2
+                        </a>
+                      </div>
+                    )}
 
                     {/* PROMO 2 MESES + UNIFORME */}
                     {tieneX2U && (
