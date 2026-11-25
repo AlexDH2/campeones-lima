@@ -219,7 +219,7 @@ export default function SedeDetalle() {
 
         <div className="inline-flex items-center gap-1.5 text-[10px] text-amber-300 font-semibold bg-[#F7B52C]/10 border border-[#F7B52C]/20 px-2 py-0.5 rounded-md mt-0.5">
           <span>📦</span>
-          <span>Incluye 2 meses, matrícula, uniforme oficial (obligatorio) y chaleco</span>
+          <span>Incluye 2 meses, matrícula, uniforme y chaleco</span>
         </div>
 
         <div className="flex items-center gap-2 pt-1 text-[10px] font-mono">
@@ -278,7 +278,7 @@ export default function SedeDetalle() {
                   </p>
                   <div className="mt-2 inline-flex flex-wrap items-center gap-1.5 px-3 py-1 rounded-xl bg-[#F7B52C]/10 border border-[#F7B52C]/25 text-[11px] text-amber-200">
                     <span className="font-bold text-[#F7B52C]">⚡ Promociones de Diciembre (válidas hasta el 11):</span>
-                    <span className="text-slate-200 font-medium">Incluyen 2 meses, matrícula, uniforme oficial (obligatorio) y chaleco de entrenamiento.</span>
+                    <span className="text-slate-200 font-medium">Incluyen 2 meses, matrícula, uniforme y chaleco de entrenamiento.</span>
                   </div>
                 </div>
               </div>
@@ -678,7 +678,7 @@ export default function SedeDetalle() {
                     ¡Packs y Promociones Oficiales de Verano!
                   </h3>
                   <p className="text-xs text-slate-300 mt-0.5">
-                    Promociones de Diciembre válidas hasta el 11 · Incluyen 2 meses, matrícula, uniforme oficial (obligatorio) y chaleco de entrenamiento.
+                    Promociones de Diciembre válidas hasta el 11 · Incluyen 2 meses, matrícula, uniforme y chaleco de entrenamiento.
                   </p>
                 </div>
               </div>
@@ -693,14 +693,6 @@ export default function SedeDetalle() {
               </button>
             </div>
           )}
-
-          {/* AVISO DE UNIFORME OBLIGATORIO */}
-          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center gap-2.5 text-xs text-slate-300">
-            <span className="text-base shrink-0">👕</span>
-            <span>
-              <strong className="text-white">Indumentaria Oficial:</strong> El uso del <strong className="text-[#F7B52C]">uniforme oficial es obligatorio</strong> para los entrenamientos en todas las sedes (incluido en las promociones oficiales de verano).
-            </span>
-          </div>
 
           {/* MATRIZ DE HORARIOS */}
           <div className="space-y-4">
