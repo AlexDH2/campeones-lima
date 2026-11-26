@@ -155,7 +155,7 @@ export default function Nosotros() {
 
               <div className="p-3.5 rounded-2xl bg-[#071527] border border-white/20 shadow relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-white" />
-                <p className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight">6 SEDES</p>
+                <p className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight">8 SEDES</p>
                 <p className="text-[10px] sm:text-xs text-slate-300 font-black uppercase tracking-wider mt-1">Coliseos Techados</p>
               </div>
             </div>
@@ -234,9 +234,9 @@ export default function Nosotros() {
               <div className="relative p-5 rounded-2xl bg-[#071527] border-2 border-[#F7B52C] shadow-2xl space-y-2">
                 <div className="absolute -left-[35px] sm:-left-[51px] top-4 w-7 h-7 rounded-full bg-[#F7B52C] border-4 border-[#040914] shadow-md flex items-center justify-center font-black text-[10px] text-slate-950">🏆</div>
                 <span className="text-xs font-black text-slate-950 bg-[#F7B52C] px-2.5 py-0.5 rounded font-mono">2026 · Presente</span>
-                <h3 className="text-lg font-black text-white">+4,000 Atletas y 6 Sedes</h3>
+                <h3 className="text-lg font-black text-white">+4,000 Atletas y 8 Sedes</h3>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Consolidación como una de las academias formativas líderes de Lima, con una comunidad de más de 6,766 seguidores y presencia en 6 coliseos techados reglamentarios.
+                  Consolidación como una de las academias formativas líderes de Lima, con una comunidad de más de 6,766 seguidores y presencia en 8 coliseos techados reglamentarios.
                 </p>
               </div>
             </div>
@@ -487,7 +487,7 @@ export default function Nosotros() {
             <div className="p-6 sm:p-8 rounded-3xl bg-[#071527] border border-slate-800 grid sm:grid-cols-3 gap-6 shadow-xl">
               <div className="space-y-1.5">
                 <ShieldCheck className="w-6 h-6 text-[#00B4A7]" />
-                <h4 className="text-sm font-black text-white">6 Sedes con Canchas Techadas</h4>
+                <h4 className="text-sm font-black text-white">8 Sedes con Canchas Techadas</h4>
                 <p className="text-xs text-slate-400">Coliseos cerrados que protegen del clima y cuidan las articulaciones de los alumnos.</p>
               </div>
               <div className="space-y-1.5">
@@ -527,7 +527,7 @@ export default function Nosotros() {
               to="/sedes" 
               className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#040914] hover:bg-slate-800 border border-slate-700 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
-              <MapPin className="w-4 h-4 text-[#00B4A7]" /> Conocer Nuestras 6 Sedes
+              <MapPin className="w-4 h-4 text-[#00B4A7]" /> Conocer Nuestras 8 Sedes
             </Link>
           </div>
         </section>

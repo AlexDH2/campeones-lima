@@ -12,12 +12,6 @@ import { useTiendaProductos, useWhatsAppGlobal } from './queries';
 import CarruselProducto from './CarruselProducto';
 import ProductoDetalleVista from './ProductoDetalleVista';
 
-const normalizarCoordenada = (val, defecto = 50) => {
-  if (val === null || val === undefined || val === '') return defecto;
-  const num = Number(val);
-  return Number.isFinite(num) && num >= 0 && num <= 100 ? num : defecto;
-};
-
 export default function Tienda() {
   const { esOscuro = true } = useTheme() || {};
   const WHATSAPP_PHONE = useWhatsAppGlobal();
@@ -25,7 +19,6 @@ export default function Tienda() {
   const { data: productos = [], isLoading: cargando } = useTiendaProductos();
   const [categoriaActiva, setCategoriaActiva] = useState('Todas');
   const [deporteActivo, setDeporteActivo] = useState('TODOS');
-  const [tallaSeleccionadaPorProducto, setTallaSeleccionadaPorProducto] = useState({});
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
 
   const categorias = ['Todas', 'Uniformes & Ropa', 'Balones & Accesorios', 'Protección & Rodilleras'];
@@ -36,11 +29,14 @@ export default function Tienda() {
     return matchCat && matchDep;
   });
 
-  const handleSeleccionarTalla = (prodId, talla) => {
-    setTallaSeleccionadaPorProducto(prev => ({
-      ...prev,
-      [prodId]: talla
-    }));
+  const handleSeleccionarProducto = (prod) => {
+    setProductoSeleccionado(prod);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleVolverTienda = () => {
+    setProductoSeleccionado(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -70,7 +66,7 @@ export default function Tienda() {
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
-              Uniformes oficiales de competencia, balones de entrenamiento y accesorios para atletas de básquetbol, vóley y futbol.
+              Uniformes oficiales de competencia, balones de entrenamiento y accesorios para atletas de básquetbol, vóley y fútbol.
             </p>
           </div>
         </header>
@@ -80,7 +76,7 @@ export default function Tienda() {
         {productoSeleccionado ? (
           <ProductoDetalleVista 
             producto={productoSeleccionado} 
-            onVolver={() => setProductoSeleccionado(null)} 
+            onVolver={handleVolverTienda} 
           />
         ) : (
           <>
@@ -139,7 +135,7 @@ export default function Tienda() {
                 {productosFiltrados.map(p => (
                   <div 
                     key={p.id} 
-                    onClick={() => setProductoSeleccionado(p)}
+                    onClick={() => handleSeleccionarProducto(p)}
                     className="bg-[#071527] border border-slate-800 hover:border-[#00B4A7] rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group transition-all cursor-pointer"
                   >
                     <div>

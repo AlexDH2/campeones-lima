@@ -25,7 +25,9 @@ export default function TrabajaConNosotros() {
   const convocatorias = convocatoriasData || [];
   const errorConsulta = isError ? "No pudimos cargar las convocatorias. Recarga la página para reintentar." : '';
 
-  const [puestoElegido, setPuestoElegido] = useState('');
+  const [puestoSeleccionadoManual, setPuestoSeleccionadoManual] = useState('');
+  const puestoElegido = puestoSeleccionadoManual || (convocatorias.length > 0 ? convocatorias[0].puesto : '');
+  const setPuestoElegido = setPuestoSeleccionadoManual;
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
@@ -33,12 +35,6 @@ export default function TrabajaConNosotros() {
   const [archivoCv, setArchivoCv] = useState(null);
   const [enviando, setEnviando] = useState(false);
   const [enviadoExito, setEnviadoExito] = useState(false);
-
-  useEffect(() => {
-    if (convocatorias.length > 0 && !puestoElegido) {
-      setPuestoElegido(convocatorias[0].puesto);
-    }
-  }, [convocatorias, puestoElegido]);
 
   const handlePostular = async (e) => {
     e.preventDefault();

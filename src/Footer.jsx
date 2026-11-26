@@ -113,7 +113,7 @@ export default function Footer() {
 
         </div>
 
-        <div className="border-t border-slate-800/60 mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-2">
+        <div className="border-t border-slate-800/60 mt-8 pt-6 pb-14 sm:pb-4 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-2">
           <p>© 2026 Campeones Lima. Todos los derechos reservados.</p>
           <p>Club & Academia Deportiva · Forjando campeones desde 2015</p>
         </div>

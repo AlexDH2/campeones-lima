@@ -166,7 +166,7 @@ export default function SedeDetalle() {
     `¡Hola Campeones Lima! Deseo reservar una *Clase de Prueba* (${esGratis ? 'Gratis' : mostrarPrecio(precioClaseModelo)}) en la sede *${sede.nombre}*. ¿Cuáles son los horarios disponibles para empezar?`
   )}`;
 
-  const crearLinkWsPromo = (turno, promoNombre, monto) => {
+  const crearLinkWsPromo = (turno, promoNombre) => {
     const estadoNota = turno.cupos_estado === 'agotado' ? '%0A⚠️ *Nota:* Deseo consultar si hay lista de espera para este turno.' : '';
     const texto = `¡Hola Campeones Lima! Deseo inscribirme en el *${promoNombre}* para la sede *${sede.nombre}*:%0A%0A` +
       `🏆 *Deporte:* ${encodeURIComponent(turno.deporte)} (${encodeURIComponent(turno.categoria)})%0A` +
@@ -199,7 +199,7 @@ export default function SedeDetalle() {
   const renderTarjetaPromo = (promo) => (
     <div 
       key={promo.id} 
-      className="w-full max-w-[470px] mx-auto p-4 rounded-2xl bg-[#040914] border-2 border-slate-800 hover:border-[#F7B52C]/70 transition-all flex flex-row gap-3.5 justify-between items-center shadow-lg"
+      className="w-full p-4 rounded-2xl bg-[#040914] border-2 border-slate-800 hover:border-[#F7B52C]/70 transition-all flex flex-row gap-3.5 justify-between items-center shadow-lg"
     >
       <div className="space-y-1.5 flex-1 pr-2 text-left">
         <div className="flex flex-wrap items-center gap-2">
@@ -308,12 +308,12 @@ export default function SedeDetalle() {
               )}
 
               {/* COLUMNA CENTRAL (Lista de Promociones) */}
-              <div className={`flex flex-col overflow-y-auto pr-1 order-2 ${
+              <div className={`flex flex-col overflow-y-auto pr-2 order-2 [scrollbar-color:#334155_#071527] [scrollbar-width:thin] ${
                 flyersDeLaSede.length >= 2 
                   ? 'lg:col-span-4' 
                   : flyersDeLaSede.length === 1 
                     ? 'lg:col-span-7' 
-                    : 'max-w-4xl mx-auto w-full'
+                    : 'max-w-5xl mx-auto w-full'
               }`}>
                 {promocionesDeEstaSede.length === 0 ? (
                   <div className="p-8 text-center bg-[#040914] rounded-2xl border border-dashed border-slate-800 text-slate-400 text-xs space-y-2 my-auto">
@@ -328,7 +328,9 @@ export default function SedeDetalle() {
                         <h4 className="text-xs sm:text-sm font-black text-[#F7B52C] uppercase flex items-center justify-center gap-2 border-b border-[#F7B52C]/20 pb-2 mb-3">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#F7B52C] animate-pulse"/> Básquetbol
                         </h4>
-                        {promosBasquet.map(renderTarjetaPromo)}
+                        <div className={`grid grid-cols-1 ${flyersDeLaSede.length === 0 ? 'md:grid-cols-2' : ''} gap-3`}>
+                          {promosBasquet.map(renderTarjetaPromo)}
+                        </div>
                       </div>
                     )}
                     {promosVoley.length > 0 && (
@@ -336,7 +338,9 @@ export default function SedeDetalle() {
                         <h4 className="text-xs sm:text-sm font-black text-[#00B4A7] uppercase flex items-center justify-center gap-2 border-b border-[#00B4A7]/20 pb-2 mb-3">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#00B4A7] animate-pulse"/> Voleibol
                         </h4>
-                        {promosVoley.map(renderTarjetaPromo)}
+                        <div className={`grid grid-cols-1 ${flyersDeLaSede.length === 0 ? 'md:grid-cols-2' : ''} gap-3`}>
+                          {promosVoley.map(renderTarjetaPromo)}
+                        </div>
                       </div>
                     )}
                     {otrasPromos.length > 0 && (
@@ -344,7 +348,9 @@ export default function SedeDetalle() {
                         <h4 className="text-xs sm:text-sm font-black text-slate-300 uppercase flex items-center justify-center gap-2 border-b border-slate-700/50 pb-2 mb-3">
                           <span className="w-1.5 h-1.5 rounded-full bg-slate-400"/> Más Promociones
                         </h4>
-                        {otrasPromos.map(renderTarjetaPromo)}
+                        <div className={`grid grid-cols-1 ${flyersDeLaSede.length === 0 ? 'md:grid-cols-2' : ''} gap-3`}>
+                          {otrasPromos.map(renderTarjetaPromo)}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -451,7 +457,7 @@ export default function SedeDetalle() {
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
                 <div>
                   <span className="text-[10px] font-black text-[#F7B52C] uppercase tracking-widest block">
-                    Temporada Verano 2027
+                    Temporada Oficial de Verano
                   </span>
                   <span className="text-xs text-slate-300 font-bold block mt-0.5">
                     Sin clase de prueba disponible
@@ -608,7 +614,7 @@ export default function SedeDetalle() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F7B52C]/15 border border-[#F7B52C]/30 text-[#F7B52C] text-xs font-black uppercase tracking-wider mb-2">
-                <Tag className="w-3.5 h-3.5" /> Temporada 2026
+                <Tag className="w-3.5 h-3.5" /> Temporada Oficial de Verano
               </div>
               <h2 className="text-2xl sm:text-4xl font-black uppercase italic tracking-tight text-white">
                 Tarifas, Planes & Horarios
@@ -667,7 +673,7 @@ export default function SedeDetalle() {
             </div>
           </div>
 
-          {(promocionesDeEstaSede.length > 0 || flyerDeLaSede) && (
+          {(promocionesDeEstaSede.length > 0 || flyersDeLaSede.length > 0) && (
             <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#F7B52C]/15 via-[#00B4A7]/15 to-[#040914] border border-[#F7B52C]/50 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
               <div className="flex items-center gap-3 text-left">
                 <div className="p-3 rounded-2xl bg-[#F7B52C] text-slate-950 font-black shrink-0">
@@ -733,7 +739,7 @@ export default function SedeDetalle() {
                       </p>
                     </div>
 
-                    {precioValido(t.precio_clase) !== null && (
+                    {!esSedeFatima && precioValido(t.precio_clase) !== null && (
                       <div className="self-start sm:self-auto">
                         <span className="text-[10px] text-slate-400 block uppercase font-bold text-right">Clase:</span>
                         <span className="font-mono text-sm font-black text-[#00B4A7]">{mostrarPrecio(t.precio_clase)}</span>

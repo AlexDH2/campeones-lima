@@ -14,14 +14,13 @@ export default function ProductoDetalleVista({ producto, onVolver }) {
   const [mostrarOpcionesRetiro, setMostrarOpcionesRetiro] = useState(false);
 
   // Procesar lugares de retiro (compatibilidad string o array)
-  let lugaresRetiro = [];
-  if (Array.isArray(producto.infoRetiro)) {
-    lugaresRetiro = producto.infoRetiro;
-  } else if (typeof producto.infoRetiro === 'string' && producto.infoRetiro.trim()) {
-    lugaresRetiro = [producto.infoRetiro];
-  } else {
-    lugaresRetiro = ['Oficina Central'];
-  }
+  const lugaresRetiro = Array.isArray(producto.infoRetiro) && producto.infoRetiro.length > 0
+    ? producto.infoRetiro
+    : (typeof producto.infoRetiro === 'string' && producto.infoRetiro.trim())
+      ? [producto.infoRetiro]
+      : (sedes.length > 0 
+          ? sedes.map(s => `${s.nombre} (${s.distrito})`) 
+          : ['Oficina Central']);
 
   // Mapear cada lugar para ver si tiene link de maps
   const lugaresConInfo = lugaresRetiro.map(lugar => {

@@ -31,7 +31,7 @@ export default function Navbar() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 select-none">
+    <header className="fixed top-0 left-0 right-0 z-[100] select-none">
       
       {/* BARRA PRINCIPAL */}
       <div className="relative bg-[#050914]/95 backdrop-blur-md shadow-2xl transition-all duration-300">

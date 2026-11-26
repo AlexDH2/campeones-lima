@@ -24,15 +24,15 @@ import {
 import NotificacionPromo from './NotificacionPromo';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import Sedes from './Sedes';
-import SedeDetalle from './SedeDetalle';
-import Nosotros from './Nosotros';
-import Tienda from './Tienda';
-import TrabajaConNosotros from './TrabajaConNosotros';
-import Eventos from './Eventos';
+const Sedes = lazy(() => import('./Sedes'));
+const SedeDetalle = lazy(() => import('./SedeDetalle'));
+const Nosotros = lazy(() => import('./Nosotros'));
+const Tienda = lazy(() => import('./Tienda'));
+const TrabajaConNosotros = lazy(() => import('./TrabajaConNosotros'));
+const Eventos = lazy(() => import('./Eventos'));
 const Admin = lazy(() => import('./Admin'));
-import Terminos from './Terminos';
-import NoEncontrado from './NoEncontrado';
+const Terminos = lazy(() => import('./Terminos'));
+const NoEncontrado = lazy(() => import('./NoEncontrado'));
 import { precioValido, mostrarPrecio, promocionVigente, estaSuspendida } from './domain';
 import { ThemeProvider, useTheme } from './ThemeContext';
 import { ToastProvider } from './ToastContext';
@@ -89,7 +89,7 @@ function obtenerEmbedVideo(url) {
     return {
       tipo: 'youtube',
       id: idYt,
-      embedUrl: `https://www.youtube.com/embed/${idYt}?autoplay=1&mute=1&loop=1&playlist=${idYt}&playsinline=1&rel=0&modestbranding=1&enablejsapi=1`
+      embedUrl: `https://www.youtube.com/embed/${idYt}?autoplay=1&mute=1&loop=1&playlist=${idYt}&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&wmode=transparent`
     };
   }
 
@@ -119,7 +119,7 @@ function VideoCard({ video }) {
   const usaEmbedLibrary = isInstagram || isTikTok || isFacebook;
 
   return (
-    <div className={`w-full max-w-[320px] rounded-3xl overflow-hidden border-2 border-slate-800 bg-[#071527] shadow-2xl relative flex flex-col justify-between group transition-all duration-300 ${mostrarEmbed && usaEmbedLibrary ? '' : 'aspect-[9/16]'}`}>
+    <div className={`w-full max-w-[320px] rounded-3xl overflow-hidden border-2 border-slate-800 bg-[#071527] shadow-2xl relative z-0 flex flex-col justify-between group transition-all duration-300 ${mostrarEmbed && usaEmbedLibrary ? '' : 'aspect-[9/16]'}`}>
       {embedInfo ? (
         embedInfo.tipo === 'youtube' ? (
           <div className="relative w-full h-full bg-black">
@@ -275,10 +275,22 @@ function PaginaInicio() {
 
   const handleEnviarPaseCancha = async (e) => {
     e.preventDefault();
-    if (!formNombre.trim() || !formTelefono.trim()) return mostrarToast("Ingresa tu nombre y WhatsApp.", "error");
-    if (!formDeporte) return mostrarToast("Por favor, escoge tu deporte.", "error");
-    if (!formSede) return mostrarToast("Por favor, escoge tu horario y sede.", "error");
-    if (!formEdad) return mostrarToast("Por favor, escoge tu categoría.", "error");
+    if (!formNombre.trim() || !formTelefono.trim()) {
+      setErrorFormulario("Por favor ingresa tu nombre y número de WhatsApp.");
+      return mostrarToast("Ingresa tu nombre y WhatsApp.", "error");
+    }
+    if (!formDeporte) {
+      setErrorFormulario("Por favor, escoge tu deporte.");
+      return mostrarToast("Por favor, escoge tu deporte.", "error");
+    }
+    if (!formSede) {
+      setErrorFormulario("Por favor, escoge tu sede.");
+      return mostrarToast("Por favor, escoge tu sede.", "error");
+    }
+    if (!formEdad) {
+      setErrorFormulario("Por favor, escoge tu categoría de edad.");
+      return mostrarToast("Por favor, escoge tu categoría.", "error");
+    }
 
     if (cargandoDatos || errorConsulta || sedeSuspendida) return;
     if (!/^\+?[0-9 ()-]{9,20}$/.test(formTelefono.trim())) return setErrorFormulario('Ingresa un teléfono válido.');
@@ -839,7 +851,7 @@ function PaginaInicio() {
                       value={formDeporte}
                       onChange={e => setFormDeporte(e.target.value)}
                       required
-                      className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 pr-10 rounded-xl text-white font-bold appearance-none cursor-pointer focus:outline-none transition-colors"
+                      className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 pr-10 rounded-xl text-white font-bold appearance-none cursor-pointer focus:outline-none transition-colors h-[46px]"
                     >
                       <option value="" disabled>Escoge tu deporte</option>
                       <option value="Básquetbol">🏀 Básquetbol</option>
@@ -852,15 +864,15 @@ function PaginaInicio() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-bold mb-1">Escoge tu horario:</label>
+                  <label className="block text-slate-300 font-bold mb-1">Escoge tu sede:</label>
                   <div className="relative">
                     <select
                       value={formSede}
                       onChange={e => setFormSede(e.target.value)}
                       required
-                      className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 pr-10 rounded-xl text-white font-bold appearance-none cursor-pointer text-xs focus:outline-none transition-colors"
+                      className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 pr-10 rounded-xl text-white font-bold appearance-none cursor-pointer text-xs focus:outline-none transition-colors h-[46px] truncate"
                     >
-                      <option value="" disabled>Escoge tu horario (Sede)</option>
+                      <option value="" disabled>Escoge tu sede</option>
                       {sedes.map(s => {
                         const p = precioValido(preciosClaseModelo[s.nombre]);
                         const estaSusp = estaSuspendida(s);
@@ -897,7 +909,7 @@ function PaginaInicio() {
                       value={formEdad}
                       onChange={e => setFormEdad(e.target.value)}
                       required
-                      className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 pr-10 rounded-xl text-white font-bold appearance-none cursor-pointer focus:outline-none transition-colors"
+                      className="w-full bg-[#040914] border border-slate-800 focus:border-[#00B4A7] p-3 pr-10 rounded-xl text-white font-bold appearance-none cursor-pointer focus:outline-none transition-colors h-[46px]"
                     >
                       <option value="" disabled>Escoge tu categoría</option>
                       {categoriasEdades.map(c => (
